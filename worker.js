@@ -1,13 +1,13 @@
 // =================================================================================
 //  項目: multi-provider-image-generator
-//  版本: 8.7.1 (增強中文提示詞支持)
+//  版本: 8.7.2 (添加生成圖片實時計時功能)
 //  作者: Enhanced by AI Assistant
 //  日期: 2025-12-11
 // =================================================================================
 
 const CONFIG = {
   PROJECT_NAME: "multi-provider-image-generator",
-  PROJECT_VERSION: "8.7.1",
+  PROJECT_VERSION: "8.7.2",
   API_MASTER_KEY: "1",
   
   PROVIDERS: {
@@ -507,7 +507,7 @@ export default {
       } else if (url.pathname === '/health') {
         return new Response(JSON.stringify({ status: 'ok', version: CONFIG.PROJECT_VERSION, timestamp: new Date().toISOString() }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       } else {
-        return new Response(JSON.stringify({ project: CONFIG.PROJECT_NAME, version: CONFIG.PROJECT_VERSION, features: ['17 Models', '12 Styles', '3 Quality Modes', 'Smart Analysis', 'Auto HD', 'History', 'Chinese Support'], endpoints: ['/v1/images/generations', '/v1/chat/completions', '/v1/models', '/v1/providers', '/v1/styles', '/health'] }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+        return new Response(JSON.stringify({ project: CONFIG.PROJECT_NAME, version: CONFIG.PROJECT_VERSION, features: ['17 Models', '12 Styles', '3 Quality Modes', 'Smart Analysis', 'Auto HD', 'History', 'Chinese Support', 'Real-time Timer'], endpoints: ['/v1/images/generations', '/v1/chat/completions', '/v1/models', '/v1/providers', '/v1/styles', '/health'] }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       }
     } catch (error) {
       console.error('Worker error:', error);
@@ -664,7 +664,11 @@ h1{color:#f59e0b;margin:0;font-size:36px;font-weight:800;text-shadow:0 0 30px rg
 .btn-example:hover{background:rgba(139,92,246,0.2);border-color:#8b5cf6}
 select,textarea,input{width:100%;padding:12px;margin:0;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:10px;font-size:14px;font-family:inherit;transition:all 0.3s}select:focus,textarea:focus,input:focus{outline:none;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,0.15)}textarea{resize:vertical;min-height:90px}
 .quality-mode-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0}.quality-option input[type="radio"]{position:absolute;opacity:0}.quality-label{display:block;padding:16px 12px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:12px;text-align:center;cursor:pointer;transition:all 0.3s}.quality-label:hover{background:rgba(255,255,255,0.08);border-color:rgba(245,158,11,0.5)}.quality-option input[type="radio"]:checked + .quality-label{background:rgba(245,158,11,0.2);border-color:#f59e0b}.quality-name{font-size:14px;font-weight:600;color:#e5e7eb;margin-bottom:4px}.quality-desc{font-size:11px;color:#9ca3af}
-button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:20px;transition:all 0.3s;box-shadow:0 4px 15px rgba(245,158,11,0.4)}button:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(245,158,11,0.6)}button:disabled{background:#555;cursor:not-allowed;transform:none;box-shadow:none}#result{margin-top:20px}.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-top:20px}.result img{width:100%;border-radius:12px;cursor:pointer;transition:transform 0.3s}.result img:hover{transform:scale(1.02)}.success{background:rgba(16,185,129,0.15);border:1px solid #10b981;padding:16px;border-radius:12px;color:#10b981}.error{background:rgba(239,68,68,0.15);border:1px solid #ef4444;padding:16px;border-radius:12px;color:#ef4444}.checkbox-group{display:flex;align-items:center;gap:10px;margin:12px 0}.checkbox-group input[type="checkbox"]{width:auto;margin:0}
+button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:20px;transition:all 0.3s;box-shadow:0 4px 15px rgba(245,158,11,0.4)}button:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(245,158,11,0.6)}button:disabled{background:#555;cursor:not-allowed;transform:none;box-shadow:none}#result{margin-top:20px}.result-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-top:20px}.result img{width:100%;border-radius:12px;cursor:pointer;transition:transform 0.3s}.result img:hover{transform:scale(1.02)}
+.success{background:rgba(16,185,129,0.15);border:1px solid #10b981;padding:16px;border-radius:12px;color:#10b981}
+.timer{margin-top:10px;font-size:16px;font-weight:600;color:#10b981;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+.error{background:rgba(239,68,68,0.15);border:1px solid #ef4444;padding:16px;border-radius:12px;color:#ef4444}.checkbox-group{display:flex;align-items:center;gap:10px;margin:12px 0}.checkbox-group input[type="checkbox"]{width:auto;margin:0}
 </style>
 </head>
 <body>
@@ -784,6 +788,18 @@ ${Object.entries(CONFIG.PRESET_SIZES).map(([k,v])=>`<option value="${k}" ${k==='
 const STORAGE_KEY='flux_ai_history';
 const MAX_HISTORY=100;
 
+let generationTimer=null;
+let startTime=0;
+
+function updateTimer(){
+const elapsed=((Date.now()-startTime)/1000).toFixed(1);
+const resultDiv=document.getElementById('result');
+const timerElement=resultDiv.querySelector('.timer');
+if(timerElement){
+timerElement.textContent=\`⏱️ 已耗時: \${elapsed} 秒\`;
+}
+}
+
 const EXAMPLES={
 zh:'一個穿著中國傳統漢服的少女，站在盛開的櫻花樹下，溫柔的微笑，細膩的畫面，柔和的光線',
 en:'A beautiful girl in traditional Chinese hanfu dress, standing under blooming cherry blossom trees, gentle smile, delicate artwork, soft lighting',
@@ -895,8 +911,8 @@ container.innerHTML=history.map(item=>\`
 </div>
 <div class="history-time">\${formatTime(item.timestamp)}</div>
 <div class="history-actions-item">
-<button onclick='HistoryManager.loadParams(\${JSON.stringify(item).replace(/'/g,"\\\\'")})'class="btn-load">🔄 載入</button>
-<button onclick="deleteHistoryItem(\${item.id})"class="btn-delete">🗑️ 刪除</button>
+<button onclick='HistoryManager.loadParams(\${JSON.stringify(item).replace(/'/g,"\\\\'")})' class="btn-load">🔄 載入</button>
+<button onclick="deleteHistoryItem(\${item.id})" class="btn-delete">🗑️ 刪除</button>
 </div>
 </div>
 </div>
@@ -953,7 +969,12 @@ const resultDiv=document.getElementById('result');
 const button=document.querySelector('button[onclick="generate()"]');
 button.disabled=true;
 button.textContent='生成中...';
-resultDiv.innerHTML='<div class="success">⏳ 正在生成圖像，請稍候...</div>';
+
+startTime=Date.now();
+resultDiv.innerHTML='<div class="success"><strong>⏳ 正在生成圖像，請稍候...</strong><div class="timer">⏱️ 已耗時: 0.0 秒</div></div>';
+
+generationTimer=setInterval(updateTimer,100);
+
 const qualityMode=document.querySelector('input[name="quality"]:checked').value;
 const params={
 prompt:prompt,
@@ -978,7 +999,10 @@ body:JSON.stringify(params)
 const data=await response.json();
 if(!response.ok)throw new Error(data.error?.message||'生成失敗');
 
-resultDiv.innerHTML='<div class="success"><strong>✅ 生成成功!</strong></div>';
+clearInterval(generationTimer);
+const totalTime=((Date.now()-startTime)/1000).toFixed(1);
+
+resultDiv.innerHTML=\`<div class="success"><strong>✅ 生成成功!</strong> <span style="color:#10b981;font-weight:600">總耗時: \${totalTime} 秒</span></div>\`;
 resultDiv.innerHTML+='<div class="result-grid">';
 data.data.forEach((item,index)=>{
 HistoryManager.save({
@@ -992,10 +1016,11 @@ height:item.height,
 qualityMode:item.quality_mode,
 seed:item.seed
 });
-resultDiv.innerHTML+=\`<div class="result"><img src="\${item.url}"alt="Generated \${index+1}"onclick="window.open('\${item.url}')"><p style="margin-top:12px;font-size:13px;color:#9ca3af">\${item.model} | \${item.width}x\${item.height} | \${item.quality_mode}</p></div>\`;
+resultDiv.innerHTML+=\`<div class="result"><img src="\${item.url}" alt="Generated \${index+1}" onclick="window.open('\${item.url}')"><p style="margin-top:12px;font-size:13px;color:#9ca3af">\${item.model} | \${item.width}x\${item.height} | \${item.quality_mode}</p></div>\`;
 });
 resultDiv.innerHTML+='</div>';
 }catch(error){
+clearInterval(generationTimer);
 resultDiv.innerHTML=\`<div class="error"><strong>❌ 錯誤</strong><p style="margin-top:12px">\${error.message}</p></div>\`;
 }finally{
 button.disabled=false;
