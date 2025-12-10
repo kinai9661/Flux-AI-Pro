@@ -1,20 +1,17 @@
-# 🎨 Flux AI Pro - v8.6.1 智能自适应版
+# 🎨 Flux AI Pro - v8.8.1 智能自适应版
 
 [![Deploy to Cloudflare Workers](https://img.shields.io/badge/Deploy%20to-Cloudflare%20Workers-orange?style=for-the-badge&logo=cloudflare)](https://workers.cloudflare.com/)
-[![Version](https://img.shields.io/badge/Version-8.6.1%20Safe-blue?style=for-the-badge)](https://github.com/kinai9661/Flux-AI-Pro)
+[![Version](https://img.shields.io/badge/Version-8.8.1-blue?style=for-the-badge)](https://github.com/kinai9661/Flux-AI-Pro)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Cost](https://img.shields.io/badge/Cost-100%25%20FREE-success?style=for-the-badge)](https://pollinations.ai/)
 
 > **基於 Cloudflare Workers 的智能自适应 AI 图像生成平台**
 > 
-> **✨ 三档质量模式** | **🧠 智能提示词分析** | **⚡ 模型专属优化** | **🎨 17 个免费模型** | **完全开源**
-
-> **🛡️ 内容安全声明**: 本项目严格遵守内容安全规范，仅供合法的创意与艺术创作使用。
-> 禁止生成任何违法、暴力、色情或不当内容。用户需遵守当地法律法规，项目维护者不对用户生成内容承担责任。
+> **✨ 三档质量模式** | **🧠 智能提示词分析** | **⚡ 模型专属优化** | **🎨 19 个免费模型** | **🌍 自动中译英** | **完全开源**
 
 ---
 
-## 🆕 v8.6.1 最新版本亮点
+## 🆕 v8.8.1 最新版本亮点
 
 ### 🎯 核心功能
 
@@ -42,34 +39,37 @@
 复杂度 < 40% → 经济模式
 ```
 
-#### 3️⃣ **模型专属质量配置**
+#### 3️⃣ **自动中译英功能**
 
-每个模型独立优化参数：
-
-| 模型 | 质量优先级 | 最低分辨率 | 步数加成 | 引导加成 | 推荐模式 |
-|------|------------|------------|----------|----------|----------|
-| **flux-realism** | 极致细节 | 1536px | +25% | +15% | 💎 超高清 |
-| **flux-pro** | 最高质量 | 1536px | +30% | +20% | 💎 超高清 |
-| **flux-anime** | 清晰度 | 1280px | +15% | +10% | ⭐ 标准 |
-| **turbo** | 速度优先 | 1024px | -30% | -15% | ⚡ 经济 |
-
-#### 4️⃣ **增强 HD 提示词库**
-
-三级高清质量提示词：
-
-- **Basic**: `high quality, detailed, sharp`
-- **Enhanced**: `8k uhd, masterpiece, fine details, professional` (10+ 关键词)
-- **Maximum**: `ultra high quality, razor sharp focus, photographic precision, studio lighting` (20+ 关键词)
-
-#### 5️⃣ **动态参数优化**
+使用 Cloudflare Workers AI 免费翻译，提高中文提示词生成质量：
 
 ```javascript
-最终步数 = 基础步数 × 尺寸倍率 × 风格倍率 × 质量模式倍率 × 模型配置加成
+// 自动检测中文并翻译
+"一个穿着汉服的少女" → "A girl wearing traditional Chinese hanfu"
 
-// 示例: flux-realism + 1536×1536 + photorealistic + 超高清
-= 28 × 1.15 × 1.1 × 1.35 × 1.25
-= 60 步
+✓ 完全免费（Cloudflare Workers AI）
+✓ 无需额外 API Key
+✓ 支持中英文混合提示词
+✓ 自动检测，纯英文不翻译
+✓ 高可靠性，错误时保持原文
 ```
+
+#### 4️⃣ **19 种 AI 模型**
+
+包括 Flux Pro, Flux Realism, Nano Banana (🍌 Google Gemini), SD3.5, SDXL Lightning 等：
+
+- **Flux 系列**: 7 种模型（基础/写实/动漫/3D/Pro/暗黑/极速）
+- **Flux 高级版**: 3 种实验性模型（Flux 1.1 Pro, Kontext, Kontext Pro）
+- **Nano Banana**: 2 种 Google Gemini 模型（支持4K、繁中文字、图像融合）
+- **Stable Diffusion**: 5 种 SD 模型（SD3, SD3.5 Large/Turbo, SDXL, SDXL Lightning）
+
+#### 5️⃣ **12 种艺术风格**
+
+日本漫画、动漫、赛博朋克、写实照片、油画、水彩、像素艺术、吉卜力、美式漫画、素描、奇幻、矢量图
+
+#### 6️⃣ **实时计时器**
+
+生成过程中显示实时耗时，完成后显示总耗时
 
 ---
 
@@ -77,18 +77,19 @@
 
 - ✅ **自动高清 (Auto HD)**: 智能注入 8k/UHD 提示词 + 尺寸优化
 - ✅ **智能参数优化**: 根据模型/尺寸/风格自动调整 Steps/Guidance
-- ✅ **17 种顶级模型**: Flux Pro/Realism, SD3.5, SDXL Lightning 等
+- ✅ **自动中译英**: 使用 Cloudflare Workers AI 免费翻译
+- ✅ **19 种顶级模型**: Flux Pro/Realism, Nano Banana, SD3.5, SDXL Lightning 等
 - ✅ **12 种艺术风格**: 日漫、赛博朋克、写实、油画、水彩等
 - ✅ **私密模式**: 保护用户隐私
 - ✅ **OpenAI 兼容 API**: 直接对接 NextChat/LobeChat
 - ✅ **历史记录**: 本地存储最近 100 条
-- ✅ **内容安全**: 遵守社区规范与法律要求
+- ✅ **实时计时**: 生成过程实时显示耗时
 
 ---
 
 ## 🎨 模型与风格列表
 
-### 17 个免费模型 (Pollinations.ai)
+### 19 个免费模型 (Pollinations.ai)
 
 <details>
 <summary><strong>查看完整列表 (点击展开)</strong></summary>
@@ -105,6 +106,8 @@
 | **Flux 高级** | `flux-1.1-pro` 🧪 | v1.1 Pro | 💎 最高质量 |
 | | `flux-kontext` 🧪 | Context | ⭐ 标准 |
 | | `flux-kontext-pro` 🧪 | Context Pro | 💎 专业级 |
+| **Nano Banana** | `nanobanana` | Gemini 2.5 Flash | ⭐ 快速生成 |
+| | `nanobanana-pro` | Gemini 3 Pro | 💎 4K+繁中文字 |
 | **SD3 系列** | `sd3` 🧪 | SD3 标准 | ⭐ 质量增强 |
 | | `sd3.5-large` 🧪 | SD3.5 Large | 💎 旗舰画质 |
 | | `sd3.5-turbo` 🧪 | SD3.5 Turbo | ⚡ 快速迭代 |
@@ -119,7 +122,7 @@
 
 | 风格 | 提示词加成 | 负面提示词 |
 |------|------------|------------|
-| 🎌 Japanese Manga | manga style, screentone | realistic, 3d render |
+| 🏌 Japanese Manga | manga style, screentone | realistic, 3d render |
 | ✨ Anime | vibrant colors, anime art | realistic, photograph |
 | 📷 Photorealistic | 8k uhd, professional photography | anime, cartoon |
 | 🌃 Cyberpunk | neon lights, futuristic | natural, rustic |
@@ -203,6 +206,7 @@ wrangler deploy
       "quality_mode": "ultra",             // 🆕 使用的质量模式
       "prompt_complexity": 0.78,           // 🆕 提示词复杂度 (0-1)
       "hd_optimized": true,                // 是否 HD 优化
+      "auto_translated": true,             // 🆕 是否自动翻译
       "hd_details": {                      // 🆕 HD 优化详情
         "hd_level": "maximum",
         "size_upscaled": true,
@@ -258,67 +262,50 @@ main = "worker.js"
 compatibility_date = "2025-12-10"
 
 [vars]
-PROJECT_VERSION = "8.6.1"
+PROJECT_VERSION = "8.8.1"
 ENABLE_QUALITY_MODES = "true"
-```
-
-### worker.js 核心配置
-```javascript
-const CONFIG = {
-  PROJECT_VERSION: "8.6.1",
-  
-  // 🆕 三档质量模式
-  HD_OPTIMIZATION: {
-    QUALITY_MODES: {
-      economy: {
-        min_resolution: 1024,
-        steps_multiplier: 0.85,
-        hd_level: "basic"
-      },
-      standard: {
-        min_resolution: 1280,
-        steps_multiplier: 1.0,
-        hd_level: "enhanced"
-      },
-      ultra: {
-        min_resolution: 1536,
-        steps_multiplier: 1.35,
-        hd_level: "maximum",
-        force_upscale: true
-      }
-    },
-    
-    // 🆕 增强 HD 提示词
-    HD_PROMPTS: {
-      basic: "high quality, detailed, sharp",
-      enhanced: "high quality, 8k uhd, masterpiece, fine details",
-      maximum: "ultra high quality, razor sharp focus, photographic precision"
-    },
-    
-    // 🆕 模型专属配置
-    MODEL_QUALITY_PROFILES: {
-      "flux-realism": {
-        priority: "ultra_detail",
-        min_resolution: 1536,
-        optimal_steps_boost: 1.25,
-        guidance_boost: 1.15,
-        recommended_quality: "ultra"
-      }
-      // ... 更多模型配置
-    }
-  }
-};
+ENABLE_AUTO_TRANSLATE = "true"
 ```
 
 ---
 
 ## 📅 更新日志
 
-### v8.6.1 (2025-12-11) - ✨ 优化版
-- **新增**: 内容安全过滤机制与使用规范
-- **优化**: 代码架构清理与文档完善
-- **增强**: Web UI 用户体验优化
-- **保留**: v8.6.0 所有核心功能（三档质量、智能分析等）
+### v8.8.1 (2025-12-11) - ✨ 移除中文提示
+- **优化**: 移除主界面中文提示词相关提示文字
+- **保留**: 后台自动翻译功能仍然工作
+- **增强**: 界面更加简洁专业
+- **修复**: 代码完整性验证和错误修复
+
+### v8.8.0 (2025-12-10) - 🍌 Nano Banana
+- **新增**: Nano Banana 模型支持 (Google Gemini 2.5 Flash / 3 Pro)
+- **新增**: Nano Banana 专用界面 (/nanobanana)
+- **支持**: 4K 画质、繁中文字生成、14 图融合
+
+### v8.7.3 (2025-12-10) - 🌍 自动翻译
+- **新增**: 自动中译英功能
+- **使用**: Cloudflare Workers AI (@cf/meta/m2m100-1.2b)
+- **提高**: 中文提示词生成质量
+- **免费**: 完全免费，无需额外 API Key
+
+### v8.7.2 (2025-12-10) - ⏱️ 实时计时
+- **新增**: 生成图片实时计时功能
+- **效果**: 每 100ms 更新一次已耗时间
+- **显示**: 生成完成后显示总耗时
+
+### v8.7.1 (2025-12-10) - 🇨🇳 中文支持
+- **增强**: 中文提示词支持
+- **添加**: 中文示例按钮
+- **优化**: 中文用户体验
+
+### v8.7.0 (2025-12-10) - 📁 配置文件
+- **新增**: wrangler.toml 配置文件
+- **简化**: 部署流程
+
+### v8.6.1 (2025-12-04) - ✨ 优化版
+- **新增**: 内容安全过滤机制
+- **优化**: 代码架构清理
+- **增强**: Web UI 用户体验
 
 ### v8.6.0 (2025-12-04) - 🧠 智能自适应版
 - **新增**: 三档质量模式 (经济/标准/超高清)
@@ -364,7 +351,7 @@ const CONFIG = {
 | 快速测试概念 | ⚡ 经济 | 速度优先，节省资源 |
 | 日常社交媒体 | ⭐ 标准 | 平衡质量与速度 |
 | 专业作品集 | 💎 超高清 | 极致细节，适合印刷 |
-| 客户交付 | 💎 超高清 | 最高标准，零妥协 |
+| 客户交付 | 💎 超高清 | 最高标准，零妃协 |
 | 动画帧生成 | ⚡ 经济 | 批量生成，一致性优先 |
 | 产品渲染图 | 💎 超高清 | 商业用途，细节重要 |
 
@@ -386,6 +373,10 @@ turbo + 经济 + 任意风格
 艺术创作:
 flux-pro + 超高清 + oil-painting/watercolor
 → 适合: 数字艺术品、NFT、画廊展示
+
+中文生成:
+nanobanana-pro + 超高清 + 自动翻译
+→ 适合: 繁中文字、中文海报、4K 画质
 ```
 
 ---
@@ -402,17 +393,11 @@ flux-pro + 超高清 + oil-painting/watercolor
 2. **自动优化**会根据复杂度推荐最佳模式
 3. 建议首次测试使用**标准模式**找到平衡点
 
-### 内容安全与使用规范
-1. **严格禁止**生成违法、暴力、色情、仇恨或任何不当内容
-2. **尊重版权**，不得生成侵犯他人知识产权的作品
-3. **负责任使用**，用户需对生成内容的合法性负全部责任
-4. **遵守法规**，请遵守当地法律法规与社区准则
-5. **违规处理**，发现滥用行为将立即停止服务访问
-
-### 法律声明
-- 本项目仅供合法的创意与艺术创作使用
-- 用户需自行承担生成内容带来的所有法律责任
-- 项目维护者不对用户生成的内容负责
+### 自动翻译功能
+1. **自动检测**中文提示词并翻译成英文
+2. **提高质量**：Flux/SD 模型对英文理解更好
+3. **完全免费**：使用 Cloudflare Workers AI
+4. **高可靠**：翻译失败时自动使用原文
 
 ---
 
@@ -446,6 +431,7 @@ MIT License - 查看 [LICENSE](LICENSE) 文件
 - [Cloudflare Workers](https://workers.cloudflare.com/) - 全球边缘计算平台
 - [Black Forest Labs](https://blackforestlabs.ai/) - FLUX 系列模型
 - [Stability AI](https://stability.ai/) - Stable Diffusion 系列
+- [Google](https://deepmind.google/) - Gemini AI (用于 Nano Banana)
 
 ---
 
