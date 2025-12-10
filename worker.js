@@ -1,13 +1,13 @@
 // =================================================================================
 //  項目: multi-provider-image-generator
-//  版本: 8.7.3 (添加自動中譯英功能)
+//  版本: 8.8.0 (添加 Nano Banana 模型支持)
 //  作者: Enhanced by AI Assistant
 //  日期: 2025-12-11
 // =================================================================================
 
 const CONFIG = {
   PROJECT_NAME: "multi-provider-image-generator",
-  PROJECT_VERSION: "8.7.3",
+  PROJECT_VERSION: "8.8.0",
   API_MASTER_KEY: "1",
   
   PROVIDERS: {
@@ -43,6 +43,8 @@ const CONFIG = {
         { id: "flux-1.1-pro", name: "Flux 1.1 Pro 🔥", confirmed: false, fallback: ["flux-pro", "flux-realism"], experimental: true, category: "flux-advanced", description: "最新 Flux 1.1" },
         { id: "flux-kontext", name: "Flux Kontext 🎨", confirmed: false, fallback: ["flux-pro", "flux-realism"], experimental: true, category: "flux-advanced", description: "圖像編輯標準版" },
         { id: "flux-kontext-pro", name: "Flux Kontext Pro 💎", confirmed: false, fallback: ["flux-kontext", "flux-pro", "flux-realism"], experimental: true, category: "flux-advanced", description: "圖像編輯專業版" },
+        { id: "nanobanana", name: "Nano Banana 🍌", confirmed: true, category: "gemini", description: "Google Gemini 2.5 Flash 圖像生成 (快速版)" },
+        { id: "nanobanana-pro", name: "Nano Banana Pro 🍌💎", confirmed: true, category: "gemini", description: "Google Gemini 3 Pro 圖像生成 (支持4K、繁中文字、14圖融合)" },
         { id: "sd3", name: "Stable Diffusion 3 ⚡", confirmed: false, fallback: ["flux-realism", "flux"], experimental: true, category: "stable-diffusion", description: "SD3 標準版" },
         { id: "sd3.5-large", name: "SD 3.5 Large 🔥", confirmed: false, fallback: ["sd3", "flux-realism", "flux"], experimental: true, category: "stable-diffusion", description: "SD 3.5 大模型" },
         { id: "sd3.5-turbo", name: "SD 3.5 Turbo ⚡", confirmed: false, fallback: ["turbo", "flux"], experimental: true, category: "stable-diffusion", description: "SD 3.5 快速版" },
@@ -88,7 +90,9 @@ const CONFIG = {
       "sd3.5-large": { min: 25, optimal: 35, max: 50 },
       "flux-kontext": { min: 22, optimal: 30, max: 40 },
       "flux-kontext-pro": { min: 25, optimal: 35, max: 45 },
-      "any-dark": { min: 18, optimal: 24, max: 35 }
+      "any-dark": { min: 18, optimal: 24, max: 35 },
+      "nanobanana": { min: 15, optimal: 20, max: 30 },
+      "nanobanana-pro": { min: 20, optimal: 28, max: 40 }
     },
     SIZE_MULTIPLIER: {
       small: { threshold: 512 * 512, multiplier: 0.8 },
@@ -149,6 +153,8 @@ const CONFIG = {
       "sd3.5-large": { priority: "high_detail", min_resolution: 1280, optimal_steps_boost: 1.2, guidance_boost: 1.1, recommended_quality: "standard" },
       "flux-anime": { priority: "clarity", min_resolution: 1280, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "standard" },
       "flux-3d": { priority: "detail", min_resolution: 1280, optimal_steps_boost: 1.2, guidance_boost: 1.1, recommended_quality: "standard" },
+      "nanobanana": { priority: "balanced", min_resolution: 1280, optimal_steps_boost: 1.1, guidance_boost: 1.05, recommended_quality: "standard" },
+      "nanobanana-pro": { priority: "ultra_detail", min_resolution: 1536, optimal_steps_boost: 1.25, guidance_boost: 1.15, recommended_quality: "ultra" },
       "turbo": { priority: "speed", min_resolution: 1024, optimal_steps_boost: 0.7, guidance_boost: 0.85, recommended_quality: "economy" },
       "sdxl-lightning": { priority: "speed", min_resolution: 1024, optimal_steps_boost: 0.6, guidance_boost: 0.8, recommended_quality: "economy" },
       "sd3.5-turbo": { priority: "balanced_speed", min_resolution: 1024, optimal_steps_boost: 0.8, guidance_boost: 0.9, recommended_quality: "economy" }
@@ -554,7 +560,7 @@ export default {
       } else if (url.pathname === '/health') {
         return new Response(JSON.stringify({ status: 'ok', version: CONFIG.PROJECT_VERSION, timestamp: new Date().toISOString() }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       } else {
-        return new Response(JSON.stringify({ project: CONFIG.PROJECT_NAME, version: CONFIG.PROJECT_VERSION, features: ['17 Models', '12 Styles', '3 Quality Modes', 'Smart Analysis', 'Auto HD', 'History', 'Auto Chinese Translation', 'Real-time Timer'], endpoints: ['/v1/images/generations', '/v1/chat/completions', '/v1/models', '/v1/providers', '/v1/styles', '/health'] }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+        return new Response(JSON.stringify({ project: CONFIG.PROJECT_NAME, version: CONFIG.PROJECT_VERSION, features: ['19 Models', '12 Styles', '3 Quality Modes', 'Smart Analysis', 'Auto HD', 'History', 'Auto Chinese Translation', 'Nano Banana Models', 'Real-time Timer'], endpoints: ['/v1/images/generations', '/v1/chat/completions', '/v1/models', '/v1/providers', '/v1/styles', '/health'] }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       }
     } catch (error) {
       console.error('Worker error:', error);
@@ -723,8 +729,8 @@ button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97
 <div class="header">
 <div class="header-left">
 <h1>🎨 Flux AI Pro<span class="badge">v${CONFIG.PROJECT_VERSION}</span></h1>
-<p class="subtitle">17個模型 · 12種風格 · 3檔質量 · 智能HD優化 · 自動中譯英</p>
-<span class="chinese-support">✨ 完美支持中文提示詞（自動翻譯）</span>
+<p class="subtitle">19個模型 · 12種風格 · 3檔質量 · 智能HD優化 · 自動中譯英 · Nano Banana支持</p>
+<span class="chinese-support">✨ 完美支持中文提示詞（自動翻譯） · 🍌 新增 Nano Banana 模型</span>
 </div>
 <button onclick="toggleHistory()" class="history-btn">
 📜 歷史紀錄
@@ -770,6 +776,10 @@ button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97
 <option value="flux-1.1-pro">Flux 1.1 Pro 🔥</option>
 <option value="flux-kontext">Flux Kontext 🎨</option>
 <option value="flux-kontext-pro">Flux Kontext Pro 💎</option>
+</optgroup>
+<optgroup label="🍌 Google Gemini (Nano Banana)">
+<option value="nanobanana">Nano Banana 🍌 (快速版)</option>
+<option value="nanobanana-pro">Nano Banana Pro 🍌💎 (4K+繁中文字)</option>
 </optgroup>
 <optgroup label="🌟 Stable Diffusion">
 <option value="sd3">SD 3 ⚡</option>
