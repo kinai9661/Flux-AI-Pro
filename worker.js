@@ -1,14 +1,14 @@
 // =================================================================================
-//  項目: multi-provider-image-generator
-//  版本: 9.1.1 (移除繁中文字優化)
+//  項目: Flux AI Pro
+//  版本: 9.2.0 (圖生圖 + 多圖融合 + 4K + FLUX官方優化)
 //  作者: Enhanced by AI Assistant  
 //  日期: 2025-12-12
-//  功能: 計時器 | 歷史記錄 | 4K支持 | 智能優化
+//  功能: 計時器 | 歷史記錄 | 圖生圖 | 多圖融合 | 4K支持 | FLUX官方參數
 // =================================================================================
 
 const CONFIG = {
-  PROJECT_NAME: "multi-provider-image-generator",
-  PROJECT_VERSION: "9.1.1",
+  PROJECT_NAME: "Flux-AI-Pro",
+  PROJECT_VERSION: "9.2.0",
   API_MASTER_KEY: "1",
   
   PROVIDERS: {
@@ -32,7 +32,10 @@ const CONFIG = {
         auto_hd: true,
         quality_modes: true,
         auto_translate: true,
-        ultra_hd_4k: true
+        ultra_hd_4k: true,
+        reference_images: true,
+        image_to_image: true,
+        multi_image_fusion: true
       },
       models: [
         { id: "flux", name: "Flux", confirmed: true, category: "flux", description: "均衡速度與質量", max_size: 2048 },
@@ -43,12 +46,12 @@ const CONFIG = {
         { id: "any-dark", name: "Any Dark", confirmed: true, category: "flux", description: "暗黑風格", max_size: 2048 },
         { id: "turbo", name: "Turbo", confirmed: true, category: "flux", description: "極速生成", max_size: 2048 },
         { id: "flux-1.1-pro", name: "Flux 1.1 Pro 🔥", confirmed: false, fallback: ["flux-pro", "flux-realism"], experimental: true, category: "flux-advanced", description: "最新 Flux 1.1", max_size: 2048 },
-        { id: "flux-kontext", name: "Flux Kontext 🎨", confirmed: false, fallback: ["flux-pro", "flux-realism"], experimental: true, category: "flux-advanced", description: "圖像編輯標準版", max_size: 2048 },
-        { id: "flux-kontext-pro", name: "Flux Kontext Pro 💎", confirmed: false, fallback: ["flux-kontext", "flux-pro", "flux-realism"], experimental: true, category: "flux-advanced", description: "圖像編輯專業版", max_size: 2048 },
-        { id: "nanobanana", name: "Nano Banana 🍌", confirmed: true, category: "gemini", description: "Google Gemini 2.5 Flash (快速 1-2K)", max_size: 2048 },
-        { id: "nanobanana-pro", name: "Nano Banana Pro 🍌💎", confirmed: true, category: "gemini", description: "Gemini 3 Pro (4K 超高清)", max_size: 4096, ultra_hd: true },
+        { id: "flux-kontext", name: "Flux Kontext 🎨", confirmed: false, fallback: ["flux-pro", "flux-realism"], experimental: true, category: "flux-advanced", description: "圖像編輯 (1張參考圖)", max_size: 2048, supports_reference_images: true, max_reference_images: 1 },
+        { id: "flux-kontext-pro", name: "Flux Kontext Pro 💎", confirmed: false, fallback: ["flux-kontext", "flux-pro"], experimental: true, category: "flux-advanced", description: "圖像編輯專業版 (1張參考圖)", max_size: 2048, supports_reference_images: true, max_reference_images: 1 },
+        { id: "nanobanana", name: "Nano Banana 🍌", confirmed: true, category: "gemini", description: "Gemini 2.5 Flash (4張參考圖)", max_size: 2048, supports_reference_images: true, max_reference_images: 4 },
+        { id: "nanobanana-pro", name: "Nano Banana Pro 🍌💎", confirmed: true, category: "gemini", description: "Gemini 3 Pro (4K + 4張參考圖)", max_size: 4096, ultra_hd: true, supports_reference_images: true, max_reference_images: 4 },
         { id: "sd3", name: "Stable Diffusion 3 ⚡", confirmed: false, fallback: ["flux-realism", "flux"], experimental: true, category: "stable-diffusion", description: "SD3 標準版", max_size: 2048 },
-        { id: "sd3.5-large", name: "SD 3.5 Large 🔥", confirmed: false, fallback: ["sd3", "flux-realism", "flux"], experimental: true, category: "stable-diffusion", description: "SD 3.5 大模型", max_size: 2048 },
+        { id: "sd3.5-large", name: "SD 3.5 Large 🔥", confirmed: false, fallback: ["sd3", "flux-realism"], experimental: true, category: "stable-diffusion", description: "SD 3.5 大模型", max_size: 2048 },
         { id: "sd3.5-turbo", name: "SD 3.5 Turbo ⚡", confirmed: false, fallback: ["turbo", "flux"], experimental: true, category: "stable-diffusion", description: "SD 3.5 快速版", max_size: 2048 },
         { id: "sdxl", name: "SDXL 📐", confirmed: false, fallback: ["flux-realism", "flux"], experimental: true, category: "stable-diffusion", description: "經典 SDXL", max_size: 2048 },
         { id: "sdxl-lightning", name: "SDXL Lightning ⚡", confirmed: false, fallback: ["turbo", "flux"], experimental: true, category: "stable-diffusion", description: "SDXL 極速版", max_size: 2048 }
@@ -59,6 +62,27 @@ const CONFIG = {
   },
   
   DEFAULT_PROVIDER: "pollinations",
+  
+  FLUX_OFFICIAL_PARAMS: {
+    schnell: {
+      guidance_scale: 0.0,
+      num_inference_steps: 4,
+      max_sequence_length: 256,
+      description: "FLUX.1 [schnell] 官方參數"
+    },
+    dev: {
+      guidance_scale: 3.5,
+      num_inference_steps: 50,
+      max_sequence_length: 512,
+      description: "FLUX.1 [dev] 官方參數"
+    },
+    pro: {
+      guidance_scale: 7.0,
+      num_inference_steps: 28,
+      max_sequence_length: 512,
+      description: "FLUX.1 [pro] 官方參數"
+    }
+  },
   
   STYLE_PRESETS: {
     none: { name: "無 (使用原始提示詞)", prompt: "", negative: "" },
@@ -164,8 +188,10 @@ const CONFIG = {
       "sd3.5-large": { priority: "high_detail", min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.2, guidance_boost: 1.1, recommended_quality: "standard" },
       "flux-anime": { priority: "clarity", min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "standard" },
       "flux-3d": { priority: "detail", min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.2, guidance_boost: 1.1, recommended_quality: "standard" },
-      "nanobanana": { priority: "balanced", min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "standard" },
-      "nanobanana-pro": { priority: "ultra_4k_detail", min_resolution: 2048, max_resolution: 4096, optimal_steps_boost: 1.5, guidance_boost: 1.25, recommended_quality: "ultra_4k" },
+      "flux-kontext": { priority: "image_edit", min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.2, guidance_boost: 1.1, recommended_quality: "standard" },
+      "flux-kontext-pro": { priority: "image_edit_pro", min_resolution: 1536, max_resolution: 2048, optimal_steps_boost: 1.3, guidance_boost: 1.15, recommended_quality: "ultra" },
+      "nanobanana": { priority: "multi_image", min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "standard" },
+      "nanobanana-pro": { priority: "ultra_4k_multi", min_resolution: 2048, max_resolution: 4096, optimal_steps_boost: 1.5, guidance_boost: 1.25, recommended_quality: "ultra_4k" },
       "turbo": { priority: "speed", min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 0.7, guidance_boost: 0.85, recommended_quality: "economy" },
       "sdxl-lightning": { priority: "speed", min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 0.6, guidance_boost: 0.8, recommended_quality: "economy" },
       "sd3.5-turbo": { priority: "balanced_speed", min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 0.8, guidance_boost: 0.9, recommended_quality: "economy" }
@@ -267,14 +293,14 @@ class HDOptimizer {
         
         if (hdConfig.HD_PROMPTS[hdLevel]) {
             const hdBoost = hdConfig.HD_PROMPTS[hdLevel];
-            enhancedPrompt = `${prompt}, ${hdBoost}`;
-            optimizations.push(`HD增強: ${hdLevel}`);
+            enhancedPrompt = prompt + ", " + hdBoost;
+            optimizations.push("HD增強: " + hdLevel);
         }
         
         let enhancedNegative = negativePrompt || "";
         if (qualityMode !== 'economy') {
-            enhancedNegative = enhancedNegative ? `${enhancedNegative}, ${hdConfig.HD_NEGATIVE}` : hdConfig.HD_NEGATIVE;
-            optimizations.push(`負面提示詞: 高清過濾`);
+            enhancedNegative = enhancedNegative ? enhancedNegative + ", " + hdConfig.HD_NEGATIVE : hdConfig.HD_NEGATIVE;
+            optimizations.push("負面提示詞: 高清過濾");
         }
         
         let finalWidth = width;
@@ -290,14 +316,14 @@ class HDOptimizer {
             finalWidth = Math.min(Math.round(width * scale / 64) * 64, maxModelRes);
             finalHeight = Math.min(Math.round(height * scale / 64) * 64, maxModelRes);
             sizeUpscaled = true;
-            optimizations.push(`尺寸優化: ${width}x${height} → ${finalWidth}x${finalHeight}`);
+            optimizations.push("尺寸優化: " + width + "x" + height + " → " + finalWidth + "x" + finalHeight);
         }
         
         if (finalWidth > maxModelRes || finalHeight > maxModelRes) {
             const scale = maxModelRes / Math.max(finalWidth, finalHeight);
             finalWidth = Math.round(finalWidth * scale / 64) * 64;
             finalHeight = Math.round(finalHeight * scale / 64) * 64;
-            optimizations.push(`模型限制: 調整至 ${finalWidth}x${finalHeight}`);
+            optimizations.push("模型限制: 調整至 " + finalWidth + "x" + finalHeight);
         }
         
         return { 
@@ -330,20 +356,20 @@ class ParameterOptimizer {
         const profile = CONFIG.HD_OPTIMIZATION.MODEL_QUALITY_PROFILES[model];
         let baseSteps = modelRule.optimal;
         const reasoning = [];
-        reasoning.push(`${model}: ${baseSteps}步`);
+        reasoning.push(model + ": " + baseSteps + "步");
         
         const totalPixels = width * height;
         let sizeMultiplier = 1.0;
         
         if (totalPixels >= rules.SIZE_MULTIPLIER.ultra_4k.threshold) {
             sizeMultiplier = rules.SIZE_MULTIPLIER.ultra_4k.multiplier;
-            reasoning.push(`4K超大 x${sizeMultiplier}`);
+            reasoning.push("4K超大 x" + sizeMultiplier);
         } else if (totalPixels >= rules.SIZE_MULTIPLIER.xlarge.threshold) {
             sizeMultiplier = rules.SIZE_MULTIPLIER.xlarge.multiplier;
-            reasoning.push(`超大 x${sizeMultiplier}`);
+            reasoning.push("超大 x" + sizeMultiplier);
         } else if (totalPixels >= rules.SIZE_MULTIPLIER.large.threshold) {
             sizeMultiplier = rules.SIZE_MULTIPLIER.large.multiplier;
-            reasoning.push(`大尺寸 x${sizeMultiplier}`);
+            reasoning.push("大尺寸 x" + sizeMultiplier);
         } else if (totalPixels <= rules.SIZE_MULTIPLIER.small.threshold) {
             sizeMultiplier = rules.SIZE_MULTIPLIER.small.multiplier;
         } else {
@@ -352,15 +378,15 @@ class ParameterOptimizer {
         
         let styleMultiplier = rules.STYLE_ADJUSTMENT[style] || rules.STYLE_ADJUSTMENT.default;
         let qualityMultiplier = modeConfig?.steps_multiplier || 1.0;
-        if (qualityMultiplier !== 1.0) reasoning.push(`${modeConfig.name} x${qualityMultiplier}`);
+        if (qualityMultiplier !== 1.0) reasoning.push(modeConfig.name + " x" + qualityMultiplier);
         
         let profileBoost = profile?.optimal_steps_boost || 1.0;
-        if (profileBoost !== 1.0) reasoning.push(`模型配置 x${profileBoost}`);
+        if (profileBoost !== 1.0) reasoning.push("模型配置 x" + profileBoost);
         
         let optimizedSteps = Math.round(baseSteps * sizeMultiplier * styleMultiplier * qualityMultiplier * profileBoost);
         optimizedSteps = Math.max(modelRule.min, Math.min(optimizedSteps, modelRule.max));
         
-        reasoning.push(`→ ${optimizedSteps}步`);
+        reasoning.push("→ " + optimizedSteps + "步");
         return { 
             steps: optimizedSteps, 
             optimized: true, 
@@ -401,11 +427,11 @@ class StyleProcessor {
             return { enhancedPrompt: prompt, enhancedNegative: negativePrompt };
         }
         let enhancedPrompt = prompt;
-        if (styleConfig.prompt) enhancedPrompt = `${prompt}, ${styleConfig.prompt}`;
+        if (styleConfig.prompt) enhancedPrompt = prompt + ", " + styleConfig.prompt;
         
         let enhancedNegative = negativePrompt || "";
         if (styleConfig.negative) {
-            enhancedNegative = enhancedNegative ? `${enhancedNegative}, ${styleConfig.negative}` : styleConfig.negative;
+            enhancedNegative = enhancedNegative ? enhancedNegative + ", " + styleConfig.negative : styleConfig.negative;
         }
         return { enhancedPrompt, enhancedNegative };
     }
@@ -420,7 +446,7 @@ async function fetchWithTimeout(url, options = {}, timeout = CONFIG.FETCH_TIMEOU
         return response;
     } catch (error) {
         clearTimeout(timeoutId);
-        if (error.name === 'AbortError') throw new Error(`Request timeout after ${timeout}ms`);
+        if (error.name === 'AbortError') throw new Error("Request timeout after " + timeout + "ms");
         throw error;
     }
 }
@@ -447,8 +473,39 @@ class PollinationsProvider {
             style = "none", 
             autoOptimize = true, 
             autoHD = true, 
-            qualityMode = 'standard'
+            qualityMode = 'standard',
+            referenceImages = []
         } = options;
+        
+        const modelConfig = this.config.models.find(m => m.id === model);
+        const supportsRefImages = modelConfig?.supports_reference_images || false;
+        const maxRefImages = modelConfig?.max_reference_images || 0;
+        const is4KModel = modelConfig?.max_size === 4096;
+        
+        let validReferenceImages = [];
+        if (referenceImages && referenceImages.length > 0) {
+            if (!supportsRefImages) {
+                logger.add("⚠️ Reference Images", { 
+                    warning: model + " 不支持參考圖,已忽略", 
+                    supported_models: ["kontext", "kontext-pro", "nanobanana", "nanobanana-pro"] 
+                });
+            } else if (referenceImages.length > maxRefImages) {
+                logger.add("⚠️ Reference Images", { 
+                    warning: model + " 最多支持 " + maxRefImages + " 張參考圖", 
+                    provided: referenceImages.length, 
+                    using: maxRefImages 
+                });
+                validReferenceImages = referenceImages.slice(0, maxRefImages);
+            } else {
+                validReferenceImages = referenceImages;
+                logger.add("🖼️ Reference Images", { 
+                    model: model, 
+                    count: validReferenceImages.length, 
+                    max_allowed: maxRefImages,
+                    mode: validReferenceImages.length === 1 ? "圖生圖" : "多圖融合"
+                });
+            }
+        }
         
         let hdOptimization = null;
         let finalPrompt = prompt;
@@ -456,16 +513,14 @@ class PollinationsProvider {
         let finalWidth = width;
         let finalHeight = height;
         
-        const modelConfig = this.config.models.find(m => m.id === model);
-        const is4KModel = modelConfig?.max_size === 4096;
-        
         const promptComplexity = PromptAnalyzer.analyzeComplexity(prompt);
         const recommendedQuality = PromptAnalyzer.recommendQualityMode(prompt, model);
         logger.add("🧠 Prompt Analysis", { 
             complexity: (promptComplexity * 100).toFixed(1) + '%', 
             recommended_quality: recommendedQuality, 
             selected_quality: qualityMode,
-            is_4k_model: is4KModel
+            is_4k_model: is4KModel,
+            has_reference_images: validReferenceImages.length > 0
         });
         
         if (autoHD) {
@@ -487,8 +542,8 @@ class PollinationsProvider {
                 logger.add("🎨 HD Optimization", { 
                     mode: qualityMode, 
                     hd_level: hdOptimization.hd_level, 
-                    original: `${width}x${height}`, 
-                    optimized: `${finalWidth}x${finalHeight}`, 
+                    original: width + "x" + height, 
+                    optimized: finalWidth + "x" + finalHeight, 
                     upscaled: hdOptimization.size_upscaled, 
                     details: hdOptimization.optimizations 
                 });
@@ -534,11 +589,13 @@ class PollinationsProvider {
         logger.add("🎨 Generation Config", { 
             provider: this.name, 
             model: model, 
-            dimensions: `${finalWidth}x${finalHeight}`,
+            dimensions: finalWidth + "x" + finalHeight,
             is_4k: finalWidth >= 4096 || finalHeight >= 4096,
             quality_mode: qualityMode, 
             hd_optimized: autoHD && hdOptimization?.optimized, 
             auto_translated: translation.translated,
+            reference_images: validReferenceImages.length,
+            generation_mode: validReferenceImages.length > 0 ? (validReferenceImages.length === 1 ? "圖生圖" : "多圖融合") : "文生圖",
             steps: finalSteps, 
             guidance: finalGuidance 
         });
@@ -546,7 +603,7 @@ class PollinationsProvider {
         const currentSeed = seed === -1 ? Math.floor(Math.random() * 1000000) : seed;
         let fullPrompt = finalPromptForAPI;
         if (enhancedNegative && enhancedNegative.trim()) {
-            fullPrompt = `${finalPromptForAPI} [negative: ${enhancedNegative}]`;
+            fullPrompt = finalPromptForAPI + " [negative: " + enhancedNegative + "]";
         }
         
         const encodedPrompt = encodeURIComponent(fullPrompt);
@@ -554,7 +611,7 @@ class PollinationsProvider {
         for (const tryModel of modelsToTry) {
             for (let retry = 0; retry < CONFIG.MAX_RETRIES; retry++) {
                 try {
-                    let url = `${this.config.endpoint}/prompt/${encodedPrompt}`;
+                    let url = this.config.endpoint + "/prompt/" + encodedPrompt;
                     const params = new URLSearchParams();
                     params.append('model', tryModel);
                     params.append('width', finalWidth.toString());
@@ -563,6 +620,15 @@ class PollinationsProvider {
                     params.append('nologo', nologo.toString());
                     params.append('enhance', enhance.toString());
                     params.append('private', privateMode.toString());
+                    
+                    if (validReferenceImages && validReferenceImages.length > 0) {
+                        params.append('image', validReferenceImages.join(','));
+                        logger.add("🖼️ Reference Images Added", { 
+                            count: validReferenceImages.length,
+                            urls: validReferenceImages 
+                        });
+                    }
+                    
                     if (finalGuidance !== 7.5) params.append('guidance', finalGuidance.toString());
                     if (finalSteps !== 20) params.append('steps', finalSteps.toString());
                     url += '?' + params.toString();
@@ -581,14 +647,16 @@ class PollinationsProvider {
                     if (response.ok) {
                         const contentType = response.headers.get('content-type');
                         if (contentType && contentType.startsWith('image/')) {
-                            logger.add(`✅ Success`, { 
+                            logger.add("✅ Success", { 
                                 url: response.url, 
                                 used_model: tryModel, 
-                                final_size: `${finalWidth}x${finalHeight}`,
+                                final_size: finalWidth + "x" + finalHeight,
                                 is_4k: finalWidth >= 4096 || finalHeight >= 4096,
                                 quality_mode: qualityMode, 
                                 hd_optimized: autoHD && hdOptimization?.optimized, 
                                 auto_translated: translation.translated,
+                                reference_images_used: validReferenceImages.length,
+                                generation_mode: validReferenceImages.length > 0 ? (validReferenceImages.length === 1 ? "圖生圖" : "多圖融合") : "文生圖",
                                 seed: currentSeed 
                             });
                             
@@ -609,15 +677,18 @@ class PollinationsProvider {
                                 hd_optimized: autoHD && hdOptimization?.optimized, 
                                 hd_details: hdOptimization, 
                                 auto_translated: translation.translated,
+                                reference_images: validReferenceImages,
+                                reference_images_count: validReferenceImages.length,
+                                generation_mode: validReferenceImages.length > 0 ? (validReferenceImages.length === 1 ? "圖生圖" : "多圖融合") : "文生圖",
                                 cost: "FREE", 
                                 fallback_used: tryModel !== model, 
                                 auto_optimized: autoOptimize 
                             };
                         } else {
-                            throw new Error(`Invalid content type: ${contentType}`);
+                            throw new Error("Invalid content type: " + contentType);
                         }
                     } else {
-                        throw new Error(`HTTP ${response.status}`);
+                        throw new Error("HTTP " + response.status);
                     }
                 } catch (e) {
                     if (retry < CONFIG.MAX_RETRIES - 1) {
@@ -626,7 +697,7 @@ class PollinationsProvider {
                 }
             }
         }
-        throw new Error(`All models failed`);
+        throw new Error("All models failed");
     }
 }
 
@@ -707,11 +778,14 @@ export default {
           version: CONFIG.PROJECT_VERSION, 
           timestamp: new Date().toISOString(),
           features: [
+            '圖生圖 (Image-to-Image)',
+            '多圖融合 (Multi-Image Fusion)',
             '4K Ultra HD Support',
             'Generation Timer',
             'Full History',
             '17 Models',
             '8 Styles',
+            'FLUX Official Params',
             'Smart Optimization'
           ]
         }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
@@ -723,6 +797,8 @@ export default {
             '17 Models', 
             '8 Styles', 
             '4 Quality Modes', 
+            'Image-to-Image 🎨',
+            'Multi-Image Fusion 🖼️',
             'Smart Analysis', 
             'Auto HD', 
             '4K Support 🍌',
@@ -775,6 +851,18 @@ async function handleChatCompletions(request, env) {
         prompt = prompt.trim();
         if (!prompt) throw new Error("Empty prompt");
         
+        let referenceImages = [];
+        if (body.reference_images && Array.isArray(body.reference_images)) {
+            referenceImages = body.reference_images.filter(url => {
+                try {
+                    new URL(url);
+                    return true;
+                } catch {
+                    return false;
+                }
+            });
+        }
+        
         const options = { 
             provider: body.provider || null, 
             model: body.model || "flux", 
@@ -791,7 +879,8 @@ async function handleChatCompletions(request, env) {
             style: body.style || "none", 
             autoOptimize: body.auto_optimize !== false, 
             autoHD: body.auto_hd !== false, 
-            qualityMode: body.quality_mode || 'standard'
+            qualityMode: body.quality_mode || 'standard',
+            referenceImages: referenceImages
         };
         
         const router = new MultiProviderRouter({}, env);
@@ -799,10 +888,10 @@ async function handleChatCompletions(request, env) {
         
         let respContent = "";
         results.forEach((result, index) => { 
-            respContent += `![Generated Image ${index + 1}](${result.url})\n`; 
+            respContent += "![Generated Image " + (index + 1) + "](" + result.url + ")\n"; 
         });
         
-        const respId = `chatcmpl-${crypto.randomUUID()}`;
+        const respId = "chatcmpl-" + crypto.randomUUID();
         
         if (body.stream) {
             const { readable, writable } = new TransformStream();
@@ -810,7 +899,7 @@ async function handleChatCompletions(request, env) {
             const encoder = new TextEncoder();
             (async () => {
                 try {
-                    if (isWebUI) await writer.write(encoder.encode(`data: ${JSON.stringify({ debug: logger.get() })}\n\n`));
+                    if (isWebUI) await writer.write(encoder.encode("data: " + JSON.stringify({ debug: logger.get() }) + "\n\n"));
                     const chunk = { 
                         id: respId, 
                         object: 'chat.completion.chunk', 
@@ -818,7 +907,7 @@ async function handleChatCompletions(request, env) {
                         model: options.model, 
                         choices: [{ index: 0, delta: { content: respContent }, finish_reason: null }] 
                     };
-                    await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                    await writer.write(encoder.encode("data: " + JSON.stringify(chunk) + "\n\n"));
                     const endChunk = { 
                         id: respId, 
                         object: 'chat.completion.chunk', 
@@ -826,7 +915,7 @@ async function handleChatCompletions(request, env) {
                         model: options.model, 
                         choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] 
                     };
-                    await writer.write(encoder.encode(`data: ${JSON.stringify(endChunk)}\n\n`));
+                    await writer.write(encoder.encode("data: " + JSON.stringify(endChunk) + "\n\n"));
                     await writer.write(encoder.encode('data: [DONE]\n\n'));
                 } finally {
                     await writer.close();
@@ -875,6 +964,18 @@ async function handleImageGenerations(request, env) {
         if (body.width) width = body.width;
         if (body.height) height = body.height;
         
+        let referenceImages = [];
+        if (body.reference_images && Array.isArray(body.reference_images)) {
+            referenceImages = body.reference_images.filter(url => {
+                try {
+                    new URL(url);
+                    return true;
+                } catch {
+                    return false;
+                }
+            });
+        }
+        
         const options = { 
             provider: body.provider || null, 
             model: body.model || "flux", 
@@ -891,7 +992,8 @@ async function handleImageGenerations(request, env) {
             style: body.style || "none", 
             autoOptimize: body.auto_optimize !== false, 
             autoHD: body.auto_hd !== false, 
-            qualityMode: body.quality_mode || 'standard'
+            qualityMode: body.quality_mode || 'standard',
+            referenceImages: referenceImages
         };
         
         const router = new MultiProviderRouter({}, env);
@@ -907,6 +1009,9 @@ async function handleImageGenerations(request, env) {
                 width: r.width, 
                 height: r.height,
                 is_4k: r.is_4k,
+                reference_images: r.reference_images || [],
+                reference_images_count: r.reference_images_count || 0,
+                generation_mode: r.generation_mode || "文生圖",
                 style: r.style, 
                 quality_mode: r.quality_mode, 
                 prompt_complexity: r.prompt_complexity, 
@@ -947,7 +1052,9 @@ function handleModelsRequest() {
                     experimental: model.experimental || false, 
                     description: model.description,
                     max_size: model.max_size || 2048,
-                    ultra_hd: model.ultra_hd || false
+                    ultra_hd: model.ultra_hd || false,
+                    supports_reference_images: model.supports_reference_images || false,
+                    max_reference_images: model.max_reference_images || 0
                 });
             }
         }
@@ -1002,7 +1109,7 @@ function handleUI() {
 .header-left{flex:1}
 h1{color:#f59e0b;margin:0;font-size:36px;font-weight:800;text-shadow:0 0 30px rgba(245,158,11,0.6)}
 .badge{background:linear-gradient(135deg,#10b981 0%,#059669 100%);padding:6px 14px;border-radius:20px;font-size:14px;margin-left:10px}
-.badge-4k{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-left:8px}
+.badge-new{background:linear-gradient(135deg,#ec4899 0%,#db2777 100%);padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;margin-left:8px}
 .subtitle{color:#9ca3af;margin-top:8px;font-size:15px}
 .history-btn{background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%);color:#fff;border:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.3s;position:relative}
 .history-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(139,92,246,0.4)}
@@ -1011,6 +1118,12 @@ h1{color:#f59e0b;margin:0;font-size:36px;font-weight:800;text-shadow:0 0 30px rg
 .box{background:rgba(26,26,26,0.95);padding:24px;border-radius:16px;border:1px solid rgba(255,255,255,0.1)}h3{color:#f59e0b;margin-bottom:18px;font-size:18px;font-weight:700}label{display:block;margin:16px 0 8px 0;color:#e5e7eb;font-weight:600;font-size:13px}
 select,textarea,input{width:100%;padding:12px;margin:0;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:10px;font-size:14px;font-family:inherit;transition:all 0.3s}select:focus,textarea:focus,input:focus{outline:none;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,0.15)}textarea{resize:vertical;min-height:90px}
 button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:20px;transition:all 0.3s;box-shadow:0 4px 15px rgba(245,158,11,0.4)}button:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(245,158,11,0.6)}button:disabled{background:#555;cursor:not-allowed;transform:none;box-shadow:none}
+.ref-img-section{background:rgba(236,72,153,0.1);border:2px dashed #ec4899;padding:15px;border-radius:10px;margin-top:15px}
+.ref-img-list{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.ref-img-item{position:relative;width:80px;height:80px}
+.ref-img-item img{width:100%;height:100%;object-fit:cover;border-radius:8px;border:2px solid #ec4899}
+.ref-img-remove{position:absolute;top:-8px;right:-8px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;font-weight:700}
+.tag-mode{display:inline-block;background:linear-gradient(135deg,#ec4899 0%,#db2777 100%);color:#fff;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-left:6px}
 .result-meta{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);padding:8px 12px;border-radius:8px;margin-top:8px;font-size:12px;color:#10b981}
 .tag-4k{display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#000;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px}
 .timer{color:#10b981;font-weight:700;margin-left:8px}
@@ -1031,8 +1144,8 @@ button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97
 <div class="container">
 <div class="header">
 <div class="header-left">
-<h1>🎨 Flux AI Pro<span class="badge">v${CONFIG.PROJECT_VERSION}</span><span class="badge-4k">4K 🍌</span></h1>
-<p class="subtitle">計時器 · 歷史記錄 · 4K超清 · 智能優化</p>
+<h1>🎨 Flux AI Pro<span class="badge">v${CONFIG.PROJECT_VERSION}</span><span class="badge-new">圖生圖 🎨</span></h1>
+<p class="subtitle">圖生圖 · 多圖融合 · 4K超清 · FLUX官方參數</p>
 </div>
 <button onclick="toggleHistory()" class="history-btn">📜 歷史<span id="historyBadge" class="history-badge" style="display:none">0</span></button>
 </div>
@@ -1044,8 +1157,16 @@ button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97
 <textarea id="prompt" placeholder="描述你想要的圖片..."></textarea>
 <label>負面提示詞</label>
 <textarea id="negativePrompt" placeholder="low quality, blurry"></textarea>
+
+<div class="ref-img-section">
+<label>🖼️ 參考圖 (圖生圖/多圖融合)</label>
+<input type="text" id="refImageUrl" placeholder="輸入圖片 URL 後按 Enter 添加">
+<div class="ref-img-list" id="refImageList"></div>
+<small style="color:#9ca3af;font-size:11px">kontext: 最多1張 | nanobanana: 最多4張</small>
+</div>
+
 <label>AI 模型</label>
-<select id="model">
+<select id="model" onchange="updateRefImageLimit()">
 <optgroup label="⚡ Flux 系列">
 <option value="flux">Flux (均衡)</option>
 <option value="flux-realism">Flux Realism (超寫實)</option>
@@ -1053,15 +1174,19 @@ button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97
 <option value="flux-pro">Flux Pro (專業版)</option>
 <option value="turbo">Turbo (極速)</option>
 </optgroup>
+<optgroup label="🎨 圖像編輯">
+<option value="flux-kontext">Kontext 🎨 (1張參考圖)</option>
+<option value="flux-kontext-pro">Kontext Pro 💎 (1張參考圖)</option>
+</optgroup>
 <optgroup label="🍌 Nano Banana">
-<option value="nanobanana">Nano Banana 🍌</option>
-<option value="nanobanana-pro">Nano Banana Pro 🍌💎 (4K)</option>
+<option value="nanobanana">Nano Banana 🍌 (4張參考圖)</option>
+<option value="nanobanana-pro">Nano Banana Pro 🍌💎 (4K+4張)</option>
 </optgroup>
 </select>
 <label>藝術風格</label>
 <select id="style">
 <option value="none">無</option>
-${Object.entries(CONFIG.STYLE_PRESETS).map(([k,v])=>'<option value="'+k+'">'+v.name+'</option>').join('')}
+${Object.entries(CONFIG.STYLE_PRESETS).map(([k,v])=>'<option value="' + k + '">' + v.name + '</option>').join('')}
 </select>
 </div>
 
@@ -1069,7 +1194,7 @@ ${Object.entries(CONFIG.STYLE_PRESETS).map(([k,v])=>'<option value="'+k+'">'+v.n
 <h3>🎨 圖像參數</h3>
 <label>尺寸預設</label>
 <select id="sizePreset" onchange="applySizePreset()">
-${Object.entries(CONFIG.PRESET_SIZES).map(([k,v])=>'<option value="'+k+'">'+v.name+(v.exclusive?' 🍌':'')+'</option>').join('')}
+${Object.entries(CONFIG.PRESET_SIZES).map(([k,v])=>'<option value="' + k + '">' + v.name + (v.exclusive?' 🍌':'') + '</option>').join('')}
 </select>
 <label>寬度: <span id="widthValue">1024</span>px</label>
 <input type="range" id="width" min="256" max="4096" step="64" value="1024">
@@ -1105,6 +1230,64 @@ ${Object.entries(CONFIG.PRESET_SIZES).map(([k,v])=>'<option value="'+k+'">'+v.na
 <script>
 const PRESETS=${JSON.stringify(CONFIG.PRESET_SIZES)};
 let generationHistory=[];
+let referenceImages=[];
+
+document.getElementById('refImageUrl').addEventListener('keypress',function(e){
+if(e.key==='Enter'){
+const url=this.value.trim();
+if(url){
+try{
+new URL(url);
+const model=document.getElementById('model').value;
+const maxRef=getMaxReferenceImages(model);
+if(referenceImages.length>=maxRef){
+alert('此模型最多支持 '+maxRef+' 張參考圖');
+return;
+}
+referenceImages.push(url);
+this.value='';
+renderReferenceImages();
+}catch{
+alert('請輸入有效的圖片 URL');
+}
+}
+}
+});
+
+function getMaxReferenceImages(model){
+const config=${JSON.stringify(CONFIG.PROVIDERS.pollinations.models)};
+const m=config.find(x=>x.id===model);
+return m?.max_reference_images||0;
+}
+
+function updateRefImageLimit(){
+const model=document.getElementById('model').value;
+const maxRef=getMaxReferenceImages(model);
+const section=document.querySelector('.ref-img-section small');
+if(maxRef>0){
+section.textContent='此模型最多支持 '+maxRef+' 張參考圖';
+section.style.color='#10b981';
+}else{
+section.textContent='此模型不支持參考圖';
+section.style.color='#ef4444';
+}
+}
+
+function renderReferenceImages(){
+const list=document.getElementById('refImageList');
+list.innerHTML='';
+referenceImages.forEach((url,index)=>{
+const div=document.createElement('div');
+div.className='ref-img-item';
+div.innerHTML='<img src="'+url+'"><button class="ref-img-remove" onclick="removeRefImage('+index+')">×</button>';
+list.appendChild(div);
+});
+}
+
+function removeRefImage(index){
+referenceImages.splice(index,1);
+renderReferenceImages();
+}
 
 function loadHistory(){
 try{
@@ -1159,7 +1342,9 @@ list.innerHTML='';
 generationHistory.forEach((item,index)=>{
 const div=document.createElement('div');
 div.className='history-item';
-div.innerHTML='<div style="display:flex;gap:15px"><img src="'+item.url+'" class="history-img" onclick="window.open(\\''+item.url+'\\')"><div style="flex:1"><p style="color:#f59e0b;font-weight:600">'+item.prompt.substring(0,50)+'...</p><div class="history-info">'+item.model+' | '+item.width+'x'+item.height+' | '+(item.duration||'N/A')+'</div><div class="history-info">'+new Date(item.timestamp).toLocaleString('zh-TW')+'</div><div class="history-actions"><button onclick="regenFromHistory('+index+')">🔄 重新生成</button><button onclick="deleteHistory('+index+')" style="background:#ef4444">🗑️ 刪除</button></div></div></div>';
+const modeTag=item.generation_mode?'<span class="tag-mode">'+item.generation_mode+'</span>':'';
+const refCount=item.reference_images_count>0?' | '+item.reference_images_count+'張參考圖':'';
+div.innerHTML='<div style="display:flex;gap:15px"><img src="'+item.url+'" class="history-img" onclick="window.open(\\''+item.url+'\\')"><div style="flex:1"><p style="color:#f59e0b;font-weight:600">'+item.prompt.substring(0,50)+'...'+modeTag+'</p><div class="history-info">'+item.model+' | '+item.width+'x'+item.height+refCount+' | '+(item.duration||'N/A')+'</div><div class="history-info">'+new Date(item.timestamp).toLocaleString('zh-TW')+'</div><div class="history-actions"><button onclick="regenFromHistory('+index+')">🔄 重新生成</button><button onclick="deleteHistory('+index+')" style="background:#ef4444">🗑️ 刪除</button></div></div></div>';
 list.appendChild(div);
 });
 }
@@ -1175,6 +1360,10 @@ document.getElementById('heightValue').textContent=item.height;
 if(item.negative_prompt)document.getElementById('negativePrompt').value=item.negative_prompt;
 if(item.style)document.getElementById('style').value=item.style;
 if(item.quality_mode)document.getElementById('qualityMode').value=item.quality_mode;
+if(item.reference_images){
+referenceImages=item.reference_images;
+renderReferenceImages();
+}
 closeHistory();
 alert('已載入歷史配置,點擊生成按鈕即可!');
 }
@@ -1228,7 +1417,8 @@ width:parseInt(document.getElementById('width').value),
 height:parseInt(document.getElementById('height').value),
 quality_mode:document.getElementById('qualityMode').value,
 auto_optimize:true,
-auto_hd:true
+auto_hd:true,
+reference_images:referenceImages
 };
 
 const resultDiv=document.getElementById('result');
@@ -1258,9 +1448,10 @@ clearInterval(timerInterval);
 resultDiv.innerHTML='<div style="background:rgba(16,185,129,0.15);border:1px solid #10b981;padding:16px;border-radius:12px;color:#10b981"><strong>✅ 生成成功!</strong><span class="timer">⏱️ '+duration+'</span></div>';
 data.data.forEach(function(item,index){
 const is4K=item.is_4k?'<span class="tag-4k">4K</span>':'';
+const modeTag=item.generation_mode?'<span class="tag-mode">'+item.generation_mode+'</span>':'';
 const imgDiv=document.createElement('div');
 imgDiv.style.marginTop='20px';
-imgDiv.innerHTML='<img src="'+item.url+'" style="width:100%;border-radius:12px;cursor:pointer"><div class="result-meta">'+item.model+' | '+item.width+'x'+item.height+is4K+' | '+item.quality_mode+' | <span class="timer">⏱️ '+duration+'</span></div>';
+imgDiv.innerHTML='<img src="'+item.url+'" style="width:100%;border-radius:12px;cursor:pointer"><div class="result-meta">'+item.model+' | '+item.width+'x'+item.height+is4K+modeTag+' | '+item.quality_mode+' | <span class="timer">⏱️ '+duration+'</span></div>';
 imgDiv.querySelector('img').onclick=function(){window.open(item.url);};
 resultDiv.appendChild(imgDiv);
 
@@ -1273,6 +1464,9 @@ width:item.width,
 height:item.height,
 style:params.style,
 quality_mode:params.quality_mode,
+reference_images:item.reference_images||[],
+reference_images_count:item.reference_images_count||0,
+generation_mode:item.generation_mode||'文生圖',
 duration:duration
 });
 });
@@ -1286,6 +1480,7 @@ button.textContent='🚀 開始生成';
 }
 
 loadHistory();
+updateRefImageLimit();
 </script>
 </body>
 </html>`;
