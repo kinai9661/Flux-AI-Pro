@@ -1,9 +1,9 @@
 // =================================================================================
 //  項目: Flux AI Pro
-//  版本: 9.2.0 (圖生圖 + 多圖融合 + 4K + FLUX官方優化)
+//  版本: 9.2.0 (本地上傳 + 圖生圖 + 多圖融合 + 4K + 中文支持)
 //  作者: Enhanced by AI Assistant  
 //  日期: 2025-12-12
-//  功能: 計時器 | 歷史記錄 | 圖生圖 | 多圖融合 | 4K支持 | FLUX官方參數
+//  功能: 本地上傳 | 圖生圖 | 多圖融合 | 中文支持 | 4K | 計時器 | 歷史
 // =================================================================================
 
 const CONFIG = {
@@ -64,24 +64,9 @@ const CONFIG = {
   DEFAULT_PROVIDER: "pollinations",
   
   FLUX_OFFICIAL_PARAMS: {
-    schnell: {
-      guidance_scale: 0.0,
-      num_inference_steps: 4,
-      max_sequence_length: 256,
-      description: "FLUX.1 [schnell] 官方參數"
-    },
-    dev: {
-      guidance_scale: 3.5,
-      num_inference_steps: 50,
-      max_sequence_length: 512,
-      description: "FLUX.1 [dev] 官方參數"
-    },
-    pro: {
-      guidance_scale: 7.0,
-      num_inference_steps: 28,
-      max_sequence_length: 512,
-      description: "FLUX.1 [pro] 官方參數"
-    }
+    schnell: { guidance_scale: 0.0, num_inference_steps: 4, max_sequence_length: 256, description: "FLUX.1 [schnell] 官方參數" },
+    dev: { guidance_scale: 3.5, num_inference_steps: 50, max_sequence_length: 512, description: "FLUX.1 [dev] 官方參數" },
+    pro: { guidance_scale: 7.0, num_inference_steps: 28, max_sequence_length: 512, description: "FLUX.1 [pro] 官方參數" }
   },
   
   STYLE_PRESETS: {
@@ -134,45 +119,10 @@ const CONFIG = {
   HD_OPTIMIZATION: {
     enabled: true,
     QUALITY_MODES: {
-      economy: {
-        name: "經濟模式",
-        description: "快速出圖,適合測試",
-        min_resolution: 1024,
-        max_resolution: 2048,
-        steps_multiplier: 0.85,
-        guidance_multiplier: 0.9,
-        hd_level: "basic"
-      },
-      standard: {
-        name: "標準模式",
-        description: "平衡質量與速度",
-        min_resolution: 1280,
-        max_resolution: 2048,
-        steps_multiplier: 1.0,
-        guidance_multiplier: 1.0,
-        hd_level: "enhanced"
-      },
-      ultra: {
-        name: "超高清模式",
-        description: "極致質量,耗時較長",
-        min_resolution: 1536,
-        max_resolution: 4096,
-        steps_multiplier: 1.35,
-        guidance_multiplier: 1.15,
-        hd_level: "maximum",
-        force_upscale: true
-      },
-      ultra_4k: {
-        name: "4K超高清",
-        description: "Nano Banana Pro 專屬",
-        min_resolution: 2048,
-        max_resolution: 4096,
-        steps_multiplier: 1.5,
-        guidance_multiplier: 1.2,
-        hd_level: "ultra_4k",
-        force_upscale: true,
-        exclusive_models: ["nanobanana-pro"]
-      }
+      economy: { name: "經濟模式", description: "快速出圖,適合測試", min_resolution: 1024, max_resolution: 2048, steps_multiplier: 0.85, guidance_multiplier: 0.9, hd_level: "basic" },
+      standard: { name: "標準模式", description: "平衡質量與速度", min_resolution: 1280, max_resolution: 2048, steps_multiplier: 1.0, guidance_multiplier: 1.0, hd_level: "enhanced" },
+      ultra: { name: "超高清模式", description: "極致質量,耗時較長", min_resolution: 1536, max_resolution: 4096, steps_multiplier: 1.35, guidance_multiplier: 1.15, hd_level: "maximum", force_upscale: true },
+      ultra_4k: { name: "4K超高清", description: "Nano Banana Pro 專屬", min_resolution: 2048, max_resolution: 4096, steps_multiplier: 1.5, guidance_multiplier: 1.2, hd_level: "ultra_4k", force_upscale: true, exclusive_models: ["nanobanana-pro"] }
     },
     HD_PROMPTS: {
       basic: "high quality, detailed, sharp",
@@ -233,20 +183,14 @@ class Logger {
 async function translateToEnglish(text, env) {
     try {
         const hasChinese = /[\u4e00-\u9fa5]/.test(text);
-        if (!hasChinese) {
-            return { text: text, translated: false };
-        }
+        if (!hasChinese) return { text: text, translated: false };
         if (env?.AI) {
             const response = await env.AI.run("@cf/meta/m2m100-1.2b", {
                 text: text,
                 source_lang: "chinese",
                 target_lang: "english"
             });
-            return { 
-                text: response.translated_text || text, 
-                translated: true,
-                original: text
-            };
+            return { text: response.translated_text || text, translated: true, original: text };
         }
         return { text: text, translated: false };
     } catch (e) {
@@ -269,7 +213,6 @@ class PromptAnalyzer {
     static recommendQualityMode(prompt, model) {
         const complexity = this.analyzeComplexity(prompt);
         const profile = CONFIG.HD_OPTIMIZATION.MODEL_QUALITY_PROFILES[model];
-        
         if (model === 'nanobanana-pro') return 'ultra_4k';
         if (profile?.recommended_quality) return profile.recommended_quality;
         if (complexity > 0.7) return 'ultra';
@@ -326,17 +269,7 @@ class HDOptimizer {
             optimizations.push("模型限制: 調整至 " + finalWidth + "x" + finalHeight);
         }
         
-        return { 
-            prompt: enhancedPrompt, 
-            negativePrompt: enhancedNegative, 
-            width: finalWidth, 
-            height: finalHeight, 
-            optimized: true, 
-            quality_mode: qualityMode, 
-            hd_level: hdLevel, 
-            optimizations: optimizations, 
-            size_upscaled: sizeUpscaled
-        };
+        return { prompt: enhancedPrompt, negativePrompt: enhancedNegative, width: finalWidth, height: finalHeight, optimized: true, quality_mode: qualityMode, hd_level: hdLevel, optimizations: optimizations, size_upscaled: sizeUpscaled };
     }
 }
 
@@ -387,18 +320,7 @@ class ParameterOptimizer {
         optimizedSteps = Math.max(modelRule.min, Math.min(optimizedSteps, modelRule.max));
         
         reasoning.push("→ " + optimizedSteps + "步");
-        return { 
-            steps: optimizedSteps, 
-            optimized: true, 
-            base_steps: baseSteps, 
-            size_multiplier: sizeMultiplier, 
-            style_multiplier: styleMultiplier, 
-            quality_multiplier: qualityMultiplier, 
-            profile_boost: profileBoost, 
-            min_steps: modelRule.min, 
-            max_steps: modelRule.max, 
-            reasoning: reasoning.join(' ') 
-        };
+        return { steps: optimizedSteps, optimized: true, base_steps: baseSteps, size_multiplier: sizeMultiplier, style_multiplier: styleMultiplier, quality_multiplier: qualityMultiplier, profile_boost: profileBoost, min_steps: modelRule.min, max_steps: modelRule.max, reasoning: reasoning.join(' ') };
     }
     
     static optimizeGuidance(model, style, qualityMode = 'standard') {
@@ -450,7 +372,6 @@ async function fetchWithTimeout(url, options = {}, timeout = CONFIG.FETCH_TIMEOU
         throw error;
     }
 }
-
 class PollinationsProvider {
     constructor(config, env) {
         this.config = config;
@@ -778,8 +699,10 @@ export default {
           version: CONFIG.PROJECT_VERSION, 
           timestamp: new Date().toISOString(),
           features: [
+            '本地上傳 (Local Upload)',
             '圖生圖 (Image-to-Image)',
             '多圖融合 (Multi-Image Fusion)',
+            '中文支持 (Chinese Support)',
             '4K Ultra HD Support',
             'Generation Timer',
             'Full History',
@@ -797,8 +720,10 @@ export default {
             '17 Models', 
             '8 Styles', 
             '4 Quality Modes', 
+            'Local Upload 📤',
             'Image-to-Image 🎨',
             'Multi-Image Fusion 🖼️',
+            'Chinese Support 🇨🇳',
             'Smart Analysis', 
             'Auto HD', 
             '4K Support 🍌',
@@ -1095,7 +1020,6 @@ function handleStylesRequest() {
         data: styles 
     }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
 }
-
 function handleUI() {
   const html = `<!DOCTYPE html>
 <html lang="zh-TW">
@@ -1119,10 +1043,18 @@ h1{color:#f59e0b;margin:0;font-size:36px;font-weight:800;text-shadow:0 0 30px rg
 select,textarea,input{width:100%;padding:12px;margin:0;background:#2a2a2a;border:1px solid #444;color:#fff;border-radius:10px;font-size:14px;font-family:inherit;transition:all 0.3s}select:focus,textarea:focus,input:focus{outline:none;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,0.15)}textarea{resize:vertical;min-height:90px}
 button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-top:20px;transition:all 0.3s;box-shadow:0 4px 15px rgba(245,158,11,0.4)}button:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(245,158,11,0.6)}button:disabled{background:#555;cursor:not-allowed;transform:none;box-shadow:none}
 .ref-img-section{background:rgba(236,72,153,0.1);border:2px dashed #ec4899;padding:15px;border-radius:10px;margin-top:15px}
+.upload-area{background:rgba(236,72,153,0.05);border:2px dashed #ec4899;border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.3s;margin-bottom:10px}
+.upload-area:hover{background:rgba(236,72,153,0.15);border-color:#f472b6}
+.upload-area.dragover{background:rgba(236,72,153,0.25);border-color:#f472b6;transform:scale(1.02)}
+.example-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.example-btns button{padding:6px 12px;font-size:12px;margin:0;width:auto;background:rgba(16,185,129,0.2);border:1px solid #10b981}
+.example-btns button:hover{background:rgba(16,185,129,0.3)}
 .ref-img-list{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .ref-img-item{position:relative;width:80px;height:80px}
 .ref-img-item img{width:100%;height:100%;object-fit:cover;border-radius:8px;border:2px solid #ec4899}
 .ref-img-remove{position:absolute;top:-8px;right:-8px;background:#ef4444;color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:14px;font-weight:700}
+.spinner{border:3px solid rgba(255,255,255,0.3);border-top:3px solid #ec4899;border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .tag-mode{display:inline-block;background:linear-gradient(135deg,#ec4899 0%,#db2777 100%);color:#fff;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;margin-left:6px}
 .result-meta{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);padding:8px 12px;border-radius:8px;margin-top:8px;font-size:12px;color:#10b981}
 .tag-4k{display:inline-block;background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#000;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;margin-left:6px}
@@ -1144,8 +1076,8 @@ button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97
 <div class="container">
 <div class="header">
 <div class="header-left">
-<h1>🎨 Flux AI Pro<span class="badge">v${CONFIG.PROJECT_VERSION}</span><span class="badge-new">圖生圖 🎨</span></h1>
-<p class="subtitle">圖生圖 · 多圖融合 · 4K超清 · FLUX官方參數</p>
+<h1>🎨 Flux AI Pro<span class="badge">v${CONFIG.PROJECT_VERSION}</span><span class="badge-new">本地上傳 📤</span></h1>
+<p class="subtitle">本地上傳 · 圖生圖 · 多圖融合 · 中文支持 · 4K超清</p>
 </div>
 <button onclick="toggleHistory()" class="history-btn">📜 歷史<span id="historyBadge" class="history-badge" style="display:none">0</span></button>
 </div>
@@ -1153,16 +1085,31 @@ button{width:100%;padding:16px;background:linear-gradient(135deg,#f59e0b 0%,#d97
 <div class="grid">
 <div class="box">
 <h3>📝 生成設置</h3>
-<label>提示詞 *</label>
-<textarea id="prompt" placeholder="描述你想要的圖片..."></textarea>
+<label>提示詞 * <span style="color:#10b981;font-size:11px;font-weight:400">✓ 支持中文 (自動翻譯)</span></label>
+<textarea id="prompt" placeholder="描述你想要的圖片... (支持中文輸入,將自動翻譯成英文)"></textarea>
+<div class="example-btns">
+<button type="button" onclick="setPrompt('一隻貓在太空中漂浮,極致細節,8k')">🐱 太空貓</button>
+<button type="button" onclick="setPrompt('賽博朋克城市夜景,霓虹燈,未來感,高清')">🌃 賽博朋克</button>
+<button type="button" onclick="setPrompt('美麗的櫻花樹,春天,陽光,日本庭院,超寫實')">🌸 櫻花</button>
+<button type="button" onclick="setPrompt('龍在雲中飛翔,中國風,水墨畫風格,氣勢磅礴')">🐉 中國龍</button>
+<button type="button" onclick="setPrompt('穿著漢服的少女,古典美,中國風,細膩')">👘 漢服少女</button>
+<button type="button" onclick="setPrompt('蒸汽朋克機器人,齒輪,金屬質感,復古')">🤖 蒸汽朋克</button>
+</div>
+
 <label>負面提示詞</label>
-<textarea id="negativePrompt" placeholder="low quality, blurry"></textarea>
+<textarea id="negativePrompt" placeholder="low quality, blurry (也支持中文)"></textarea>
 
 <div class="ref-img-section">
 <label>🖼️ 參考圖 (圖生圖/多圖融合)</label>
-<input type="text" id="refImageUrl" placeholder="輸入圖片 URL 後按 Enter 添加">
+<div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+<div style="font-size:40px;margin-bottom:10px">📤</div>
+<div style="color:#ec4899;font-weight:600;margin-bottom:5px">點擊或拖拽上傳圖片</div>
+<div style="color:#9ca3af;font-size:12px">支持 JPG, PNG, WebP (最大 10MB)</div>
+</div>
+<input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+<input type="text" id="refImageUrl" placeholder="或輸入圖片 URL 後按 Enter 添加" style="margin-top:10px">
 <div class="ref-img-list" id="refImageList"></div>
-<small style="color:#9ca3af;font-size:11px">kontext: 最多1張 | nanobanana: 最多4張</small>
+<small id="refImageLimit" style="color:#9ca3af;font-size:11px">kontext: 最多1張 | nanobanana: 最多4張</small>
 </div>
 
 <label>AI 模型</label>
@@ -1231,6 +1178,12 @@ ${Object.entries(CONFIG.PRESET_SIZES).map(([k,v])=>'<option value="' + k + '">' 
 const PRESETS=${JSON.stringify(CONFIG.PRESET_SIZES)};
 let generationHistory=[];
 let referenceImages=[];
+const MAX_FILE_SIZE=10*1024*1024;
+
+function setPrompt(text){
+document.getElementById('prompt').value=text;
+document.getElementById('prompt').focus();
+}
 
 document.getElementById('refImageUrl').addEventListener('keypress',function(e){
 if(e.key==='Enter'){
@@ -1254,6 +1207,126 @@ alert('請輸入有效的圖片 URL');
 }
 });
 
+document.getElementById('fileInput').addEventListener('change',async function(e){
+await handleFiles(e.target.files);
+this.value='';
+});
+
+const uploadArea=document.getElementById('uploadArea');
+uploadArea.addEventListener('dragover',function(e){
+e.preventDefault();
+this.classList.add('dragover');
+});
+uploadArea.addEventListener('dragleave',function(e){
+e.preventDefault();
+this.classList.remove('dragover');
+});
+uploadArea.addEventListener('drop',async function(e){
+e.preventDefault();
+this.classList.remove('dragover');
+await handleFiles(e.dataTransfer.files);
+});
+
+async function handleFiles(files){
+const model=document.getElementById('model').value;
+const maxRef=getMaxReferenceImages(model);
+const remaining=maxRef-referenceImages.length;
+
+if(remaining<=0){
+alert('此模型最多支持 '+maxRef+' 張參考圖');
+return;
+}
+
+const filesToProcess=Array.from(files).slice(0,remaining);
+
+for(const file of filesToProcess){
+if(!file.type.startsWith('image/')){
+alert(file.name+' 不是有效的圖片文件');
+continue;
+}
+if(file.size>MAX_FILE_SIZE){
+alert(file.name+' 超過 10MB 限制');
+continue;
+}
+await uploadImage(file);
+}
+}
+
+async function uploadImage(file){
+const tempId='temp-'+Date.now()+'-'+Math.random();
+referenceImages.push({id:tempId,uploading:true});
+renderReferenceImages();
+
+try{
+const base64=await fileToBase64(file);
+const uploadedUrl=await uploadToImageHost(base64,file.name);
+const index=referenceImages.findIndex(img=>img.id===tempId);
+if(index!==-1){
+referenceImages[index]=uploadedUrl;
+renderReferenceImages();
+}
+}catch(error){
+console.error('Upload error:',error);
+const index=referenceImages.findIndex(img=>img.id===tempId);
+if(index!==-1){
+referenceImages.splice(index,1);
+renderReferenceImages();
+}
+alert('上傳失敗: '+error.message);
+}
+}
+
+function fileToBase64(file){
+return new Promise((resolve,reject)=>{
+const reader=new FileReader();
+reader.onload=()=>resolve(reader.result);
+reader.onerror=reject;
+reader.readAsDataURL(file);
+});
+}
+
+async function uploadToImageHost(base64,filename){
+try{
+const response=await fetch('https://api.imgur.com/3/image',{
+method:'POST',
+headers:{
+'Authorization':'Client-ID 2afc620eb108124',
+'Content-Type':'application/json'
+},
+body:JSON.stringify({
+image:base64.split(',')[1],
+type:'base64',
+name:filename
+})
+});
+const data=await response.json();
+if(data.success){
+return data.data.link;
+}else{
+throw new Error('Imgur upload failed');
+}
+}catch(imgurError){
+console.error('Imgur failed, trying imgbb:',imgurError);
+try{
+const formData=new FormData();
+formData.append('image',base64.split(',')[1]);
+const response=await fetch('https://api.imgbb.com/1/upload?key=d36eb6591370ae7f9089d85875e56b22',{
+method:'POST',
+body:formData
+});
+const data=await response.json();
+if(data.success){
+return data.data.url;
+}else{
+throw new Error('ImgBB upload failed');
+}
+}catch(imgbbError){
+console.error('ImgBB failed:',imgbbError);
+return base64;
+}
+}
+}
+
 function getMaxReferenceImages(model){
 const config=${JSON.stringify(CONFIG.PROVIDERS.pollinations.models)};
 const m=config.find(x=>x.id===model);
@@ -1263,9 +1336,9 @@ return m?.max_reference_images||0;
 function updateRefImageLimit(){
 const model=document.getElementById('model').value;
 const maxRef=getMaxReferenceImages(model);
-const section=document.querySelector('.ref-img-section small');
+const section=document.getElementById('refImageLimit');
 if(maxRef>0){
-section.textContent='此模型最多支持 '+maxRef+' 張參考圖';
+section.textContent='此模型最多支持 '+maxRef+' 張參考圖 (已添加 '+referenceImages.length+'/'+maxRef+')';
 section.style.color='#10b981';
 }else{
 section.textContent='此模型不支持參考圖';
@@ -1276,12 +1349,18 @@ section.style.color='#ef4444';
 function renderReferenceImages(){
 const list=document.getElementById('refImageList');
 list.innerHTML='';
-referenceImages.forEach((url,index)=>{
+referenceImages.forEach((item,index)=>{
 const div=document.createElement('div');
 div.className='ref-img-item';
-div.innerHTML='<img src="'+url+'"><button class="ref-img-remove" onclick="removeRefImage('+index+')">×</button>';
+if(typeof item==='object'&&item.uploading){
+div.innerHTML='<div style="width:80px;height:80px;background:#2a2a2a;border-radius:8px;border:2px dashed #ec4899;display:flex;align-items:center;justify-content:center"><div class="spinner"></div></div>';
+}else{
+const url=typeof item==='object'?item.url:item;
+div.innerHTML='<img src="'+url+'" onerror="this.src=\\'data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'80\\' height=\\'80\\'%3E%3Crect fill=\\'%23ef4444\\' width=\\'80\\' height=\\'80\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' font-size=\\'12\\' fill=\\'white\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3E載入失敗%3C/text%3E%3C/svg%3E\\'"><button class="ref-img-remove" onclick="removeRefImage('+index+')">×</button>';
+}
 list.appendChild(div);
 });
+updateRefImageLimit();
 }
 
 function removeRefImage(index){
@@ -1408,6 +1487,12 @@ async function generate(){
 const prompt=document.getElementById('prompt').value.trim();
 if(!prompt){alert('請輸入提示詞');return;}
 
+const validRefImages=referenceImages.filter(img=>typeof img==='string'||!img.uploading);
+if(validRefImages.length<referenceImages.length){
+alert('請等待圖片上傳完成');
+return;
+}
+
 const params={
 prompt:prompt,
 negative_prompt:document.getElementById('negativePrompt').value,
@@ -1418,7 +1503,7 @@ height:parseInt(document.getElementById('height').value),
 quality_mode:document.getElementById('qualityMode').value,
 auto_optimize:true,
 auto_hd:true,
-reference_images:referenceImages
+reference_images:validRefImages
 };
 
 const resultDiv=document.getElementById('result');
