@@ -34,34 +34,8 @@ API_ENDPOINT = "https://gen.pollinations.ai"
 # ]
 
 # ============================================
-# KV 命名空間（可選 - 用於緩存和速率限制）
-# ============================================
-# [[kv_namespaces]]
-# binding = "flux-ai-pro"
-# id = "your-kv-namespace-id"
-# preview_id = "your-preview-kv-namespace-id"
-
-# ============================================
-# R2 存儲桶（可選 - 用於持久化圖片存儲）
-# ============================================
-# [[r2_buckets]]
-# binding = "FLUX_IMAGES"
-# bucket_name = "flux-ai-images"
-# preview_bucket_name = "flux-ai-images-preview"
-
-# ============================================
-# 限制配置
-# ============================================
-[limits]
-cpu_ms = 30000  # CPU 時間限制（毫秒）
-
-# ============================================
 # Secrets 通過 wrangler secret 命令設置
 # 🔐 必需設置 POLLINATIONS_API_KEY
 # ============================================
 # 設置命令：
 # wrangler secret put POLLINATIONS_API_KEY
-# 
-# 獲取 API Key：
-# 訪問 https://pollinations.ai 或 https://enter.pollinations.ai
-# 註冊後獲取 API Key（格式：pk_xxxxxxxxxxxxx）
