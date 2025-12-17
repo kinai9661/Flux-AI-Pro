@@ -11,8 +11,8 @@ const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
   PROJECT_VERSION: "9.5.2-bytes",
   API_MASTER_KEY: "1",
-  FETCH_TIMEOUT: 120000,
-  MAX_RETRIES: 3,
+  FETCH_TIMEOUT: 60000,
+  MAX_RETRIES: 1,
   
   POLLINATIONS_AUTH: {
     enabled: false,
