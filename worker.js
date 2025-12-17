@@ -1,16 +1,18 @@
 // =================================================================================
 //  項目: Flux AI Pro
-//  版本: 9.5.1-fixed
+//  版本: 9.5.2-bytes (返回圖片字節數據)
 //  作者: Enhanced by AI Assistant  
 //  日期: 2025-12-17
-//  更新: ✅ 修復 CSP 錯誤 | ✅ 移除內聯事件 | ✅ 添加 Favicon | ✅ 修復生成結果顯示
+//  更新: ✅ 返回圖片字節而非 URL | ✅ 支持單/多圖生成 | ✅ Base64 編碼
 //  模型: zimage, flux, turbo, kontext (4個模型)
 // =================================================================================
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "9.5.1-fixed",
+  PROJECT_VERSION: "9.5.2-bytes",
   API_MASTER_KEY: "1",
+  FETCH_TIMEOUT: 120000,
+  MAX_RETRIES: 3,
   
   POLLINATIONS_AUTH: {
     enabled: false,
@@ -18,11 +20,21 @@ const CONFIG = {
     method: "header"
   },
   
+  PRESET_SIZES: {
+    "square-1k": { name: "方形 1024x1024", width: 1024, height: 1024 },
+    "square-1.5k": { name: "方形 1536x1536", width: 1536, height: 1536 },
+    "square-2k": { name: "方形 2048x2048", width: 2048, height: 2048 },
+    "portrait-9-16-hd": { name: "豎屏 9:16 HD", width: 1080, height: 1920 },
+    "landscape-16-9-hd": { name: "橫屏 16:9 HD", width: 1920, height: 1080 },
+    "instagram-square": { name: "Instagram 方形", width: 1080, height: 1080 },
+    "wallpaper-fhd": { name: "桌布 Full HD", width: 1920, height: 1080 }
+  },
+  
   PROVIDERS: {
     pollinations: {
       name: "Pollinations.ai",
-      endpoint: "https://gen.pollinations.ai",
-      pathPrefix: "/image",
+      endpoint: "https://image.pollinations.ai",
+      pathPrefix: "",
       type: "direct",
       auth_mode: "optional",
       requires_key: false,
@@ -142,826 +154,837 @@ const CONFIG = {
     },
     HD_PROMPTS: {
       basic: "high quality, detailed, sharp",
-      enhanced: "high quality, extremely detailed, sharp focus, crisp, clear, professional, 8k uhd, masterpiece, fine details",
-      maximum: "ultra high quality, extremely detailed, razor sharp focus, crystal clear, professional grade, 8k uhd resolution, masterpiece quality, fine details, intricate details, perfect clarity"
+      enhanced: "high quality, highly detailed, sharp focus, professional, 8k uhd",
+      maximum: "masterpiece, best quality, ultra detailed, 8k uhd, high resolution, professional photography, sharp focus, HDR"
     },
-    HD_NEGATIVE: "low quality, blurry, pixelated, low resolution, jpeg artifacts, compression artifacts, bad quality, distorted, noisy, grainy, poor details, soft focus, out of focus",
+    HD_NEGATIVE: "blurry, low quality, distorted, ugly, bad anatomy, low resolution, pixelated, artifacts, noise",
     MODEL_QUALITY_PROFILES: {
-      "flux": { priority: "balanced", min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.0, guidance_boost: 1.0, recommended_quality: "standard" },
-      "zimage": { priority: "speed", min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 0.9, guidance_boost: 0.95, recommended_quality: "economy" },
-      "turbo": { priority: "speed", min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 0.7, guidance_boost: 0.85, recommended_quality: "economy" },
-      "kontext": { priority: "image_edit", min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.2, guidance_boost: 1.1, recommended_quality: "standard" }
+      "zimage": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.0, guidance_boost: 1.0, recommended_quality: "economy" },
+      "flux": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.1, guidance_boost: 1.0, recommended_quality: "standard" },
+      "turbo": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 0.9, guidance_boost: 0.95, recommended_quality: "economy" },
+      "kontext": { min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.2, guidance_boost: 1.1, recommended_quality: "ultra" }
     }
-  },
-  
-  FETCH_TIMEOUT: 90000,
-  MAX_RETRIES: 3,
-  
-  PRESET_SIZES: {
-    "square-512": { width: 512, height: 512, name: "方形 512px (快速測試)" },
-    "square-1k": { width: 1024, height: 1024, name: "方形 1K (標準)" },
-    "square-1.5k": { width: 1536, height: 1536, name: "方形 1.5K (高清)" },
-    "square-2k": { width: 2048, height: 2048, name: "方形 2K (超清)" },
-    "portrait-9-16": { width: 768, height: 1344, name: "豎屏 9:16 (TikTok/Story)" },
-    "portrait-9-16-hd": { width: 1080, height: 1920, name: "豎屏 9:16 HD (1080p)" },
-    "landscape-16-9": { width: 1344, height: 768, name: "橫屏 16:9 (YouTube)" },
-    "landscape-16-9-hd": { width: 1920, height: 1080, name: "橫屏 16:9 HD (1080p)" },
-    "instagram-square": { width: 1080, height: 1080, name: "Instagram 方形貼文" },
-    "wallpaper-fhd": { width: 1920, height: 1080, name: "桌布 Full HD (1080p)" }
-  },
-  
-  HISTORY: {
-    MAX_ITEMS: 100,
-    STORAGE_KEY: "flux_ai_history"
   }
 };
-
-const API_OPTIMIZATION = {
-  RATE_LIMIT: {
-    enabled: false,
-    max_requests_per_minute: 10,
-    max_requests_per_hour: 100
-  },
-  CACHE: {
-    enabled: false
-  }
-};
-
-function getClientIP(request) {
-  return request.headers.get('CF-Connecting-IP') || 'unknown';
-}
 
 class Logger {
-    constructor() { this.logs = []; }
-    add(step, data) {
-        const time = new Date().toISOString().split('T')[1].slice(0, -1);
-        this.logs.push({ time, step, data });
-        console.log(`[${step}]`, data);
-    }
-    get() { return this.logs; }
+  constructor() {
+    this.logs = [];
+  }
+  add(title, data) {
+    this.logs.push({ title, data, timestamp: new Date().toISOString() });
+  }
+  get() {
+    return this.logs;
+  }
+}
+
+function getClientIP(request) {
+  return request.headers.get('cf-connecting-ip') || 
+         request.headers.get('x-forwarded-for') || 
+         request.headers.get('x-real-ip') || 
+         'unknown';
 }
 // =================================================================================
 // 第 2 段：翻譯和優化功能類
 // =================================================================================
 
-// 翻譯功能
 async function translateToEnglish(text, env) {
-  try {
-      const hasChinese = /[\u4e00-\u9fa5]/.test(text);
-      if (!hasChinese) return { text: text, translated: false, reason: "No Chinese detected" };
-      if (!env || !env.AI) {
-          console.warn("⚠️ Workers AI not configured");
-          return { text: text, translated: false, reason: "AI not configured" };
-      }
-      try {
-          const response = await env.AI.run("@cf/meta/m2m100", { text: text, source_lang: "chinese", target_lang: "english" });
-          if (response && response.translated_text) {
-              console.log("✅ Translation:", text, "→", response.translated_text);
-              return { text: response.translated_text, translated: true, original: text, model: "m2m100" };
-          }
-      } catch (primaryError) {
-          console.warn("⚠️ m2m100 failed:", primaryError.message);
-          try {
-              const response = await env.AI.run("@cf/meta/m2m100-1.2b", { text: text, source_lang: "chinese", target_lang: "english" });
-              if (response && response.translated_text) {
-                  return { text: response.translated_text, translated: true, original: text, model: "m2m100-1.2b" };
-              }
-          } catch (fallbackError) {
-              console.error("❌ All translation failed");
-          }
-      }
-      return { text: text, translated: false };
-  } catch (error) {
-      console.error("❌ translateToEnglish error:", error);
-      return { text: text, translated: false, error: error.message };
-  }
+    try {
+        const hasChinese = /[\u4e00-\u9fa5]/.test(text);
+        if (!hasChinese) return { text: text, translated: false, reason: "No Chinese detected" };
+        if (!env || !env.AI) {
+            console.warn("⚠️ Workers AI not configured");
+            return { text: text, translated: false, reason: "AI not configured" };
+        }
+        try {
+            const response = await env.AI.run("@cf/meta/m2m100", { text: text, source_lang: "chinese", target_lang: "english" });
+            if (response && response.translated_text) {
+                console.log("✅ Translation:", text, "→", response.translated_text);
+                return { text: response.translated_text, translated: true, original: text, model: "m2m100" };
+            }
+        } catch (primaryError) {
+            console.warn("⚠️ m2m100 failed:", primaryError.message);
+            try {
+                const response = await env.AI.run("@cf/meta/m2m100-1.2b", { text: text, source_lang: "chinese", target_lang: "english" });
+                if (response && response.translated_text) {
+                    return { text: response.translated_text, translated: true, original: text, model: "m2m100-1.2b" };
+                }
+            } catch (fallbackError) {
+                console.error("❌ All translation failed");
+            }
+        }
+        return { text: text, translated: false };
+    } catch (error) {
+        console.error("❌ translateToEnglish error:", error);
+        return { text: text, translated: false, error: error.message };
+    }
 }
 
 class PromptAnalyzer {
-  static analyzeComplexity(prompt) {
-      const complexKeywords = ['detailed', 'intricate', 'complex', 'elaborate', 'realistic', 'photorealistic', 'hyperrealistic', 'architecture', 'cityscape', 'landscape', 'portrait', 'face', 'eyes', 'hair', 'texture', 'material', 'fabric', 'skin', 'lighting', 'shadows', 'reflections', 'fine details', 'high detail', 'ultra detailed', '4k', '8k', 'uhd'];
-      let score = 0;
-      const lowerPrompt = prompt.toLowerCase();
-      complexKeywords.forEach(keyword => { if (lowerPrompt.includes(keyword)) score += 0.1; });
-      if (prompt.length > 100) score += 0.2;
-      if (prompt.length > 200) score += 0.3;
-      if (prompt.split(',').length > 5) score += 0.15;
-      return Math.min(score, 1.0);
-  }
-  static recommendQualityMode(prompt, model) {
-      const complexity = this.analyzeComplexity(prompt);
-      const profile = CONFIG.HD_OPTIMIZATION.MODEL_QUALITY_PROFILES[model];
-      if (profile?.recommended_quality) return profile.recommended_quality;
-      if (complexity > 0.7) return 'ultra';
-      if (complexity > 0.4) return 'standard';
-      return 'economy';
-  }
+    static analyzeComplexity(prompt) {
+        const complexKeywords = ['detailed', 'intricate', 'complex', 'elaborate', 'realistic', 'photorealistic', 'hyperrealistic', 'architecture', 'cityscape', 'landscape', 'portrait', 'face', 'eyes', 'hair', 'texture', 'material', 'fabric', 'skin', 'lighting', 'shadows', 'reflections', 'fine details', 'high detail', 'ultra detailed', '4k', '8k', 'uhd'];
+        let score = 0;
+        const lowerPrompt = prompt.toLowerCase();
+        complexKeywords.forEach(keyword => { if (lowerPrompt.includes(keyword)) score += 0.1; });
+        if (prompt.length > 100) score += 0.2;
+        if (prompt.length > 200) score += 0.3;
+        if (prompt.split(',').length > 5) score += 0.15;
+        return Math.min(score, 1.0);
+    }
+    static recommendQualityMode(prompt, model) {
+        const complexity = this.analyzeComplexity(prompt);
+        const profile = CONFIG.HD_OPTIMIZATION.MODEL_QUALITY_PROFILES[model];
+        if (profile?.recommended_quality) return profile.recommended_quality;
+        if (complexity > 0.7) return 'ultra';
+        if (complexity > 0.4) return 'standard';
+        return 'economy';
+    }
 }
 
 class HDOptimizer {
-  static optimize(prompt, negativePrompt, model, width, height, qualityMode = 'standard', autoHD = true) {
-      if (!autoHD || !CONFIG.HD_OPTIMIZATION.enabled) {
-          return { prompt: prompt, negativePrompt: negativePrompt, width: width, height: height, optimized: false };
-      }
-      const hdConfig = CONFIG.HD_OPTIMIZATION;
-      const modeConfig = hdConfig.QUALITY_MODES[qualityMode] || hdConfig.QUALITY_MODES.standard;
-      const profile = hdConfig.MODEL_QUALITY_PROFILES[model];
-      const optimizations = [];
-      
-      const hdLevel = modeConfig.hd_level;
-      let enhancedPrompt = prompt;
-      
-      if (hdConfig.HD_PROMPTS[hdLevel]) {
-          const hdBoost = hdConfig.HD_PROMPTS[hdLevel];
-          enhancedPrompt = prompt + ", " + hdBoost;
-          optimizations.push("HD增強: " + hdLevel);
-      }
-      
-      let enhancedNegative = negativePrompt || "";
-      if (qualityMode !== 'economy') {
-          enhancedNegative = enhancedNegative ? enhancedNegative + ", " + hdConfig.HD_NEGATIVE : hdConfig.HD_NEGATIVE;
-          optimizations.push("負面提示詞: 高清過濾");
-      }
-      
-      let finalWidth = width;
-      let finalHeight = height;
-      let sizeUpscaled = false;
-      
-      const maxModelRes = profile?.max_resolution || 2048;
-      const minRes = Math.max(modeConfig.min_resolution, profile?.min_resolution || 1024);
-      const currentRes = Math.min(width, height);
-      
-      if (currentRes < minRes || modeConfig.force_upscale) {
-          const scale = minRes / currentRes;
-          finalWidth = Math.min(Math.round(width * scale / 64) * 64, maxModelRes);
-          finalHeight = Math.min(Math.round(height * scale / 64) * 64, maxModelRes);
-          sizeUpscaled = true;
-          optimizations.push("尺寸優化: " + width + "x" + height + " → " + finalWidth + "x" + finalHeight);
-      }
-      
-      if (finalWidth > maxModelRes || finalHeight > maxModelRes) {
-          const scale = maxModelRes / Math.max(finalWidth, finalHeight);
-          finalWidth = Math.round(finalWidth * scale / 64) * 64;
-          finalHeight = Math.round(finalHeight * scale / 64) * 64;
-          optimizations.push("模型限制: 調整至 " + finalWidth + "x" + finalHeight);
-      }
-      
-      return { prompt: enhancedPrompt, negativePrompt: enhancedNegative, width: finalWidth, height: finalHeight, optimized: true, quality_mode: qualityMode, hd_level: hdLevel, optimizations: optimizations, size_upscaled: sizeUpscaled };
-  }
+    static optimize(prompt, negativePrompt, model, width, height, qualityMode = 'standard', autoHD = true) {
+        if (!autoHD || !CONFIG.HD_OPTIMIZATION.enabled) {
+            return { prompt: prompt, negativePrompt: negativePrompt, width: width, height: height, optimized: false };
+        }
+        const hdConfig = CONFIG.HD_OPTIMIZATION;
+        const modeConfig = hdConfig.QUALITY_MODES[qualityMode] || hdConfig.QUALITY_MODES.standard;
+        const profile = hdConfig.MODEL_QUALITY_PROFILES[model];
+        const optimizations = [];
+        
+        const hdLevel = modeConfig.hd_level;
+        let enhancedPrompt = prompt;
+        
+        if (hdConfig.HD_PROMPTS[hdLevel]) {
+            const hdBoost = hdConfig.HD_PROMPTS[hdLevel];
+            enhancedPrompt = prompt + ", " + hdBoost;
+            optimizations.push("HD增強: " + hdLevel);
+        }
+        
+        let enhancedNegative = negativePrompt || "";
+        if (qualityMode !== 'economy') {
+            enhancedNegative = enhancedNegative ? enhancedNegative + ", " + hdConfig.HD_NEGATIVE : hdConfig.HD_NEGATIVE;
+            optimizations.push("負面提示詞: 高清過濾");
+        }
+        
+        let finalWidth = width;
+        let finalHeight = height;
+        let sizeUpscaled = false;
+        
+        const maxModelRes = profile?.max_resolution || 2048;
+        const minRes = Math.max(modeConfig.min_resolution, profile?.min_resolution || 1024);
+        const currentRes = Math.min(width, height);
+        
+        if (currentRes < minRes || modeConfig.force_upscale) {
+            const scale = minRes / currentRes;
+            finalWidth = Math.min(Math.round(width * scale / 64) * 64, maxModelRes);
+            finalHeight = Math.min(Math.round(height * scale / 64) * 64, maxModelRes);
+            sizeUpscaled = true;
+            optimizations.push("尺寸優化: " + width + "x" + height + " → " + finalWidth + "x" + finalHeight);
+        }
+        
+        if (finalWidth > maxModelRes || finalHeight > maxModelRes) {
+            const scale = maxModelRes / Math.max(finalWidth, finalHeight);
+            finalWidth = Math.round(finalWidth * scale / 64) * 64;
+            finalHeight = Math.round(finalHeight * scale / 64) * 64;
+            optimizations.push("模型限制: 調整至 " + finalWidth + "x" + finalHeight);
+        }
+        
+        return { prompt: enhancedPrompt, negativePrompt: enhancedNegative, width: finalWidth, height: finalHeight, optimized: true, quality_mode: qualityMode, hd_level: hdLevel, optimizations: optimizations, size_upscaled: sizeUpscaled };
+    }
 }
 
 class ParameterOptimizer {
-  static optimizeSteps(model, width, height, style = 'none', qualityMode = 'standard', userSteps = null) {
-      if (userSteps !== null && userSteps !== -1) {
-          const suggestion = this.calculateOptimalSteps(model, width, height, style, qualityMode);
-          return { steps: userSteps, optimized: false, suggested: suggestion.steps, reasoning: suggestion.reasoning, user_override: true };
-      }
-      return this.calculateOptimalSteps(model, width, height, style, qualityMode);
-  }
-  
-  static calculateOptimalSteps(model, width, height, style, qualityMode = 'standard') {
-      const rules = CONFIG.OPTIMIZATION_RULES;
-      const modelRule = rules.MODEL_STEPS[model] || rules.MODEL_STEPS["flux"];
-      const modeConfig = CONFIG.HD_OPTIMIZATION.QUALITY_MODES[qualityMode];
-      const profile = CONFIG.HD_OPTIMIZATION.MODEL_QUALITY_PROFILES[model];
-      let baseSteps = modelRule.optimal;
-      const reasoning = [];
-      reasoning.push(model + ": " + baseSteps + "步");
-      
-      const totalPixels = width * height;
-      let sizeMultiplier = 1.0;
-      
-      if (totalPixels >= rules.SIZE_MULTIPLIER.xlarge.threshold) {
-          sizeMultiplier = rules.SIZE_MULTIPLIER.xlarge.multiplier;
-          reasoning.push("超大 x" + sizeMultiplier);
-      } else if (totalPixels >= rules.SIZE_MULTIPLIER.large.threshold) {
-          sizeMultiplier = rules.SIZE_MULTIPLIER.large.multiplier;
-          reasoning.push("大尺寸 x" + sizeMultiplier);
-      } else if (totalPixels <= rules.SIZE_MULTIPLIER.small.threshold) {
-          sizeMultiplier = rules.SIZE_MULTIPLIER.small.multiplier;
-      } else {
-          sizeMultiplier = rules.SIZE_MULTIPLIER.medium.multiplier;
-      }
-      
-      let styleMultiplier = rules.STYLE_ADJUSTMENT[style] || rules.STYLE_ADJUSTMENT.default;
-      let qualityMultiplier = modeConfig?.steps_multiplier || 1.0;
-      if (qualityMultiplier !== 1.0) reasoning.push(modeConfig.name + " x" + qualityMultiplier);
-      
-      let profileBoost = profile?.optimal_steps_boost || 1.0;
-      if (profileBoost !== 1.0) reasoning.push("模型配置 x" + profileBoost);
-      
-      let optimizedSteps = Math.round(baseSteps * sizeMultiplier * styleMultiplier * qualityMultiplier * profileBoost);
-      optimizedSteps = Math.max(modelRule.min, Math.min(optimizedSteps, modelRule.max));
-      
-      reasoning.push("→ " + optimizedSteps + "步");
-      return { steps: optimizedSteps, optimized: true, base_steps: baseSteps, size_multiplier: sizeMultiplier, style_multiplier: styleMultiplier, quality_multiplier: qualityMultiplier, profile_boost: profileBoost, min_steps: modelRule.min, max_steps: modelRule.max, reasoning: reasoning.join(' ') };
-  }
-  
-  static optimizeGuidance(model, style, qualityMode = 'standard') {
-      const modeConfig = CONFIG.HD_OPTIMIZATION.QUALITY_MODES[qualityMode];
-      const profile = CONFIG.HD_OPTIMIZATION.MODEL_QUALITY_PROFILES[model];
-      let baseGuidance = 7.5;
-      
-      if (model.includes('turbo')) {
-          baseGuidance = style === 'photorealistic' ? 3.0 : 2.5;
-      } else if (style === 'photorealistic') {
-          baseGuidance = 8.5;
-      } else if (['oil-painting', 'watercolor', 'sketch'].includes(style)) {
-          baseGuidance = 6.5;
-      }
-      
-      let qualityBoost = modeConfig?.guidance_multiplier || 1.0;
-      let profileBoost = profile?.guidance_boost || 1.0;
-      return Math.round(baseGuidance * qualityBoost * profileBoost * 10) / 10;
-  }
+    static optimizeSteps(model, width, height, style = 'none', qualityMode = 'standard', userSteps = null) {
+        if (userSteps !== null && userSteps !== -1) {
+            const suggestion = this.calculateOptimalSteps(model, width, height, style, qualityMode);
+            return { steps: userSteps, optimized: false, suggested: suggestion.steps, reasoning: suggestion.reasoning, user_override: true };
+        }
+        return this.calculateOptimalSteps(model, width, height, style, qualityMode);
+    }
+    
+    static calculateOptimalSteps(model, width, height, style, qualityMode = 'standard') {
+        const rules = CONFIG.OPTIMIZATION_RULES;
+        const modelRule = rules.MODEL_STEPS[model] || rules.MODEL_STEPS["flux"];
+        const modeConfig = CONFIG.HD_OPTIMIZATION.QUALITY_MODES[qualityMode];
+        const profile = CONFIG.HD_OPTIMIZATION.MODEL_QUALITY_PROFILES[model];
+        let baseSteps = modelRule.optimal;
+        const reasoning = [];
+        reasoning.push(model + ": " + baseSteps + "步");
+        
+        const totalPixels = width * height;
+        let sizeMultiplier = 1.0;
+        
+        if (totalPixels >= rules.SIZE_MULTIPLIER.xlarge.threshold) {
+            sizeMultiplier = rules.SIZE_MULTIPLIER.xlarge.multiplier;
+            reasoning.push("超大 x" + sizeMultiplier);
+        } else if (totalPixels >= rules.SIZE_MULTIPLIER.large.threshold) {
+            sizeMultiplier = rules.SIZE_MULTIPLIER.large.multiplier;
+            reasoning.push("大尺寸 x" + sizeMultiplier);
+        } else if (totalPixels <= rules.SIZE_MULTIPLIER.small.threshold) {
+            sizeMultiplier = rules.SIZE_MULTIPLIER.small.multiplier;
+        } else {
+            sizeMultiplier = rules.SIZE_MULTIPLIER.medium.multiplier;
+        }
+        
+        let styleMultiplier = rules.STYLE_ADJUSTMENT[style] || rules.STYLE_ADJUSTMENT.default;
+        let qualityMultiplier = modeConfig?.steps_multiplier || 1.0;
+        if (qualityMultiplier !== 1.0) reasoning.push(modeConfig.name + " x" + qualityMultiplier);
+        
+        let profileBoost = profile?.optimal_steps_boost || 1.0;
+        if (profileBoost !== 1.0) reasoning.push("模型配置 x" + profileBoost);
+        
+        let optimizedSteps = Math.round(baseSteps * sizeMultiplier * styleMultiplier * qualityMultiplier * profileBoost);
+        optimizedSteps = Math.max(modelRule.min, Math.min(optimizedSteps, modelRule.max));
+        
+        reasoning.push("→ " + optimizedSteps + "步");
+        return { steps: optimizedSteps, optimized: true, base_steps: baseSteps, size_multiplier: sizeMultiplier, style_multiplier: styleMultiplier, quality_multiplier: qualityMultiplier, profile_boost: profileBoost, min_steps: modelRule.min, max_steps: modelRule.max, reasoning: reasoning.join(' ') };
+    }
+    
+    static optimizeGuidance(model, style, qualityMode = 'standard') {
+        const modeConfig = CONFIG.HD_OPTIMIZATION.QUALITY_MODES[qualityMode];
+        const profile = CONFIG.HD_OPTIMIZATION.MODEL_QUALITY_PROFILES[model];
+        let baseGuidance = 7.5;
+        
+        if (model.includes('turbo')) {
+            baseGuidance = style === 'photorealistic' ? 3.0 : 2.5;
+        } else if (style === 'photorealistic') {
+            baseGuidance = 8.5;
+        } else if (['oil-painting', 'watercolor', 'sketch'].includes(style)) {
+            baseGuidance = 6.5;
+        }
+        
+        let qualityBoost = modeConfig?.guidance_multiplier || 1.0;
+        let profileBoost = profile?.guidance_boost || 1.0;
+        return Math.round(baseGuidance * qualityBoost * profileBoost * 10) / 10;
+    }
 }
 
 class StyleProcessor {
-  static applyStyle(prompt, style, negativePrompt) {
-      try {
-          if (!style || style === 'none' || style === '') {
-              return { enhancedPrompt: prompt, enhancedNegative: negativePrompt || "" };
-          }
-          if (!CONFIG.STYLE_PRESETS || typeof CONFIG.STYLE_PRESETS !== 'object') {
-              console.warn("⚠️ STYLE_PRESETS not found");
-              return { enhancedPrompt: prompt, enhancedNegative: negativePrompt || "" };
-          }
-          const styleConfig = CONFIG.STYLE_PRESETS[style];
-          if (!styleConfig) {
-              console.warn("⚠️ Style '" + style + "' not found");
-              return { enhancedPrompt: prompt, enhancedNegative: negativePrompt || "" };
-          }
-          let enhancedPrompt = prompt;
-          if (styleConfig.prompt && styleConfig.prompt.trim()) {
-              enhancedPrompt = prompt + ", " + styleConfig.prompt;
-          }
-          let enhancedNegative = negativePrompt || "";
-          if (styleConfig.negative && styleConfig.negative.trim()) {
-              if (enhancedNegative && enhancedNegative.trim()) {
-                  enhancedNegative = enhancedNegative + ", " + styleConfig.negative;
-              } else {
-                  enhancedNegative = styleConfig.negative;
-              }
-          }
-          console.log("✅ Style applied:", style);
-          return { enhancedPrompt: enhancedPrompt, enhancedNegative: enhancedNegative };
-      } catch (error) {
-          console.error("❌ StyleProcessor error:", error.message);
-          return { enhancedPrompt: prompt, enhancedNegative: negativePrompt || "" };
-      }
-  }
+    static applyStyle(prompt, style, negativePrompt) {
+        try {
+            if (!style || style === 'none' || style === '') {
+                return { enhancedPrompt: prompt, enhancedNegative: negativePrompt || "" };
+            }
+            if (!CONFIG.STYLE_PRESETS || typeof CONFIG.STYLE_PRESETS !== 'object') {
+                console.warn("⚠️ STYLE_PRESETS not found");
+                return { enhancedPrompt: prompt, enhancedNegative: negativePrompt || "" };
+            }
+            const styleConfig = CONFIG.STYLE_PRESETS[style];
+            if (!styleConfig) {
+                console.warn("⚠️ Style '" + style + "' not found");
+                return { enhancedPrompt: prompt, enhancedNegative: negativePrompt || "" };
+            }
+            let enhancedPrompt = prompt;
+            if (styleConfig.prompt && styleConfig.prompt.trim()) {
+                enhancedPrompt = prompt + ", " + styleConfig.prompt;
+            }
+            let enhancedNegative = negativePrompt || "";
+            if (styleConfig.negative && styleConfig.negative.trim()) {
+                if (enhancedNegative && enhancedNegative.trim()) {
+                    enhancedNegative = enhancedNegative + ", " + styleConfig.negative;
+                } else {
+                    enhancedNegative = styleConfig.negative;
+                }
+            }
+            console.log("✅ Style applied:", style);
+            return { enhancedPrompt: enhancedPrompt, enhancedNegative: enhancedNegative };
+        } catch (error) {
+            console.error("❌ StyleProcessor error:", error.message);
+            return { enhancedPrompt: prompt, enhancedNegative: negativePrompt || "" };
+        }
+    }
 }
 
 async function fetchWithTimeout(url, options = {}, timeout = CONFIG.FETCH_TIMEOUT) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  try {
-      const response = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeoutId);
-      return response;
-  } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') throw new Error("Request timeout after " + timeout + "ms");
-      throw error;
-  }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+        return response;
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') throw new Error("Request timeout after " + timeout + "ms");
+        throw error;
+    }
 }
 
 function corsHeaders(additionalHeaders = {}) {
-  return { 
-      'Access-Control-Allow-Origin': '*', 
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With', 
-      'Access-Control-Max-Age': '86400', 
-      ...additionalHeaders 
-  };
+    return { 
+        'Access-Control-Allow-Origin': '*', 
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With', 
+        'Access-Control-Max-Age': '86400', 
+        ...additionalHeaders 
+    };
 }
 // =================================================================================
-// 第 3 段：PollinationsProvider 核心生成類
+// 第 3 段：PollinationsProvider 核心生成類（返回圖片字節）
 // =================================================================================
 
 class PollinationsProvider {
-  constructor(config, env) {
-      this.config = config;
-      this.name = config.name;
-      this.env = env;
-  }
-  
-  async generate(prompt, options, logger) {
-      const { 
-          model = "zimage", 
-          width = 1024, 
-          height = 1024, 
-          seed = -1, 
-          negativePrompt = "", 
-          guidance = null, 
-          steps = null, 
-          enhance = false, 
-          nologo = true, 
-          privateMode = true, 
-          style = "none", 
-          autoOptimize = true, 
-          autoHD = true, 
-          qualityMode = 'standard',
-          referenceImages = []
-      } = options;
-      
-      const modelConfig = this.config.models.find(m => m.id === model);
-      const supportsRefImages = modelConfig?.supports_reference_images || false;
-      const maxRefImages = modelConfig?.max_reference_images || 0;
-      
-      let validReferenceImages = [];
-      if (referenceImages && referenceImages.length > 0) {
-          if (!supportsRefImages) {
-              logger.add("⚠️ Reference Images", { 
-                  warning: model + " 不支持參考圖,已忽略", 
-                  supported_models: ["kontext"] 
-              });
-          } else if (referenceImages.length > maxRefImages) {
-              logger.add("⚠️ Reference Images", { 
-                  warning: model + " 最多支持 " + maxRefImages + " 張參考圖", 
-                  provided: referenceImages.length, 
-                  using: maxRefImages 
-              });
-              validReferenceImages = referenceImages.slice(0, maxRefImages);
-          } else {
-              validReferenceImages = referenceImages;
-              logger.add("🖼️ Reference Images", { 
-                  model: model, 
-                  count: validReferenceImages.length, 
-                  max_allowed: maxRefImages,
-                  mode: "圖生圖"
-              });
-          }
-      }
-      
-      let hdOptimization = null;
-      let finalPrompt = prompt;
-      let finalNegativePrompt = negativePrompt;
-      let finalWidth = width;
-      let finalHeight = height;
-      
-      const promptComplexity = PromptAnalyzer.analyzeComplexity(prompt);
-      const recommendedQuality = PromptAnalyzer.recommendQualityMode(prompt, model);
-      logger.add("🧠 Prompt Analysis", { 
-          complexity: (promptComplexity * 100).toFixed(1) + '%', 
-          recommended_quality: recommendedQuality, 
-          selected_quality: qualityMode,
-          has_reference_images: validReferenceImages.length > 0
-      });
-      
-      if (autoHD) {
-          hdOptimization = HDOptimizer.optimize(
-              prompt, 
-              negativePrompt, 
-              model, 
-              width, 
-              height, 
-              qualityMode, 
-              autoHD
-          );
-          finalPrompt = hdOptimization.prompt;
-          finalNegativePrompt = hdOptimization.negativePrompt;
-          finalWidth = hdOptimization.width;
-          finalHeight = hdOptimization.height;
-          
-          if (hdOptimization.optimized) {
-              logger.add("🎨 HD Optimization", { 
-                  mode: qualityMode, 
-                  hd_level: hdOptimization.hd_level, 
-                  original: width + "x" + height, 
-                  optimized: finalWidth + "x" + finalHeight, 
-                  upscaled: hdOptimization.size_upscaled, 
-                  details: hdOptimization.optimizations 
-              });
-          }
-      }
-      
-      let finalSteps = steps;
-      let finalGuidance = guidance;
-      
-      if (autoOptimize) {
-          const stepsOptimization = ParameterOptimizer.optimizeSteps(model, finalWidth, finalHeight, style, qualityMode, steps);
-          finalSteps = stepsOptimization.steps;
-          logger.add("🎯 Steps Optimization", { steps: stepsOptimization.steps, reasoning: stepsOptimization.reasoning });
-          
-          if (guidance === null) {
-              finalGuidance = ParameterOptimizer.optimizeGuidance(model, style, qualityMode);
-          } else {
-              finalGuidance = guidance;
-          }
-      } else {
-          finalSteps = steps || 20;
-          finalGuidance = guidance || 7.5;
-      }
-      
-      const { enhancedPrompt, enhancedNegative } = StyleProcessor.applyStyle(finalPrompt, style, finalNegativePrompt);
-      
-      logger.add("🎨 Style Processing", { 
-          selected_style: style,
-          style_applied: style !== 'none',
-          original_prompt_length: finalPrompt.length,
-          enhanced_prompt_length: enhancedPrompt.length,
-          prompt_added: enhancedPrompt.length - finalPrompt.length
-      });
-      
-      const translation = await translateToEnglish(enhancedPrompt, this.env);
-      const finalPromptForAPI = translation.text;
-      
-      if (translation.translated) {
-          logger.add("🌐 Auto Translation", { 
-              original_zh: translation.original,
-              translated_en: finalPromptForAPI.substring(0, 100) + (finalPromptForAPI.length > 100 ? '...' : ''),
-              success: true,
-              model: translation.model || "unknown"
-          });
-      } else {
-          logger.add("⚠️ Translation", { 
-              status: "skipped",
-              reason: translation.reason || "Unknown",
-              using_original: true
-          });
-      }
-      
-      logger.add("🎨 Generation Config", { 
-          provider: this.name, 
-          model: model, 
-          dimensions: finalWidth + "x" + finalHeight,
-          quality_mode: qualityMode, 
-          hd_optimized: autoHD && hdOptimization?.optimized, 
-          auto_translated: translation.translated,
-          style_applied: style !== 'none',
-          reference_images: validReferenceImages.length,
-          generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖",
-          steps: finalSteps, 
-          guidance: finalGuidance,
-          seed: seed
-      });
-      
-      const currentSeed = seed === -1 ? Math.floor(Math.random() * 1000000) : seed;
-      let fullPrompt = finalPromptForAPI;
-      if (enhancedNegative && enhancedNegative.trim()) {
-          fullPrompt = finalPromptForAPI + " [negative: " + enhancedNegative + "]";
-      }
-      
-      const encodedPrompt = encodeURIComponent(fullPrompt);
-      
-      const pathPrefix = this.config.pathPrefix || "/image";
-      let baseUrl = this.config.endpoint + pathPrefix + "/" + encodedPrompt;
-      
-      const params = new URLSearchParams();
-      params.append('model', model);
-      params.append('width', finalWidth.toString());
-      params.append('height', finalHeight.toString());
-      params.append('seed', currentSeed.toString());
-      params.append('nologo', nologo.toString());
-      params.append('enhance', enhance.toString());
-      params.append('private', privateMode.toString());
-      
-      if (validReferenceImages && validReferenceImages.length > 0) {
-          params.append('image', validReferenceImages.join(','));
-          logger.add("🖼️ Reference Images Added", { 
-              count: validReferenceImages.length,
-              urls: validReferenceImages 
-          });
-      }
-      
-      if (finalGuidance !== 7.5) params.append('guidance', finalGuidance.toString());
-      if (finalSteps !== 20) params.append('steps', finalSteps.toString());
-      
-      const headers = {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'image/*',
-          'Referer': 'https://pollinations.ai/'
-      };
-      
-      const authConfig = CONFIG.POLLINATIONS_AUTH;
-      if (authConfig.enabled && authConfig.token) {
-          headers['Authorization'] = `Bearer ${authConfig.token}`;
-          logger.add("🔐 API Authentication", { 
-              method: "Bearer Token",
-              token_prefix: authConfig.token.substring(0, 8) + "...",
-              enabled: true
-          });
-      } else {
-          logger.add("🔓 Anonymous Mode", { 
-              authenticated: false,
-              note: "未配置 API Key,使用匿名模式"
-          });
-      }
-      
-      const url = baseUrl + '?' + params.toString();
-      
-      logger.add("📡 API Request", { 
-          endpoint: this.config.endpoint,
-          path: pathPrefix + "/" + encodedPrompt.substring(0, 50) + "...",
-          model: model,
-          authenticated: authConfig.enabled
-      });
-      
-      for (let retry = 0; retry < CONFIG.MAX_RETRIES; retry++) {
-          try {
-              const response = await fetchWithTimeout(url, { 
-                  method: 'GET', 
-                  headers: headers
-              }, 90000);
-              
-              if (response.ok) {
-                  const contentType = response.headers.get('content-type');
-                  if (contentType && contentType.startsWith('image/')) {
-                      logger.add("✅ Success", { 
-                          url: response.url, 
-                          used_model: model, 
-                          final_size: finalWidth + "x" + finalHeight,
-                          quality_mode: qualityMode, 
-                          style_used: style,
-                          hd_optimized: autoHD && hdOptimization?.optimized, 
-                          auto_translated: translation.translated,
-                          reference_images_used: validReferenceImages.length,
-                          generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖",
-                          authenticated: authConfig.enabled,
-                          seed: currentSeed 
-                      });
-                      
-                      return { 
-                          url: response.url, 
-                          provider: this.name, 
-                          model: model, 
-                          requested_model: model, 
-                          seed: currentSeed, 
-                          style: style, 
-                          steps: finalSteps, 
-                          guidance: finalGuidance, 
-                          width: finalWidth, 
-                          height: finalHeight,
-                          quality_mode: qualityMode, 
-                          prompt_complexity: promptComplexity, 
-                          hd_optimized: autoHD && hdOptimization?.optimized, 
-                          hd_details: hdOptimization, 
-                          auto_translated: translation.translated,
-                          reference_images: validReferenceImages,
-                          reference_images_count: validReferenceImages.length,
-                          generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖",
-                          authenticated: authConfig.enabled,
-                          cost: "FREE", 
-                          auto_optimized: autoOptimize 
-                      };
-                  } else {
-                      throw new Error("Invalid content type: " + contentType);
-                  }
-              } else {
-                  throw new Error("HTTP " + response.status);
-              }
-          } catch (e) {
-              logger.add("❌ Request Failed", { 
-                  error: e.message, 
-                  model: model, 
-                  retry: retry + 1,
-                  max_retries: CONFIG.MAX_RETRIES
-              });
-              
-              if (retry < CONFIG.MAX_RETRIES - 1) {
-                  await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1)));
-              }
-          }
-      }
-      throw new Error("Model " + model + " failed after " + CONFIG.MAX_RETRIES + " retries");
-  }
+    constructor(config, env) {
+        this.config = config;
+        this.name = config.name;
+        this.env = env;
+    }
+    
+    async generate(prompt, options, logger) {
+        const { 
+            model = "zimage", 
+            width = 1024, 
+            height = 1024, 
+            seed = -1, 
+            negativePrompt = "", 
+            guidance = null, 
+            steps = null, 
+            enhance = false, 
+            nologo = true, 
+            privateMode = true, 
+            style = "none", 
+            autoOptimize = true, 
+            autoHD = true, 
+            qualityMode = 'standard',
+            referenceImages = []
+        } = options;
+        
+        const modelConfig = this.config.models.find(m => m.id === model);
+        const supportsRefImages = modelConfig?.supports_reference_images || false;
+        const maxRefImages = modelConfig?.max_reference_images || 0;
+        
+        let validReferenceImages = [];
+        if (referenceImages && referenceImages.length > 0) {
+            if (!supportsRefImages) {
+                logger.add("⚠️ Reference Images", { 
+                    warning: model + " 不支持參考圖,已忽略", 
+                    supported_models: ["kontext"] 
+                });
+            } else if (referenceImages.length > maxRefImages) {
+                logger.add("⚠️ Reference Images", { 
+                    warning: model + " 最多支持 " + maxRefImages + " 張參考圖", 
+                    provided: referenceImages.length, 
+                    using: maxRefImages 
+                });
+                validReferenceImages = referenceImages.slice(0, maxRefImages);
+            } else {
+                validReferenceImages = referenceImages;
+                logger.add("🖼️ Reference Images", { 
+                    model: model, 
+                    count: validReferenceImages.length, 
+                    max_allowed: maxRefImages,
+                    mode: "圖生圖"
+                });
+            }
+        }
+        
+        let hdOptimization = null;
+        let finalPrompt = prompt;
+        let finalNegativePrompt = negativePrompt;
+        let finalWidth = width;
+        let finalHeight = height;
+        
+        const promptComplexity = PromptAnalyzer.analyzeComplexity(prompt);
+        const recommendedQuality = PromptAnalyzer.recommendQualityMode(prompt, model);
+        logger.add("🧠 Prompt Analysis", { 
+            complexity: (promptComplexity * 100).toFixed(1) + '%', 
+            recommended_quality: recommendedQuality, 
+            selected_quality: qualityMode,
+            has_reference_images: validReferenceImages.length > 0
+        });
+        
+        if (autoHD) {
+            hdOptimization = HDOptimizer.optimize(
+                prompt, 
+                negativePrompt, 
+                model, 
+                width, 
+                height, 
+                qualityMode, 
+                autoHD
+            );
+            finalPrompt = hdOptimization.prompt;
+            finalNegativePrompt = hdOptimization.negativePrompt;
+            finalWidth = hdOptimization.width;
+            finalHeight = hdOptimization.height;
+            
+            if (hdOptimization.optimized) {
+                logger.add("🎨 HD Optimization", { 
+                    mode: qualityMode, 
+                    hd_level: hdOptimization.hd_level, 
+                    original: width + "x" + height, 
+                    optimized: finalWidth + "x" + finalHeight, 
+                    upscaled: hdOptimization.size_upscaled, 
+                    details: hdOptimization.optimizations 
+                });
+            }
+        }
+        
+        let finalSteps = steps;
+        let finalGuidance = guidance;
+        
+        if (autoOptimize) {
+            const stepsOptimization = ParameterOptimizer.optimizeSteps(model, finalWidth, finalHeight, style, qualityMode, steps);
+            finalSteps = stepsOptimization.steps;
+            logger.add("🎯 Steps Optimization", { steps: stepsOptimization.steps, reasoning: stepsOptimization.reasoning });
+            
+            if (guidance === null) {
+                finalGuidance = ParameterOptimizer.optimizeGuidance(model, style, qualityMode);
+            } else {
+                finalGuidance = guidance;
+            }
+        } else {
+            finalSteps = steps || 20;
+            finalGuidance = guidance || 7.5;
+        }
+        
+        const { enhancedPrompt, enhancedNegative } = StyleProcessor.applyStyle(finalPrompt, style, finalNegativePrompt);
+        
+        logger.add("🎨 Style Processing", { 
+            selected_style: style,
+            style_applied: style !== 'none',
+            original_prompt_length: finalPrompt.length,
+            enhanced_prompt_length: enhancedPrompt.length,
+            prompt_added: enhancedPrompt.length - finalPrompt.length
+        });
+        
+        const translation = await translateToEnglish(enhancedPrompt, this.env);
+        const finalPromptForAPI = translation.text;
+        
+        if (translation.translated) {
+            logger.add("🌐 Auto Translation", { 
+                original_zh: translation.original,
+                translated_en: finalPromptForAPI.substring(0, 100) + (finalPromptForAPI.length > 100 ? '...' : ''),
+                success: true,
+                model: translation.model || "unknown"
+            });
+        } else {
+            logger.add("⚠️ Translation", { 
+                status: "skipped",
+                reason: translation.reason || "Unknown",
+                using_original: true
+            });
+        }
+        
+        logger.add("🎨 Generation Config", { 
+            provider: this.name, 
+            model: model, 
+            dimensions: finalWidth + "x" + finalHeight,
+            quality_mode: qualityMode, 
+            hd_optimized: autoHD && hdOptimization?.optimized, 
+            auto_translated: translation.translated,
+            style_applied: style !== 'none',
+            reference_images: validReferenceImages.length,
+            generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖",
+            steps: finalSteps, 
+            guidance: finalGuidance,
+            seed: seed
+        });
+        
+        const currentSeed = seed === -1 ? Math.floor(Math.random() * 1000000) : seed;
+        let fullPrompt = finalPromptForAPI;
+        if (enhancedNegative && enhancedNegative.trim()) {
+            fullPrompt = finalPromptForAPI + " [negative: " + enhancedNegative + "]";
+        }
+        
+        const encodedPrompt = encodeURIComponent(fullPrompt);
+        
+        const pathPrefix = this.config.pathPrefix || "";
+        let baseUrl = this.config.endpoint + pathPrefix + "/prompt/" + encodedPrompt;
+        
+        const params = new URLSearchParams();
+        params.append('model', model);
+        params.append('width', finalWidth.toString());
+        params.append('height', finalHeight.toString());
+        params.append('seed', currentSeed.toString());
+        params.append('nologo', nologo.toString());
+        params.append('enhance', enhance.toString());
+        params.append('private', privateMode.toString());
+        
+        if (validReferenceImages && validReferenceImages.length > 0) {
+            params.append('image', validReferenceImages.join(','));
+            logger.add("🖼️ Reference Images Added", { 
+                count: validReferenceImages.length,
+                urls: validReferenceImages 
+            });
+        }
+        
+        if (finalGuidance !== 7.5) params.append('guidance', finalGuidance.toString());
+        if (finalSteps !== 20) params.append('steps', finalSteps.toString());
+        
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'image/*',
+            'Referer': 'https://pollinations.ai/'
+        };
+        
+        const authConfig = CONFIG.POLLINATIONS_AUTH;
+        if (authConfig.enabled && authConfig.token) {
+            headers['Authorization'] = `Bearer ${authConfig.token}`;
+            logger.add("🔐 API Authentication", { 
+                method: "Bearer Token",
+                token_prefix: authConfig.token.substring(0, 8) + "...",
+                enabled: true
+            });
+        } else {
+            logger.add("🔓 Anonymous Mode", { 
+                authenticated: false,
+                note: "未配置 API Key,使用匿名模式"
+            });
+        }
+        
+        const url = baseUrl + '?' + params.toString();
+        
+        logger.add("📡 API Request", { 
+            endpoint: this.config.endpoint,
+            path: pathPrefix + "/prompt/" + encodedPrompt.substring(0, 50) + "...",
+            model: model,
+            authenticated: authConfig.enabled
+        });
+        
+        for (let retry = 0; retry < CONFIG.MAX_RETRIES; retry++) {
+            try {
+                const response = await fetchWithTimeout(url, { 
+                    method: 'GET', 
+                    headers: headers
+                }, 120000);
+                
+                if (response.ok) {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.startsWith('image/')) {
+                        logger.add("✅ Success", { 
+                            url: response.url, 
+                            used_model: model, 
+                            final_size: finalWidth + "x" + finalHeight,
+                            quality_mode: qualityMode, 
+                            style_used: style,
+                            hd_optimized: autoHD && hdOptimization?.optimized, 
+                            auto_translated: translation.translated,
+                            reference_images_used: validReferenceImages.length,
+                            generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖",
+                            authenticated: authConfig.enabled,
+                            seed: currentSeed 
+                        });
+                        
+                        // ✅ 獲取圖片字節數據
+                        const imageBlob = await response.blob();
+                        const imageBuffer = await imageBlob.arrayBuffer();
+                        
+                        return { 
+                            // ✅ 新增：返回圖片字節數據
+                            imageData: imageBuffer,
+                            contentType: contentType,
+                            
+                            // 保留原有信息
+                            url: response.url, 
+                            provider: this.name, 
+                            model: model, 
+                            requested_model: model, 
+                            seed: currentSeed, 
+                            style: style, 
+                            steps: finalSteps, 
+                            guidance: finalGuidance, 
+                            width: finalWidth, 
+                            height: finalHeight,
+                            quality_mode: qualityMode, 
+                            prompt_complexity: promptComplexity, 
+                            hd_optimized: autoHD && hdOptimization?.optimized, 
+                            hd_details: hdOptimization, 
+                            auto_translated: translation.translated,
+                            reference_images: validReferenceImages,
+                            reference_images_count: validReferenceImages.length,
+                            generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖",
+                            authenticated: authConfig.enabled,
+                            cost: "FREE", 
+                            auto_optimized: autoOptimize 
+                        };
+                    } else {
+                        throw new Error("Invalid content type: " + contentType);
+                    }
+                } else {
+                    throw new Error("HTTP " + response.status);
+                }
+            } catch (e) {
+                logger.add("❌ Request Failed", { 
+                    error: e.message, 
+                    model: model, 
+                    retry: retry + 1,
+                    max_retries: CONFIG.MAX_RETRIES
+                });
+                
+                if (retry < CONFIG.MAX_RETRIES - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1)));
+                }
+            }
+        }
+        throw new Error("Model " + model + " failed after " + CONFIG.MAX_RETRIES + " retries");
+    }
 }
 
 class MultiProviderRouter {
-  constructor(apiKeys = {}, env = null) {
-      this.providers = {};
-      this.apiKeys = apiKeys;
-      this.env = env;
-      
-      for (const [key, config] of Object.entries(CONFIG.PROVIDERS)) {
-          if (config.enabled) {
-              if (key === 'pollinations') {
-                  this.providers[key] = new PollinationsProvider(config, env);
-              }
-          }
-      }
-  }
-  
-  getProvider(providerName = null) {
-      if (providerName && this.providers[providerName]) {
-          return { name: providerName, instance: this.providers[providerName] };
-      }
-      const defaultName = CONFIG.DEFAULT_PROVIDER;
-      if (this.providers[defaultName]) {
-          return { name: defaultName, instance: this.providers[defaultName] };
-      }
-      const firstProvider = Object.keys(this.providers)[0];
-      if (firstProvider) {
-          return { name: firstProvider, instance: this.providers[firstProvider] };
-      }
-      throw new Error('No available provider');
-  }
-  
-  async generate(prompt, options, logger) {
-      const { provider: requestedProvider = null, numOutputs = 1 } = options;
-      const { name: providerName, instance: provider } = this.getProvider(requestedProvider);
-      const results = [];
-      for (let i = 0; i < numOutputs; i++) {
-          const currentOptions = { ...options, seed: options.seed === -1 ? -1 : options.seed + i };
-          const result = await provider.generate(prompt, currentOptions, logger);
-          results.push(result);
-      }
-      return results;
-  }
+    constructor(apiKeys = {}, env = null) {
+        this.providers = {};
+        this.apiKeys = apiKeys;
+        this.env = env;
+        
+        for (const [key, config] of Object.entries(CONFIG.PROVIDERS)) {
+            if (config.enabled) {
+                if (key === 'pollinations') {
+                    this.providers[key] = new PollinationsProvider(config, env);
+                }
+            }
+        }
+    }
+    
+    getProvider(providerName = null) {
+        if (providerName && this.providers[providerName]) {
+            return { name: providerName, instance: this.providers[providerName] };
+        }
+        const defaultName = CONFIG.DEFAULT_PROVIDER;
+        if (this.providers[defaultName]) {
+            return { name: defaultName, instance: this.providers[defaultName] };
+        }
+        const firstProvider = Object.keys(this.providers)[0];
+        if (firstProvider) {
+            return { name: firstProvider, instance: this.providers[firstProvider] };
+        }
+        throw new Error('No available provider');
+    }
+    
+    async generate(prompt, options, logger) {
+        const { provider: requestedProvider = null, numOutputs = 1 } = options;
+        const { name: providerName, instance: provider } = this.getProvider(requestedProvider);
+        const results = [];
+        for (let i = 0; i < numOutputs; i++) {
+            const currentOptions = { ...options, seed: options.seed === -1 ? -1 : options.seed + i };
+            const result = await provider.generate(prompt, currentOptions, logger);
+            results.push(result);
+        }
+        return results;
+    }
 }
 // =================================================================================
-// 第 4 段：主入口和內部生成函數
+// 第 4 段：主入口和內部生成函數（返回圖片字節）
 // =================================================================================
 
 export default {
-  async fetch(request, env, ctx) {
-      const url = new URL(request.url);
-      const startTime = Date.now();
-      const clientIP = getClientIP(request);
-      
-      if (env.POLLINATIONS_API_KEY) {
-          CONFIG.POLLINATIONS_AUTH.enabled = true;
-          CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY;
-      }
-      
-      console.log("=== Web UI Request ===");
-      console.log("IP:", clientIP);
-      console.log("Path:", url.pathname);
-      console.log("Method:", request.method);
-      console.log("Workers AI:", !!env.AI);
-      console.log("API Auth:", CONFIG.POLLINATIONS_AUTH.enabled ? "✅ Enabled" : "❌ Disabled");
-      console.log("=====================");
-      
-      if (request.method === 'OPTIONS') {
-          return new Response(null, { status: 204, headers: corsHeaders() });
-      }
-      
-      try {
-          let response;
-          
-          if (url.pathname === '/' || url.pathname === '') {
-              response = handleUI(request);
-          } else if (url.pathname === '/_internal/generate') {
-              response = await handleInternalGenerate(request, env, ctx);
-          } else if (url.pathname === '/health') {
-              response = new Response(JSON.stringify({
-                  status: 'ok',
-                  version: CONFIG.PROJECT_VERSION,
-                  timestamp: new Date().toISOString(),
-                  workers_ai: !!env.AI,
-                  api_auth: {
-                      enabled: CONFIG.POLLINATIONS_AUTH.enabled,
-                      method: CONFIG.POLLINATIONS_AUTH.method,
-                      has_token: !!CONFIG.POLLINATIONS_AUTH.token
-                  },
-                  models: CONFIG.PROVIDERS.pollinations.models.map(m => ({
-                      id: m.id,
-                      name: m.name,
-                      category: m.category,
-                      supports_reference_images: m.supports_reference_images || false
-                  }))
-              }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-          } else {
-              response = new Response(JSON.stringify({
-                  error: 'Not Found',
-                  message: '此 Worker 僅提供 Web UI 界面',
-                  available_paths: ['/', '/health']
-              }), { 
-                  status: 404,
-                  headers: corsHeaders({ 'Content-Type': 'application/json' }) 
-              });
-          }
-          
-          const duration = Date.now() - startTime;
-          const headers = new Headers(response.headers);
-          headers.set('X-Response-Time', duration + 'ms');
-          headers.set('X-Worker-Version', CONFIG.PROJECT_VERSION);
-          headers.set('X-API-Endpoint', CONFIG.PROVIDERS.pollinations.endpoint);
-          headers.set('X-API-Authenticated', CONFIG.POLLINATIONS_AUTH.enabled ? 'true' : 'false');
-          
-          return new Response(response.body, { status: response.status, headers: headers });
-      } catch (error) {
-          const duration = Date.now() - startTime;
-          console.error('Worker error:', error);
-          return new Response(JSON.stringify({
-              error: {
-                  message: error.message,
-                  type: 'worker_error',
-                  timestamp: new Date().toISOString()
-              }
-          }), {
-              status: 500,
-              headers: corsHeaders({ 'Content-Type': 'application/json' })
-          });
-      }
-  }
+    async fetch(request, env, ctx) {
+        const url = new URL(request.url);
+        const startTime = Date.now();
+        const clientIP = getClientIP(request);
+        
+        if (env.POLLINATIONS_API_KEY) {
+            CONFIG.POLLINATIONS_AUTH.enabled = true;
+            CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY;
+        }
+        
+        console.log("=== Web UI Request ===");
+        console.log("IP:", clientIP);
+        console.log("Path:", url.pathname);
+        console.log("Method:", request.method);
+        console.log("Workers AI:", !!env.AI);
+        console.log("API Auth:", CONFIG.POLLINATIONS_AUTH.enabled ? "✅ Enabled" : "❌ Disabled");
+        console.log("=====================");
+        
+        if (request.method === 'OPTIONS') {
+            return new Response(null, { status: 204, headers: corsHeaders() });
+        }
+        
+        try {
+            let response;
+            
+            if (url.pathname === '/' || url.pathname === '') {
+                response = handleUI(request);
+            } else if (url.pathname === '/_internal/generate') {
+                response = await handleInternalGenerate(request, env, ctx);
+            } else if (url.pathname === '/health') {
+                response = new Response(JSON.stringify({
+                    status: 'ok',
+                    version: CONFIG.PROJECT_VERSION,
+                    timestamp: new Date().toISOString(),
+                    workers_ai: !!env.AI,
+                    api_auth: {
+                        enabled: CONFIG.POLLINATIONS_AUTH.enabled,
+                        method: CONFIG.POLLINATIONS_AUTH.method,
+                        has_token: !!CONFIG.POLLINATIONS_AUTH.token
+                    },
+                    models: CONFIG.PROVIDERS.pollinations.models.map(m => ({
+                        id: m.id,
+                        name: m.name,
+                        category: m.category,
+                        supports_reference_images: m.supports_reference_images || false
+                    }))
+                }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+            } else {
+                response = new Response(JSON.stringify({
+                    error: 'Not Found',
+                    message: '此 Worker 僅提供 Web UI 界面',
+                    available_paths: ['/', '/health']
+                }), { 
+                    status: 404,
+                    headers: corsHeaders({ 'Content-Type': 'application/json' }) 
+                });
+            }
+            
+            const duration = Date.now() - startTime;
+            const headers = new Headers(response.headers);
+            headers.set('X-Response-Time', duration + 'ms');
+            headers.set('X-Worker-Version', CONFIG.PROJECT_VERSION);
+            headers.set('X-API-Endpoint', CONFIG.PROVIDERS.pollinations.endpoint);
+            headers.set('X-API-Authenticated', CONFIG.POLLINATIONS_AUTH.enabled ? 'true' : 'false');
+            
+            return new Response(response.body, { status: response.status, headers: headers });
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            console.error('Worker error:', error);
+            return new Response(JSON.stringify({
+                error: {
+                    message: error.message,
+                    type: 'worker_error',
+                    timestamp: new Date().toISOString()
+                }
+            }), {
+                status: 500,
+                headers: corsHeaders({ 'Content-Type': 'application/json' })
+            });
+        }
+    }
 };
 
 async function handleInternalGenerate(request, env, ctx) {
-  const logger = new Logger();
-  const startTime = Date.now();
-  
-  try {
-      const body = await request.json();
-      const prompt = body.prompt;
-      if (!prompt || !prompt.trim()) throw new Error("Prompt is required");
-      
-      let width = 1024, height = 1024;
-      if (body.width) width = body.width;
-      if (body.height) height = body.height;
-      
-      let referenceImages = [];
-      if (body.reference_images && Array.isArray(body.reference_images)) {
-          referenceImages = body.reference_images.filter(url => {
-              try {
-                  new URL(url);
-                  return true;
-              } catch {
-                  return false;
-              }
-          });
-      }
-      
-      const seedInput = body.seed !== undefined ? body.seed : -1;
-      let seedValue = -1;
-      if (seedInput !== -1) {
-          const parsedSeed = parseInt(seedInput);
-          if (!isNaN(parsedSeed) && parsedSeed >= 0 && parsedSeed <= 999999) {
-              seedValue = parsedSeed;
-          }
-      }
-      
-      const options = { 
-          provider: body.provider || null, 
-          model: body.model || "zimage", 
-          width: Math.min(Math.max(width, 256), 2048), 
-          height: Math.min(Math.max(height, 256), 2048), 
-          numOutputs: Math.min(Math.max(body.n || 1, 1), 4), 
-          seed: seedValue,
-          negativePrompt: body.negative_prompt || "", 
-          guidance: body.guidance_scale || null, 
-          steps: body.steps || null, 
-          enhance: body.enhance === true, 
-          nologo: body.nologo !== false, 
-          privateMode: body.private !== false, 
-          style: body.style || "none", 
-          autoOptimize: body.auto_optimize !== false, 
-          autoHD: body.auto_hd !== false, 
-          qualityMode: body.quality_mode || 'standard',
-          referenceImages: referenceImages
-      };
-      
-      const router = new MultiProviderRouter({}, env);
-      const results = await router.generate(prompt, options, logger);
-      
-      const duration = Date.now() - startTime;
-      
-      return new Response(JSON.stringify({ 
-          created: Math.floor(Date.now() / 1000), 
-          data: results.map(r => ({ 
-              url: r.url, 
-              provider: r.provider, 
-              model: r.model, 
-              seed: r.seed, 
-              width: r.width, 
-              height: r.height,
-              reference_images: r.reference_images || [],
-              reference_images_count: r.reference_images_count || 0,
-              generation_mode: r.generation_mode || "文生圖",
-              authenticated: r.authenticated || false,
-              style: r.style, 
-              quality_mode: r.quality_mode, 
-              prompt_complexity: r.prompt_complexity, 
-              steps: r.steps, 
-              guidance: r.guidance, 
-              auto_optimized: r.auto_optimized, 
-              hd_optimized: r.hd_optimized, 
-              auto_translated: r.auto_translated,
-              cost: r.cost 
-          })),
-          generation_time_ms: duration
-      }), { 
-          headers: corsHeaders({ 
-              'Content-Type': 'application/json',
-              'X-Generation-Time': duration + 'ms'
-          }) 
-      });
-  } catch (e) {
-      logger.add("❌ Error", e.message);
-      return new Response(JSON.stringify({ 
-          error: { 
-              message: e.message, 
-              debug_logs: logger.get() 
-          } 
-      }), { 
-          status: 400, 
-          headers: corsHeaders({ 'Content-Type': 'application/json' }) 
-      });
-  }
+    const logger = new Logger();
+    const startTime = Date.now();
+    
+    try {
+        const body = await request.json();
+        const prompt = body.prompt;
+        if (!prompt || !prompt.trim()) throw new Error("Prompt is required");
+        
+        let width = 1024, height = 1024;
+        if (body.width) width = body.width;
+        if (body.height) height = body.height;
+        
+        let referenceImages = [];
+        if (body.reference_images && Array.isArray(body.reference_images)) {
+            referenceImages = body.reference_images.filter(url => {
+                try {
+                    new URL(url);
+                    return true;
+                } catch {
+                    return false;
+                }
+            });
+        }
+        
+        const seedInput = body.seed !== undefined ? body.seed : -1;
+        let seedValue = -1;
+        if (seedInput !== -1) {
+            const parsedSeed = parseInt(seedInput);
+            if (!isNaN(parsedSeed) && parsedSeed >= 0 && parsedSeed <= 999999) {
+                seedValue = parsedSeed;
+            }
+        }
+        
+        const options = { 
+            provider: body.provider || null, 
+            model: body.model || "zimage", 
+            width: Math.min(Math.max(width, 256), 2048), 
+            height: Math.min(Math.max(height, 256), 2048), 
+            numOutputs: Math.min(Math.max(body.n || 1, 1), 4), 
+            seed: seedValue,
+            negativePrompt: body.negative_prompt || "", 
+            guidance: body.guidance_scale || null, 
+            steps: body.steps || null, 
+            enhance: body.enhance === true, 
+            nologo: body.nologo !== false, 
+            privateMode: body.private !== false, 
+            style: body.style || "none", 
+            autoOptimize: body.auto_optimize !== false, 
+            autoHD: body.auto_hd !== false, 
+            qualityMode: body.quality_mode || 'standard',
+            referenceImages: referenceImages
+        };
+        
+        const router = new MultiProviderRouter({}, env);
+        const results = await router.generate(prompt, options, logger);
+        
+        const duration = Date.now() - startTime;
+        
+        // ✅ 如果只生成一張圖片，直接返回圖片字節
+        if (results.length === 1 && results[0].imageData) {
+            const result = results[0];
+            
+            return new Response(result.imageData, {
+                headers: {
+                    'Content-Type': result.contentType || 'image/png',
+                    'Content-Disposition': `inline; filename="flux-ai-${result.seed}.png"`,
+                    'X-Model': result.model,
+                    'X-Seed': result.seed.toString(),
+                    'X-Width': result.width.toString(),
+                    'X-Height': result.height.toString(),
+                    'X-Generation-Time': duration + 'ms',
+                    'X-Quality-Mode': result.quality_mode,
+                    'X-Style': result.style,
+                    'X-Generation-Mode': result.generation_mode || '文生圖',
+                    'X-Authenticated': result.authenticated ? 'true' : 'false',
+                    ...corsHeaders()
+                }
+            });
+        }
+        
+        // ✅ 如果生成多張圖片，返回 JSON（包含 base64 編碼的圖片）
+        const imagesData = await Promise.all(results.map(async (r) => {
+            if (r.imageData) {
+                // 將 ArrayBuffer 轉換為 base64
+                const uint8Array = new Uint8Array(r.imageData);
+                let binary = '';
+                const len = uint8Array.byteLength;
+                for (let i = 0; i < len; i++) {
+                    binary += String.fromCharCode(uint8Array[i]);
+                }
+                const base64 = btoa(binary);
+                
+                return {
+                    image: `data:${r.contentType};base64,${base64}`,
+                    model: r.model,
+                    seed: r.seed,
+                    width: r.width,
+                    height: r.height,
+                    quality_mode: r.quality_mode,
+                    style: r.style,
+                    generation_mode: r.generation_mode,
+                    authenticated: r.authenticated
+                };
+            }
+            return null;
+        }));
+        
+        return new Response(JSON.stringify({ 
+            created: Math.floor(Date.now() / 1000), 
+            data: imagesData.filter(d => d !== null),
+            generation_time_ms: duration
+        }), { 
+            headers: corsHeaders({ 
+                'Content-Type': 'application/json',
+                'X-Generation-Time': duration + 'ms'
+            }) 
+        });
+        
+    } catch (e) {
+        logger.add("❌ Error", e.message);
+        return new Response(JSON.stringify({ 
+            error: { 
+                message: e.message, 
+                debug_logs: logger.get() 
+            } 
+        }), { 
+            status: 400, 
+            headers: corsHeaders({ 'Content-Type': 'application/json' }) 
+        });
+    }
 }
 // =================================================================================
-// 第 5 段：完整 Web UI 界面
+// 第 5 段：完整 Web UI 界面（處理圖片字節響應）
 // =================================================================================
 
 function handleUI() {
@@ -1066,7 +1089,7 @@ select{cursor:pointer}
 <div class="container">
 <div class="top-nav">
 <div class="nav-left">
-<div class="logo">🎨 Flux AI Pro<span class="badge">v${CONFIG.PROJECT_VERSION}</span><span class="badge-new">官方 API</span></div>
+<div class="logo">🎨 Flux AI Pro<span class="badge">v${CONFIG.PROJECT_VERSION}</span><span class="badge-new">圖片字節</span></div>
 <div class="api-status">${authStatus}</div>
 </div>
 <div class="nav-menu">
@@ -1239,13 +1262,14 @@ function exportHistory(){const history=getHistory();const dataStr=JSON.stringify
 function updateHistoryStats(){const history=getHistory();document.getElementById('historyCount').textContent=history.length;document.getElementById('historyTotal').textContent=history.length;const sizeKB=new Blob([JSON.stringify(history)]).size/1024;document.getElementById('storageSize').textContent=sizeKB.toFixed(1)+' KB';if(history.length>0){const modelNames={'zimage':'Z-Image','flux':'Flux','turbo':'Turbo','kontext':'Kontext'};document.getElementById('recentModel').textContent=modelNames[history[0].model]||history[0].model}else{document.getElementById('recentModel').textContent='-'}}
 function updateHistoryDisplay(){const history=getHistory();const historyList=document.getElementById('historyList');if(history.length===0){historyList.innerHTML='<div class="empty-state"><p style="font-size:16px;margin-bottom:10px">暫無歷史記錄</p><p style="font-size:14px">生成的圖像會自動保存在這裡</p></div>';updateHistoryStats();return}const galleryDiv=document.createElement('div');galleryDiv.className='gallery';history.forEach(item=>{const date=new Date(item.timestamp);const timeStr=date.toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});const itemDiv=document.createElement('div');itemDiv.className='gallery-item';itemDiv.innerHTML='<img src="'+item.url+'" alt="History" loading="lazy"><div class="gallery-info"><div class="gallery-meta"><span class="model-badge">'+item.model+'</span><span class="seed-badge">Seed: '+item.seed+'</span></div><div class="gallery-meta" style="margin-top:5px"><span class="time-badge">'+timeStr+'</span></div><div style="margin-top:8px;font-size:11px;color:#6b7280">'+item.width+'x'+item.height+' | '+(item.quality_mode||'standard')+'</div><div class="gallery-actions"><button class="action-btn reuse-btn">🔄 重用</button><button class="action-btn download-btn">💾 下載</button><button class="action-btn delete delete-btn">🗑️ 刪除</button></div></div>';const img=itemDiv.querySelector('img');img.addEventListener('click',function(){openModal(item.url)});const reuseBtn=itemDiv.querySelector('.reuse-btn');reuseBtn.addEventListener('click',function(){reusePrompt(item.id)});const downloadBtn=itemDiv.querySelector('.download-btn');downloadBtn.addEventListener('click',function(){downloadImage(item.url,item.seed)});const deleteBtn=itemDiv.querySelector('.delete-btn');deleteBtn.addEventListener('click',function(){deleteFromHistory(item.id)});galleryDiv.appendChild(itemDiv)});historyList.innerHTML='';historyList.appendChild(galleryDiv);updateHistoryStats()}
 function reusePrompt(id){const history=getHistory();const item=history.find(h=>h.id===id);if(!item)return;document.getElementById('prompt').value=item.prompt||'';document.getElementById('model').value=item.model||'zimage';document.getElementById('seed').value=item.seed||-1;document.getElementById('style').value=item.style||'none';document.getElementById('negativePrompt').value=item.negative_prompt||'';document.getElementById('referenceImages').value=(item.reference_images||[]).join(', ');updatePreview();document.querySelector('[data-page="generate"]').click();document.getElementById('prompt').focus()}
-function downloadImage(url,seed){fetch(url).then(res=>res.blob()).then(blob=>{const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='flux-ai-'+seed+'-'+Date.now()+'.png';link.click();URL.revokeObjectURL(link.href)}).catch(e=>alert('下載失敗: '+e.message))}
+function downloadImage(url,seed){const link=document.createElement('a');link.href=url;link.download='flux-ai-'+seed+'-'+Date.now()+'.png';link.click()}
 function openModal(url){document.getElementById('modalImage').src=url;document.getElementById('imageModal').classList.add('show')}
 function closeModal(){document.getElementById('imageModal').classList.remove('show')}
+function displayGeneratedImages(images){const history=getHistory();const galleryDiv=document.createElement('div');galleryDiv.className='gallery';const newImages=history.slice(0,images.length);newImages.forEach((item,index)=>{const date=new Date(item.timestamp);const timeStr=date.toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});const itemDiv=document.createElement('div');itemDiv.className='gallery-item';itemDiv.style.animation='fadeIn 0.5s ease-in';itemDiv.innerHTML='<img src="'+item.url+'" alt="Generated '+(index+1)+'" loading="lazy"><div class="gallery-info"><div style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;margin-bottom:8px;text-align:center">✅ 剛剛生成</div><div class="gallery-meta"><span class="model-badge">'+item.model+'</span><span class="seed-badge">Seed: '+item.seed+'</span></div><div class="gallery-meta" style="margin-top:5px"><span class="time-badge">'+timeStr+'</span></div><div style="margin-top:8px;font-size:11px;color:#6b7280">'+item.width+'x'+item.height+' | '+(item.quality_mode||'standard')+(item.generation_mode?' | '+item.generation_mode:'')+'</div><div class="gallery-actions"><button class="action-btn reuse-result-btn">🔄 重用</button><button class="action-btn download-result-btn">💾 下載</button><button class="action-btn view-history-btn">📚 查看歷史</button></div></div>';const img=itemDiv.querySelector('img');img.addEventListener('click',function(){openModal(item.url)});const reuseBtn=itemDiv.querySelector('.reuse-result-btn');reuseBtn.addEventListener('click',function(){reusePrompt(item.id)});const downloadBtn=itemDiv.querySelector('.download-result-btn');downloadBtn.addEventListener('click',function(){downloadImage(item.url,item.seed)});const viewBtn=itemDiv.querySelector('.view-history-btn');viewBtn.addEventListener('click',function(){document.querySelector('[data-page="history"]').click()});galleryDiv.appendChild(itemDiv)});const resultsDiv=document.getElementById('results');resultsDiv.innerHTML='';const successDiv=document.createElement('div');successDiv.className='alert alert-success';successDiv.innerHTML='<strong>✅ 生成成功！</strong> 已生成 '+images.length+' 張圖片並保存到歷史記錄';resultsDiv.appendChild(successDiv);resultsDiv.appendChild(galleryDiv)}
 const form=document.getElementById('generateForm');
 const resultsDiv=document.getElementById('results');
 const generateBtn=document.getElementById('generateBtn');
-form.addEventListener('submit',async(e)=>{e.preventDefault();const prompt=document.getElementById('prompt').value;if(!prompt.trim()){alert('請輸入提示詞');document.getElementById('prompt').focus();return}const model=document.getElementById('model').value;const sizePreset=document.getElementById('size').value;const style=document.getElementById('style').value;const qualityMode=document.getElementById('qualityMode').value;const seed=parseInt(document.getElementById('seed').value);const numOutputs=parseInt(document.getElementById('numOutputs').value);const negativePrompt=document.getElementById('negativePrompt').value;const autoOptimize=document.getElementById('autoOptimize').checked;const autoHD=document.getElementById('autoHD').checked;const refImagesInput=document.getElementById('referenceImages').value;let referenceImages=[];if(refImagesInput.trim()){referenceImages=refImagesInput.split(',').map(url=>url.trim()).filter(url=>url)}const sizes=${JSON.stringify(CONFIG.PRESET_SIZES)};const sizeConfig=sizes[sizePreset]||sizes['square-1k'];generateBtn.disabled=true;generateBtn.innerHTML='<div class="spinner"></div>生成中...';resultsDiv.innerHTML='<div class="loading"><div class="spinner"></div><p>正在生成圖像,請稍候...</p></div>';try{const response=await fetch('/_internal/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,model,width:sizeConfig.width,height:sizeConfig.height,style,quality_mode:qualityMode,seed:seed,n:numOutputs,negative_prompt:negativePrompt,auto_optimize:autoOptimize,auto_hd:autoHD,reference_images:referenceImages})});const data=await response.json();if(data.error){resultsDiv.innerHTML='<div class="alert alert-error"><strong>錯誤:</strong> '+data.error.message+'</div>'}else{data.data.forEach((item)=>{addToHistory({url:item.url,prompt:prompt,model:item.model,seed:item.seed,width:item.width,height:item.height,style:style,quality_mode:item.quality_mode,negative_prompt:negativePrompt,reference_images:referenceImages,generation_mode:item.generation_mode,authenticated:item.authenticated})});setTimeout(()=>{const history=getHistory();const galleryDiv=document.createElement('div');galleryDiv.className='gallery';const newImages=history.slice(0,numOutputs);newImages.forEach((item,index)=>{const date=new Date(item.timestamp);const timeStr=date.toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});const itemDiv=document.createElement('div');itemDiv.className='gallery-item';itemDiv.style.animation='fadeIn 0.5s ease-in';itemDiv.innerHTML='<img src="'+item.url+'" alt="Generated '+(index+1)+'" loading="lazy"><div class="gallery-info"><div style="background:linear-gradient(135deg,#10b981 0%,#059669 100%);color:#fff;padding:4px 8px;border-radius:6px;font-size:10px;font-weight:700;margin-bottom:8px;text-align:center">✅ 剛剛生成</div><div class="gallery-meta"><span class="model-badge">'+item.model+'</span><span class="seed-badge">Seed: '+item.seed+'</span></div><div class="gallery-meta" style="margin-top:5px"><span class="time-badge">'+timeStr+'</span></div><div style="margin-top:8px;font-size:11px;color:#6b7280">'+item.width+'x'+item.height+' | '+(item.quality_mode||'standard')+(item.authenticated?' | 🔐 已認證':'')+(item.generation_mode?' | '+item.generation_mode:'')+'</div><div class="gallery-actions"><button class="action-btn reuse-result-btn">🔄 重用</button><button class="action-btn download-result-btn">💾 下載</button><button class="action-btn view-history-btn">📚 查看歷史</button></div></div>';const img=itemDiv.querySelector('img');img.addEventListener('click',function(){openModal(item.url)});const reuseBtn=itemDiv.querySelector('.reuse-result-btn');reuseBtn.addEventListener('click',function(){reusePrompt(item.id)});const downloadBtn=itemDiv.querySelector('.download-result-btn');downloadBtn.addEventListener('click',function(){downloadImage(item.url,item.seed)});const viewBtn=itemDiv.querySelector('.view-history-btn');viewBtn.addEventListener('click',function(){document.querySelector('[data-page="history"]').click()});galleryDiv.appendChild(itemDiv)});resultsDiv.innerHTML='';const successDiv=document.createElement('div');successDiv.className='alert alert-success';successDiv.innerHTML='<strong>✅ 生成成功！</strong> 已生成 '+numOutputs+' 張圖片並保存到歷史記錄';resultsDiv.appendChild(successDiv);resultsDiv.appendChild(galleryDiv)},100)}}catch(error){resultsDiv.innerHTML='<div class="alert alert-error"><strong>錯誤:</strong> '+error.message+'</div>'}finally{generateBtn.disabled=false;generateBtn.innerHTML='🎨 開始生成'}});
+form.addEventListener('submit',async(e)=>{e.preventDefault();const prompt=document.getElementById('prompt').value;if(!prompt.trim()){alert('請輸入提示詞');document.getElementById('prompt').focus();return}const model=document.getElementById('model').value;const sizePreset=document.getElementById('size').value;const style=document.getElementById('style').value;const qualityMode=document.getElementById('qualityMode').value;const seed=parseInt(document.getElementById('seed').value);const numOutputs=parseInt(document.getElementById('numOutputs').value);const negativePrompt=document.getElementById('negativePrompt').value;const autoOptimize=document.getElementById('autoOptimize').checked;const autoHD=document.getElementById('autoHD').checked;const refImagesInput=document.getElementById('referenceImages').value;let referenceImages=[];if(refImagesInput.trim()){referenceImages=refImagesInput.split(',').map(url=>url.trim()).filter(url=>url)}const sizes=${JSON.stringify(CONFIG.PRESET_SIZES)};const sizeConfig=sizes[sizePreset]||sizes['square-1k'];generateBtn.disabled=true;generateBtn.innerHTML='<div class="spinner"></div>生成中...';resultsDiv.innerHTML='<div class="loading"><div class="spinner"></div><p>正在生成圖像,請稍候...</p></div>';try{const response=await fetch('/_internal/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,model,width:sizeConfig.width,height:sizeConfig.height,style,quality_mode:qualityMode,seed:seed,n:numOutputs,negative_prompt:negativePrompt,auto_optimize:autoOptimize,auto_hd:autoHD,reference_images:referenceImages})});const contentType=response.headers.get('content-type');if(contentType&&contentType.startsWith('image/')){const imageBlob=await response.blob();const imageUrl=URL.createObjectURL(imageBlob);const modelUsed=response.headers.get('X-Model')||model;const seedUsed=parseInt(response.headers.get('X-Seed'))||seed;const widthUsed=parseInt(response.headers.get('X-Width'))||sizeConfig.width;const heightUsed=parseInt(response.headers.get('X-Height'))||sizeConfig.height;const qualityUsed=response.headers.get('X-Quality-Mode')||qualityMode;const genMode=response.headers.get('X-Generation-Mode')||'文生圖';addToHistory({url:imageUrl,prompt:prompt,model:modelUsed,seed:seedUsed,width:widthUsed,height:heightUsed,style:style,quality_mode:qualityUsed,negative_prompt:negativePrompt,reference_images:referenceImages,generation_mode:genMode});displayGeneratedImages([{url:imageUrl,model:modelUsed,seed:seedUsed,width:widthUsed,height:heightUsed,quality_mode:qualityUsed}])}else if(contentType&&contentType.includes('application/json')){const data=await response.json();if(data.error){resultsDiv.innerHTML='<div class="alert alert-error"><strong>錯誤:</strong> '+data.error.message+'</div>'}else{const images=data.data.map(item=>{addToHistory({url:item.image,prompt:prompt,model:item.model,seed:item.seed,width:item.width,height:item.height,style:style,quality_mode:item.quality_mode,negative_prompt:negativePrompt,reference_images:referenceImages,generation_mode:item.generation_mode});return item});displayGeneratedImages(images)}}}catch(error){resultsDiv.innerHTML='<div class="alert alert-error"><strong>錯誤:</strong> '+error.message+'</div>'}finally{generateBtn.disabled=false;generateBtn.innerHTML='🎨 開始生成'}});
 window.addEventListener('DOMContentLoaded',()=>{updateHistoryStats();updatePreview()});
 </script>
 </body>
