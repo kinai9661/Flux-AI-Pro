@@ -2752,5 +2752,3 @@ const HTML_CONTENT = `<!DOCTYPE html>
 </body>
 </html>
 `;
-
-export { HTML_CONTENT };
