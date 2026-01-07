@@ -1727,209 +1727,262 @@ export default {
       headers: corsHeaders() 
     });
   }
+};
+// =================================================================================
+// 前端 HTML 界面
+// 前端 HTML 界面（完整版 - 45+ 風格）
+// =================================================================================
+
 const HTML_CONTENT = `<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Flux AI Pro - Dark Mode</title>
+  <title>Flux AI Pro - AI 圖像生成工具 (Google 翻譯版)</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
-      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       padding: 20px;
-      color: #e5e7eb;
+      color: #333;
     }
+    
     .container {
-      max-width: 1600px;
+      max-width: 1400px;
       margin: 0 auto;
-      background: rgba(26, 26, 26, 0.95);
+      background: white;
       border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
       overflow: hidden;
-      border: 1px solid rgba(168, 85, 247, 0.2);
     }
+    
     .header {
-      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       padding: 30px;
       text-align: center;
-      position: relative;
-      border-bottom: 2px solid rgba(168, 85, 247, 0.3);
     }
+    
     .header h1 {
       font-size: 2.5em;
       margin-bottom: 10px;
-      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      animation: glow 2s ease-in-out infinite alternate;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
     }
-    @keyframes glow {
-      from { filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.5)); }
-      to { filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.8)); }
+    
+    .header .subtitle {
+      font-size: 1.1em;
+      opacity: 0.95;
     }
-    .header .subtitle { font-size: 1.1em; opacity: 0.8; color: #9ca3af; }
+    
     .header .version {
       display: inline-block;
-      background: rgba(168, 85, 247, 0.2);
+      background: rgba(255,255,255,0.2);
       padding: 5px 15px;
       border-radius: 20px;
       font-size: 0.9em;
       margin-top: 10px;
-      border: 1px solid rgba(168, 85, 247, 0.3);
-      color: #a855f7;
     }
-    .lang-switch {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      display: flex;
-      gap: 10px;
-      background: rgba(45, 45, 45, 0.8);
-      padding: 8px 12px;
-      border-radius: 20px;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(168, 85, 247, 0.3);
+    
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      padding: 30px;
     }
-    .lang-btn {
-      background: transparent;
-      border: 2px solid rgba(168, 85, 247, 0.5);
-      color: #a855f7;
-      padding: 6px 16px;
+    
+    @media (max-width: 1024px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .panel {
+      background: #f8f9fa;
       border-radius: 15px;
-      cursor: pointer;
-      font-size: 0.9em;
-      font-weight: 600;
-      transition: all 0.3s;
-      font-family: inherit;
-    }
-    .lang-btn:hover { background: rgba(168, 85, 247, 0.2); box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); }
-    .lang-btn.active {
-      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
-      color: white;
-      border-color: transparent;
-      box-shadow: 0 0 20px rgba(168, 85, 247, 0.6);
-    }
-    .history-toggle {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      background: rgba(45, 45, 45, 0.8);
-      border: 2px solid rgba(59, 130, 246, 0.5);
-      color: #3b82f6;
-      padding: 8px 20px;
-      border-radius: 20px;
-      cursor: pointer;
-      font-size: 0.9em;
-      font-weight: 600;
-      transition: all 0.3s;
-      backdrop-filter: blur(10px);
-    }
-    .history-toggle:hover { background: rgba(59, 130, 246, 0.2); box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); }
-    .main-content { display: grid; grid-template-columns: 400px 1fr; gap: 0; }
-    @media (max-width: 1200px) { .main-content { grid-template-columns: 1fr; } }
-    .left-panel {
-      background: rgba(30, 30, 30, 0.95);
       padding: 25px;
-      border-right: 1px solid rgba(168, 85, 247, 0.2);
-      max-height: calc(100vh - 200px);
-      overflow-y: auto;
     }
-    .left-panel::-webkit-scrollbar { width: 8px; }
-    .left-panel::-webkit-scrollbar-track { background: rgba(45, 45, 45, 0.5); border-radius: 4px; }
-    .left-panel::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.5); border-radius: 4px; }
-    .left-panel::-webkit-scrollbar-thumb:hover { background: rgba(168, 85, 247, 0.7); }
-    .right-panel { display: grid; grid-template-rows: 1fr auto; gap: 0; }
-    .result-panel { padding: 25px; background: rgba(26, 26, 26, 0.95); }
-    .history-panel {
-      background: rgba(30, 30, 30, 0.95);
-      border-top: 2px solid rgba(168, 85, 247, 0.3);
-      padding: 20px 25px;
-      max-height: 300px;
-      overflow-y: auto;
-      display: none;
-    }
-    .history-panel.show { display: block; }
-    .history-panel::-webkit-scrollbar { height: 8px; }
-    .history-panel::-webkit-scrollbar-track { background: rgba(45, 45, 45, 0.5); border-radius: 4px; }
-    .history-panel::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.5); border-radius: 4px; }
+    
     .panel h2 {
-      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: #667eea;
       margin-bottom: 20px;
       font-size: 1.5em;
       display: flex;
       align-items: center;
       gap: 10px;
     }
-    .form-group { margin-bottom: 20px; }
-    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #9ca3af; font-size: 0.95em; }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #555;
+      font-size: 0.95em;
+    }
+    
     .form-group input[type="text"],
     .form-group textarea,
-    .form-group select,
-    .form-group input[type="number"] {
+    .form-group select {
       width: 100%;
       padding: 12px 15px;
-      border: 2px solid rgba(168, 85, 247, 0.3);
+      border: 2px solid #e0e0e0;
       border-radius: 10px;
       font-size: 1em;
       transition: all 0.3s;
       font-family: inherit;
-      background: rgba(45, 45, 45, 0.8);
-      color: #e5e7eb;
     }
+    
     .form-group input:focus,
     .form-group textarea:focus,
     .form-group select:focus {
       outline: none;
-      border-color: #a855f7;
-      box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2), 0 0 20px rgba(168, 85, 247, 0.3);
-      background: rgba(45, 45, 45, 0.95);
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
-    .form-group textarea { min-height: 80px; resize: vertical; }
-    .form-group select option { background: #2d2d2d; color: #e5e7eb; }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 768px) { .form-row { grid-template-columns: 1fr; } }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    
+    @media (max-width: 768px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+    
     .btn {
-      padding: 12px 24px;
+      padding: 15px 30px;
       border: none;
       border-radius: 10px;
-      font-size: 1em;
+      font-size: 1.1em;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.3s;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 10px;
       text-decoration: none;
       font-family: inherit;
     }
+    
     .btn-primary {
-      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       width: 100%;
-      box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
-      border: 1px solid rgba(168, 85, 247, 0.5);
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
     }
+    
     .btn-primary:hover:not(:disabled) {
       transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(168, 85, 247, 0.6), 0 0 30px rgba(168, 85, 247, 0.4);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
     }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-    .btn-secondary { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 2px solid rgba(59, 130, 246, 0.5); }
-    .btn-secondary:hover { background: rgba(59, 130, 246, 0.3); box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); }
-    .btn-danger { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 2px solid rgba(239, 68, 68, 0.5); }
-    .btn-danger:hover { background: rgba(239, 68, 68, 0.3); box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
-    .btn-small { padding: 6px 12px; font-size: 0.85em; }
+    
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .btn-secondary {
+      background: #6c757d;
+      color: white;
+    }
+    
+    .btn-secondary:hover {
+      background: #5a6268;
+    }
+    
+    .style-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 10px;
+      background: white;
+      border-radius: 10px;
+    }
+    
+    .style-card {
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.3s;
+      background: white;
+    }
+    
+    .style-card:hover {
+      border-color: #667eea;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    }
+    
+    .style-card.active {
+      border-color: #667eea;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    .style-card .icon {
+      font-size: 2em;
+      margin-bottom: 8px;
+    }
+    
+    .style-card .name {
+      font-weight: 600;
+      font-size: 0.9em;
+      color: #333;
+    }
+    
+    .style-category {
+      margin-bottom: 20px;
+    }
+    
+    .style-category-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .style-category-header:hover {
+      opacity: 0.9;
+    }
+    
+    .style-category-header .toggle {
+      margin-left: auto;
+      font-size: 1.2em;
+    }
+    
     .result-container {
-      background: rgba(45, 45, 45, 0.5);
+      background: white;
       border-radius: 10px;
       padding: 20px;
       min-height: 400px;
@@ -1937,61 +1990,121 @@ const HTML_CONTENT = `<!DOCTYPE html>
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      border: 1px solid rgba(168, 85, 247, 0.2);
     }
+    
     .result-container img {
       max-width: 100%;
       border-radius: 10px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 30px rgba(168, 85, 247, 0.3);
-      border: 2px solid rgba(168, 85, 247, 0.3);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     }
-    .loading { text-align: center; }
+    
+    .loading {
+      text-align: center;
+    }
+    
     .loading .spinner {
       width: 60px;
       height: 60px;
-      border: 4px solid rgba(45, 45, 45, 0.5);
-      border-top: 4px solid #a855f7;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #667eea;
       border-radius: 50%;
       animation: spin 1s linear infinite;
       margin: 0 auto 20px;
-      box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
     }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .loading p { color: #9ca3af; font-size: 1.1em; }
-    .placeholder { text-align: center; color: #6b7280; }
-    .placeholder .icon { font-size: 4em; margin-bottom: 20px; opacity: 0.3; }
-    .placeholder p { font-size: 1.1em; }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .loading p {
+      color: #666;
+      font-size: 1.1em;
+    }
+    
+    .placeholder {
+      text-align: center;
+      color: #999;
+    }
+    
+    .placeholder .icon {
+      font-size: 4em;
+      margin-bottom: 20px;
+      opacity: 0.3;
+    }
+    
+    .placeholder p {
+      font-size: 1.1em;
+    }
+    
     .info-box {
-      background: rgba(59, 130, 246, 0.1);
-      border-left: 4px solid #3b82f6;
-      padding: 12px;
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
       border-radius: 8px;
-      margin-bottom: 16px;
-      font-size: 0.9em;
-      border: 1px solid rgba(59, 130, 246, 0.3);
+      margin-bottom: 20px;
     }
-    .info-box.success { background: rgba(34, 197, 94, 0.1); border-left-color: #22c55e; border-color: rgba(34, 197, 94, 0.3); }
-    .info-box.warning { background: rgba(251, 146, 60, 0.1); border-left-color: #fb923c; border-color: rgba(251, 146, 60, 0.3); }
-    .info-box h4 { margin-bottom: 6px; font-size: 1em; color: #3b82f6; }
-    .info-box.success h4 { color: #22c55e; }
-    .info-box.warning h4 { color: #fb923c; }
-    .info-box p { color: #9ca3af; line-height: 1.5; }
-    .toggle-switch { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+    
+    .info-box.success {
+      background: #e8f5e9;
+      border-left-color: #4caf50;
+    }
+    
+    .info-box.warning {
+      background: #fff3e0;
+      border-left-color: #ff9800;
+    }
+    
+    .info-box.error {
+      background: #ffebee;
+      border-left-color: #f44336;
+    }
+    
+    .info-box h4 {
+      margin-bottom: 8px;
+      color: #1976d2;
+    }
+    
+    .info-box.success h4 {
+      color: #388e3c;
+    }
+    
+    .info-box.warning h4 {
+      color: #f57c00;
+    }
+    
+    .info-box.error h4 {
+      color: #d32f2f;
+    }
+    
+    .info-box p {
+      font-size: 0.95em;
+      color: #555;
+      line-height: 1.5;
+    }
+    
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
     .toggle-switch input[type="checkbox"] {
       width: 50px;
       height: 26px;
       position: relative;
       appearance: none;
-      background: rgba(75, 85, 99, 0.5);
+      background: #ccc;
       border-radius: 13px;
       cursor: pointer;
       transition: all 0.3s;
-      border: 1px solid rgba(168, 85, 247, 0.3);
     }
+    
     .toggle-switch input[type="checkbox"]:checked {
-      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
-      box-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
+      background: #667eea;
     }
+    
     .toggle-switch input[type="checkbox"]::before {
       content: '';
       position: absolute;
@@ -1999,521 +2112,385 @@ const HTML_CONTENT = `<!DOCTYPE html>
       height: 20px;
       border-radius: 50%;
       background: white;
-      top: 2px;
-      left: 2px;
+      top: 3px;
+      left: 3px;
       transition: all 0.3s;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
     }
-    .toggle-switch input[type="checkbox"]:checked::before { left: 26px; }
-    .toggle-switch label { font-weight: 600; color: #9ca3af; margin: 0; cursor: pointer; font-size: 0.9em; }
+    
+    .toggle-switch input[type="checkbox"]:checked::before {
+      left: 27px;
+    }
+    
+    .toggle-switch label {
+      font-weight: 600;
+      color: #555;
+      margin: 0;
+      cursor: pointer;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.85em;
+      font-weight: 600;
+      background: #667eea;
+      color: white;
+    }
+    
+    .badge.success {
+      background: #4caf50;
+    }
+    
+    .badge.warning {
+      background: #ff9800;
+    }
+    
+    .badge.info {
+      background: #2196f3;
+    }
+    
     .meta-info {
-      background: rgba(45, 45, 45, 0.8);
+      background: white;
       border-radius: 10px;
-      padding: 12px;
-      margin-top: 12px;
-      font-size: 0.85em;
-      color: #9ca3af;
-      border: 1px solid rgba(168, 85, 247, 0.2);
+      padding: 15px;
+      margin-top: 15px;
+      font-size: 0.9em;
+      color: #666;
     }
-    .meta-info div { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(75, 85, 99, 0.3); }
-    .meta-info div:last-child { border-bottom: none; }
-    .meta-info strong { color: #e5e7eb; }
-    .action-buttons { display: flex; gap: 10px; margin-top: 12px; }
-    .action-buttons .btn { flex: 1; }
+    
+    .meta-info div {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    
+    .meta-info div:last-child {
+      border-bottom: none;
+    }
+    
+    .meta-info strong {
+      color: #333;
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .action-buttons .btn {
+      flex: 1;
+    }
+    
+    .preset-sizes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .preset-size-btn {
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+      font-size: 0.9em;
+    }
+    
+    .preset-size-btn:hover {
+      border-color: #667eea;
+      background: rgba(102, 126, 234, 0.05);
+    }
+    
+    .preset-size-btn.active {
+      border-color: #667eea;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      font-weight: 600;
+    }
+    
     .translation-info {
-      background: rgba(168, 85, 247, 0.1);
-      border: 2px solid rgba(168, 85, 247, 0.3);
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      border: 2px solid #667eea;
       border-radius: 10px;
-      padding: 12px;
-      margin-top: 12px;
-      font-size: 0.85em;
+      padding: 15px;
+      margin-top: 15px;
     }
+    
     .translation-info h4 {
-      background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 8px;
-      font-size: 1em;
-    }
-    .translation-info p { margin: 6px 0; line-height: 1.5; color: #9ca3af; }
-    .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-    .history-header h3 {
-      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      font-size: 1.2em;
+      color: #667eea;
+      margin-bottom: 10px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    .history-actions { display: flex; gap: 8px; }
-    .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
-    .history-item {
-      background: rgba(45, 45, 45, 0.8);
-      border: 2px solid rgba(168, 85, 247, 0.3);
-      border-radius: 10px;
-      overflow: hidden;
-      cursor: pointer;
-      transition: all 0.3s;
-      position: relative;
+    
+    .translation-info .content {
+      background: white;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 8px;
+      font-size: 0.9em;
     }
-    .history-item:hover {
-      border-color: #a855f7;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3), 0 0 20px rgba(168, 85, 247, 0.2);
-    }
-    .history-item img { width: 100%; height: 150px; object-fit: cover; display: block; border-bottom: 1px solid rgba(168, 85, 247, 0.2); }
-    .history-item-info { padding: 8px; font-size: 0.8em; }
-    .history-item-prompt {
-      color: #e5e7eb;
+    
+    .translation-info .label {
       font-weight: 600;
+      color: #555;
       margin-bottom: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
-    .history-item-meta { color: #6b7280; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
-    .history-item-delete {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      background: rgba(239, 68, 68, 0.9);
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 1.2em;
-      opacity: 0;
-      transition: all 0.3s;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    
+    .translation-info .text {
+      color: #333;
+      line-height: 1.5;
     }
-    .history-item:hover .history-item-delete { opacity: 1; }
-    .history-item-delete:hover { background: #dc2626; transform: scale(1.1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.6); }
-    .history-empty { text-align: center; padding: 40px; color: #6b7280; grid-column: 1 / -1; }
-    .history-empty .icon { font-size: 3em; margin-bottom: 12px; opacity: 0.3; }
-    .badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 10px;
-      font-size: 0.75em;
-      font-weight: 600;
-      background: rgba(168, 85, 247, 0.2);
-      color: #a855f7;
-      border: 1px solid rgba(168, 85, 247, 0.3);
-    }
-    .badge.success { background: rgba(34, 197, 94, 0.2); color: #22c55e; border-color: rgba(34, 197, 94, 0.3); }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <button class="history-toggle" onclick="toggleHistory()" id="historyToggleBtn">
-        📜 <span data-i18n="historyBtn">歷史記錄</span> (<span id="historyCount">0</span>)
-      </button>
-      
-      <div class="lang-switch">
-        <button class="lang-btn active" onclick="switchLanguage('zh')" id="langZh">中文</button>
-        <button class="lang-btn" onclick="switchLanguage('en')" id="langEn">English</button>
-      </div>
-      
       <h1>🎨 Flux AI Pro</h1>
-      <p class="subtitle" data-i18n="subtitle">AI 圖像生成工具 - 深色模式 + 歷史記錄</p>
-      <span class="version">v9.6.2-dark | 45+ 藝術風格 | 免費翻譯 | 100 張歷史</span>
+      <p class="subtitle">AI 圖像生成工具 - Google 翻譯整合版</p>
+      <span class="version">v9.6.1-google-translate | 45+ 藝術風格 | 免費翻譯</span>
     </div>
     
     <div class="main-content">
-      <div class="left-panel">
-        <h2><span data-i18n="settings">⚙️ 生成設定</span></h2>
+      <div class="panel">
+        <h2>⚙️ 生成設定</h2>
         
-        <div class="info-box success">
-          <h4 data-i18n="autoTranslateTitle">🌐 自動翻譯已啟用</h4>
-          <p data-i18n="autoTranslateDesc">輸入中文將自動翻譯成英文生成圖片</p>
+        <div class="info-box">
+          <h4>🌐 自動翻譯已啟用</h4>
+          <p>輸入中文提示詞將自動翻譯成英文後生成圖片。使用 Google 翻譯免費 API，無需配置。</p>
         </div>
         
         <div class="form-group">
-          <label data-i18n="promptLabel">✨ 提示詞</label>
-          <textarea id="prompt" placeholder="例如：一隻可愛的橘貓在花園裡玩耍"></textarea>
+          <label>✨ 提示詞（支援中文自動翻譯）</label>
+          <textarea id="prompt" placeholder="例如：一隻可愛的橘貓在花園裡玩耍，陽光明媚
+
+系統會自動翻譯成英文後生成圖片"></textarea>
         </div>
         
         <div class="form-group">
-          <label data-i18n="negativePromptLabel">🚫 負面提示詞</label>
-          <textarea id="negativePrompt" placeholder="不想出現的內容"></textarea>
+          <label>🚫 負面提示詞（可選）</label>
+          <textarea id="negativePrompt" placeholder="不想出現的內容，例如：blurry, low quality"></textarea>
         </div>
         
         <div class="form-row">
           <div class="form-group">
-            <label data-i18n="modelLabel">🤖 模型</label>
+            <label>🤖 模型</label>
             <select id="model">
-              <option value="zimage">Z-Image Turbo</option>
-              <option value="flux">Flux Standard</option>
-              <option value="turbo">Flux Turbo</option>
-              <option value="kontext">Kontext</option>
+              <option value="zimage">Z-Image Turbo ⚡</option>
+              <option value="flux">Flux 標準版</option>
+              <option value="turbo">Flux Turbo ⚡</option>
+              <option value="kontext">Kontext 🎨 (支援圖生圖)</option>
             </select>
           </div>
           
           <div class="form-group">
-            <label data-i18n="qualityLabel">💎 質量</label>
+            <label>💎 質量模式</label>
             <select id="qualityMode">
-              <option value="economy" data-i18n="qualityEconomy">經濟</option>
-              <option value="standard" selected data-i18n="qualityStandard">標準</option>
-              <option value="ultra" data-i18n="qualityUltra">超高清</option>
+              <option value="economy">經濟模式</option>
+              <option value="standard" selected>標準模式</option>
+              <option value="ultra">超高清模式</option>
             </select>
           </div>
         </div>
         
         <div class="form-group">
-          <label data-i18n="styleLabel">🎨 風格</label>
-          <select id="style">
-            <option value="none" data-i18n="styleNone">無風格</option>
-            <option value="anime">🎭 動漫</option>
-            <option value="photorealistic">📷 寫實</option>
-            <option value="oil-painting">🖼️ 油畫</option>
-            <option value="watercolor">💧 水彩</option>
-            <option value="cyberpunk">🌃 賽博朋克</option>
-            <option value="fantasy">🐉 奇幻</option>
+          <label>🎨 藝術風格</label>
+          <select id="styleSelect">
+            <option value="none">無風格</option>
           </select>
+        </div>
+        
+        <div id="styleCategories" class="style-grid" style="display: none;">
+        </div>
+        
+        <div class="form-group">
+          <label>📐 預設尺寸</label>
+          <div class="preset-sizes" id="presetSizes">
+          </div>
         </div>
         
         <div class="form-row">
           <div class="form-group">
-            <label data-i18n="widthLabel">📏 寬度</label>
+            <label>📏 寬度</label>
             <input type="number" id="width" value="1024" min="512" max="2048" step="64">
           </div>
           
           <div class="form-group">
-            <label data-i18n="heightLabel">📏 高度</label>
+            <label>📏 高度</label>
             <input type="number" id="height" value="1024" min="512" max="2048" step="64">
           </div>
         </div>
         
         <div class="toggle-switch">
           <input type="checkbox" id="autoOptimize" checked>
-          <label for="autoOptimize" data-i18n="autoOptimizeLabel">🎯 自動優化</label>
+          <label for="autoOptimize">🎯 自動優化參數</label>
         </div>
         
         <div class="toggle-switch">
           <input type="checkbox" id="autoHD" checked>
-          <label for="autoHD" data-i18n="autoHDLabel">✨ HD 優化</label>
+          <label for="autoHD">✨ HD 優化增強</label>
         </div>
         
         <button class="btn btn-primary" id="generateBtn">
-          <span data-i18n="generateBtn">🎨 開始生成</span>
+          🎨 開始生成
         </button>
       </div>
       
-      <div class="right-panel">
-        <div class="result-panel">
-          <h2><span data-i18n="resultTitle">🖼️ 生成結果</span></h2>
-          
-          <div class="result-container" id="resultContainer">
-            <div class="placeholder">
-              <div class="icon">🎨</div>
-              <p data-i18n="resultPlaceholder">設定參數後點擊「開始生成」</p>
-            </div>
+      <div class="panel">
+        <h2>🖼️ 生成結果</h2>
+        
+        <div class="result-container" id="resultContainer">
+          <div class="placeholder">
+            <div class="icon">🎨</div>
+            <p>設定參數後點擊「開始生成」</p>
           </div>
-          
-          <div id="metaInfo" style="display: none;"></div>
-          <div id="translationInfo" style="display: none;"></div>
-          <div id="actionButtons" style="display: none;"></div>
         </div>
         
-        <div class="history-panel" id="historyPanel">
-          <div class="history-header">
-            <h3>
-              <span data-i18n="historyTitle">📜 生成歷史</span>
-              <span class="badge" id="historyCountBadge">0</span>
-            </h3>
-            <div class="history-actions">
-              <button class="btn btn-secondary btn-small" onclick="exportHistory()">
-                <span data-i18n="exportBtn">📥 匯出</span>
-              </button>
-              <button class="btn btn-danger btn-small" onclick="clearHistory()">
-                <span data-i18n="clearBtn">🗑️ 清空</span>
-              </button>
-            </div>
-          </div>
-          
-          <div class="history-grid" id="historyGrid">
-            <div class="history-empty">
-              <div class="icon">📭</div>
-              <p data-i18n="historyEmpty">暫無歷史記錄</p>
-            </div>
-          </div>
+        <div id="metaInfo" class="meta-info" style="display: none;">
+        </div>
+        
+        <div id="translationInfo" class="translation-info" style="display: none;">
+        </div>
+        
+        <div class="action-buttons" id="actionButtons" style="display: none;">
+          <button class="btn btn-secondary" id="downloadBtn">⬇️ 下載圖片</button>
+          <button class="btn btn-secondary" id="newBtn">🔄 生成新圖</button>
         </div>
       </div>
     </div>
   </div>
 
   <script>
-    const MAX_HISTORY = 100;
-    
-    const translations = {
-      zh: {
-        subtitle: 'AI 圖像生成工具 - 深色模式 + 歷史記錄',
-        settings: '⚙️ 生成設定',
-        autoTranslateTitle: '🌐 自動翻譯已啟用',
-        autoTranslateDesc: '輸入中文將自動翻譯成英文生成圖片',
-        promptLabel: '✨ 提示詞',
-        negativePromptLabel: '🚫 負面提示詞',
-        modelLabel: '🤖 模型',
-        qualityLabel: '💎 質量',
-        qualityEconomy: '經濟',
-        qualityStandard: '標準',
-        qualityUltra: '超高清',
-        styleLabel: '🎨 風格',
-        styleNone: '無風格',
-        widthLabel: '📏 寬度',
-        heightLabel: '📏 高度',
-        autoOptimizeLabel: '🎯 自動優化',
-        autoHDLabel: '✨ HD 優化',
-        generateBtn: '🎨 開始生成',
-        generating: '⏳ 生成中...',
-        resultTitle: '🖼️ 生成結果',
-        resultPlaceholder: '設定參數後點擊「開始生成」',
-        downloadBtn: '⬇️ 下載',
-        newBtn: '🔄 重新生成',
-        historyBtn: '歷史記錄',
-        historyTitle: '📜 生成歷史',
-        exportBtn: '📥 匯出',
-        clearBtn: '🗑️ 清空',
-        historyEmpty: '暫無歷史記錄',
-        clearConfirm: '確定要清空所有歷史記錄嗎？',
-        deleteConfirm: '確定要刪除這條記錄嗎？',
-        translating: '🌐 正在翻譯...',
-        generating_text: '正在生成圖片...',
-        no_prompt: '請輸入提示詞',
-        no_image: '沒有可下載的圖片'
-      },
-      en: {
-        subtitle: 'AI Image Generation - Dark Mode + History',
-        settings: '⚙️ Settings',
-        autoTranslateTitle: '🌐 Auto Translation Enabled',
-        autoTranslateDesc: 'Chinese prompts will be automatically translated',
-        promptLabel: '✨ Prompt',
-        negativePromptLabel: '🚫 Negative Prompt',
-        modelLabel: '🤖 Model',
-        qualityLabel: '💎 Quality',
-        qualityEconomy: 'Economy',
-        qualityStandard: 'Standard',
-        qualityUltra: 'Ultra HD',
-        styleLabel: '🎨 Style',
-        styleNone: 'No Style',
-        widthLabel: '📏 Width',
-        heightLabel: '📏 Height',
-        autoOptimizeLabel: '🎯 Auto Optimize',
-        autoHDLabel: '✨ HD Enhancement',
-        generateBtn: '🎨 Generate',
-        generating: '⏳ Generating...',
-        resultTitle: '🖼️ Result',
-        resultPlaceholder: 'Configure and click "Generate"',
-        downloadBtn: '⬇️ Download',
-        newBtn: '🔄 New',
-        historyBtn: 'History',
-        historyTitle: '📜 Generation History',
-        exportBtn: '📥 Export',
-        clearBtn: '🗑️ Clear',
-        historyEmpty: 'No history yet',
-        clearConfirm: 'Clear all history?',
-        deleteConfirm: 'Delete this record?',
-        translating: '🌐 Translating...',
-        generating_text: 'Generating image...',
-        no_prompt: 'Please enter a prompt',
-        no_image: 'No image to download'
-      }
-    };
-    
-    let currentLang = localStorage.getItem('language') || 'zh';
     let currentConfig = null;
     let currentImage = null;
     let currentMetadata = null;
-    let imageHistory = JSON.parse(localStorage.getItem('imageHistory') || '[]');
     
-    function switchLanguage(lang) {
-      currentLang = lang;
-      localStorage.setItem('language', lang);
-      
-      document.getElementById('langZh').classList.toggle('active', lang === 'zh');
-      document.getElementById('langEn').classList.toggle('active', lang === 'en');
-      
-      document.querySelectorAll('[data-i18n]').forEach(function(element) {
-        const key = element.getAttribute('data-i18n');
-        if (translations[lang][key]) {
-          element.textContent = translations[lang][key];
-        }
-      });
-      
-      document.querySelectorAll('option[data-i18n]').forEach(function(element) {
-        const key = element.getAttribute('data-i18n');
-        if (translations[lang][key]) {
-          element.textContent = translations[lang][key];
-        }
-      });
-      
-      console.log('🌐 語言已切換至:', lang === 'zh' ? '繁體中文' : 'English');
-    }
-    function toggleHistory() {
-      const panel = document.getElementById('historyPanel');
-      panel.classList.toggle('show');
-      renderHistory();
-    }
-    
-    function saveToHistory(imageData, metadata) {
-      const record = {
-        id: Date.now(),
-        timestamp: new Date().toISOString(),
-        image: imageData,
-        prompt: metadata.prompt || document.getElementById('prompt').value.trim(),
-        model: metadata.model,
-        style: metadata.style,
-        width: metadata.width,
-        height: metadata.height,
-        seed: metadata.seed,
-        translated: metadata.auto_translated || metadata.autoTranslated || false,
-        translationInfo: metadata.translation_info || null
-      };
-      
-      imageHistory.unshift(record);
-      
-      if (imageHistory.length > MAX_HISTORY) {
-        imageHistory = imageHistory.slice(0, MAX_HISTORY);
-      }
-      
+    async function loadConfig() {
       try {
-        localStorage.setItem('imageHistory', JSON.stringify(imageHistory));
-        updateHistoryCount();
-        console.log('✅ 已儲存到歷史記錄，共', imageHistory.length, '條');
-      } catch (e) {
-        console.error('❌ 儲存歷史記錄失敗:', e);
-        if (e.name === 'QuotaExceededError') {
-          imageHistory = imageHistory.slice(0, 10);
-          localStorage.setItem('imageHistory', JSON.stringify(imageHistory));
+        const response = await fetch('/api/config');
+        currentConfig = await response.json();
+        console.log('✅ 配置載入成功:', currentConfig);
+        
+        initStyleSelector();
+        initPresetSizes();
+        
+        return currentConfig;
+      } catch (error) {
+        console.error('❌ 載入配置失敗:', error);
+        return null;
+      }
+    }
+    
+    function initStyleSelector() {
+      const styleSelect = document.getElementById('styleSelect');
+      const styleCategories = document.getElementById('styleCategories');
+      
+      if (!currentConfig || !currentConfig.styles) return;
+      
+      styleSelect.innerHTML = '<option value="none">無風格</option>';
+      
+      const grouped = {};
+      currentConfig.styles.forEach(style => {
+        const category = style.category || 'basic';
+        if (!grouped[category]) {
+          grouped[category] = [];
         }
-      }
-    }
-    
-    function updateHistoryCount() {
-      const count = imageHistory.length;
-      document.getElementById('historyCount').textContent = count;
-      document.getElementById('historyCountBadge').textContent = count;
-    }
-    
-    function renderHistory() {
-      const grid = document.getElementById('historyGrid');
-      
-      if (imageHistory.length === 0) {
-        grid.innerHTML = '<div class="history-empty"><div class="icon">📭</div><p data-i18n="historyEmpty">' + translations[currentLang].historyEmpty + '</p></div>';
-        return;
-      }
-      
-      const items = imageHistory.map(function(record) {
-        const date = new Date(record.timestamp);
-        const dateStr = date.toLocaleDateString(currentLang === 'zh' ? 'zh-TW' : 'en-US', {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-        
-        const promptText = record.prompt.substring(0, 30);
-        const promptFull = promptText + (record.prompt.length > 30 ? '...' : '');
-        
-        return '<div class="history-item" onclick="loadFromHistory(' + record.id + ')">' +
-          '<button class="history-item-delete" onclick="deleteFromHistory(' + record.id + ', event)">×</button>' +
-          '<img src="' + record.image + '" alt="Generated Image">' +
-          '<div class="history-item-info">' +
-          '<div class="history-item-prompt">' + promptFull + '</div>' +
-          '<div class="history-item-meta">' +
-          '<span>' + record.model + '</span>' +
-          '<span>' + dateStr + '</span>' +
-          '</div></div></div>';
+        grouped[category].push(style);
       });
       
-      grid.innerHTML = items.join('');
+      let html = '';
+      Object.entries(grouped).forEach(([categoryId, styles]) => {
+        const categoryInfo = currentConfig.style_categories[categoryId];
+        if (!categoryInfo) return;
+        
+        html += \`
+          <div class="style-category">
+            <div class="style-category-header" onclick="toggleCategory('\${categoryId}')">
+              <span>\${categoryInfo.icon} \${categoryInfo.name}</span>
+              <span class="toggle" id="toggle-\${categoryId}">▼</span>
+            </div>
+            <div class="style-grid" id="category-\${categoryId}" style="display: grid;">
+              \${styles.map(style => \`
+                <div class="style-card" data-style="\${style.id}" onclick="selectStyle('\${style.id}')">
+                  <div class="icon">\${style.icon}</div>
+                  <div class="name">\${style.name}</div>
+                </div>
+              \`).join('')}
+            </div>
+          </div>
+        \`;
+        
+        styles.forEach(style => {
+          const option = document.createElement('option');
+          option.value = style.id;
+          option.textContent = \`\${style.icon} \${style.name}\`;
+          styleSelect.appendChild(option);
+        });
+      });
+      
+      styleCategories.innerHTML = html;
     }
     
-    function loadFromHistory(id) {
-      const record = imageHistory.find(function(r) { return r.id === id; });
-      if (!record) return;
+    function initPresetSizes() {
+      const container = document.getElementById('presetSizes');
+      if (!currentConfig || !currentConfig.preset_sizes) return;
       
-      currentImage = record.image;
-      currentMetadata = {
-        model: record.model,
-        style: record.style,
-        width: record.width,
-        height: record.height,
-        seed: record.seed,
-        auto_translated: record.translated,
-        translation_info: record.translationInfo
-      };
-      
-      displayResult(record.image, currentMetadata);
-      
-      document.getElementById('prompt').value = record.prompt;
-      document.getElementById('model').value = record.model;
-      document.getElementById('style').value = record.style;
-      document.getElementById('width').value = record.width;
-      document.getElementById('height').value = record.height;
-      
-      console.log('✅ 已從歷史記錄載入:', record.prompt.substring(0, 50));
+      Object.entries(currentConfig.preset_sizes).forEach(([key, size]) => {
+        const btn = document.createElement('div');
+        btn.className = 'preset-size-btn';
+        btn.textContent = size.name;
+        btn.onclick = () => {
+          document.getElementById('width').value = size.width;
+          document.getElementById('height').value = size.height;
+          document.querySelectorAll('.preset-size-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        };
+        container.appendChild(btn);
+      });
     }
     
-    function deleteFromHistory(id, event) {
-      if (event) {
-        event.stopPropagation();
+    function toggleCategory(categoryId) {
+      const content = document.getElementById(\`category-\${categoryId}\`);
+      const toggle = document.getElementById(\`toggle-\${categoryId}\`);
+      if (content.style.display === 'none') {
+        content.style.display = 'grid';
+        toggle.textContent = '▼';
+      } else {
+        content.style.display = 'none';
+        toggle.textContent = '▶';
       }
-      
-      const confirmMsg = translations[currentLang].deleteConfirm;
-      if (!confirm(confirmMsg)) return;
-      
-      imageHistory = imageHistory.filter(function(r) { return r.id !== id; });
-      localStorage.setItem('imageHistory', JSON.stringify(imageHistory));
-      updateHistoryCount();
-      renderHistory();
-      
-      console.log('🗑️ 已刪除歷史記錄，剩餘', imageHistory.length, '條');
     }
     
-    function clearHistory() {
-      const confirmMsg = translations[currentLang].clearConfirm;
-      if (!confirm(confirmMsg)) return;
-      
-      imageHistory = [];
-      localStorage.removeItem('imageHistory');
-      updateHistoryCount();
-      renderHistory();
-      
-      console.log('🗑️ 已清空所有歷史記錄');
+    function selectStyle(styleId) {
+      document.querySelectorAll('.style-card').forEach(card => {
+        card.classList.remove('active');
+      });
+      document.querySelector(\`[data-style="\${styleId}"]\`).classList.add('active');
+      document.getElementById('styleSelect').value = styleId;
     }
     
-    function exportHistory() {
-      if (imageHistory.length === 0) {
-        alert(currentLang === 'zh' ? '沒有可匯出的記錄' : 'No records to export');
-        return;
+    document.getElementById('styleSelect')?.addEventListener('change', (e) => {
+      const styleId = e.target.value;
+      document.querySelectorAll('.style-card').forEach(card => {
+        card.classList.remove('active');
+      });
+      const card = document.querySelector(\`[data-style="\${styleId}"]\`);
+      if (card) {
+        card.classList.add('active');
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
-      
-      const dataStr = JSON.stringify(imageHistory, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'flux-ai-history-' + Date.now() + '.json';
-      link.click();
-      URL.revokeObjectURL(url);
-      
-      console.log('📥 已匯出', imageHistory.length, '條歷史記錄');
-    }
-    
+    });
+    // 生成圖片
     async function generateImage() {
       const prompt = document.getElementById('prompt').value.trim();
       if (!prompt) {
-        alert(translations[currentLang].no_prompt);
+        alert('請輸入提示詞');
         return;
       }
       
@@ -2521,7 +2498,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
       const width = parseInt(document.getElementById('width').value);
       const height = parseInt(document.getElementById('height').value);
       const negativePrompt = document.getElementById('negativePrompt').value.trim();
-      const style = document.getElementById('style').value;
+      const style = document.getElementById('styleSelect').value;
       const qualityMode = document.getElementById('qualityMode').value;
       const autoOptimize = document.getElementById('autoOptimize').checked;
       const autoHD = document.getElementById('autoHD').checked;
@@ -2532,13 +2509,21 @@ const HTML_CONTENT = `<!DOCTYPE html>
       const translationInfo = document.getElementById('translationInfo');
       const actionButtons = document.getElementById('actionButtons');
       
+      // 檢查是否包含中文
+      // 檢查是否包含中文 - 修復版
       const hasChinese = /[\u4e00-\u9fa5]/.test(prompt);
-      const translatingText = translations[currentLang].translating;
-      const translationHint = hasChinese ? '<p style="font-size: 0.9em; color: #9ca3af; margin-top: 10px;">' + translatingText + '</p>' : '';
+      const translationHint = hasChinese ? '<p style="font-size: 0.9em; color: #999; margin-top: 10px;">🌐 自動翻譯中文提示詞...</p>' : '';
       
+      // 顯示載入中
       generateBtn.disabled = true;
-      generateBtn.innerHTML = translations[currentLang].generating;
-      resultContainer.innerHTML = '<div class="loading"><div class="spinner"></div><p>' + translations[currentLang].generating_text + '</p>' + translationHint + '</div>';
+      generateBtn.innerHTML = '⏳ 生成中...';
+      resultContainer.innerHTML = \`
+        <div class="loading">
+          <div class="spinner"></div>
+          <p>正在生成圖片，請稍候...</p>
+          \${translationHint}
+        </div>
+      \`;
       metaInfo.style.display = 'none';
       translationInfo.style.display = 'none';
       actionButtons.style.display = 'none';
@@ -2546,7 +2531,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
       try {
         const response = await fetch('/_internal/generate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
             prompt: prompt,
             model: model,
@@ -2573,12 +2560,12 @@ const HTML_CONTENT = `<!DOCTYPE html>
         const contentType = response.headers.get('content-type');
         
         if (contentType && contentType.startsWith('image/')) {
+          // 直接返回圖片
           const blob = await response.blob();
           const imageUrl = URL.createObjectURL(blob);
           
           currentImage = imageUrl;
           currentMetadata = {
-            prompt: prompt,
             model: model,
             width: width,
             height: height,
@@ -2591,9 +2578,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
           };
           
           displayResult(imageUrl, currentMetadata);
-          saveToHistory(imageUrl, currentMetadata);
           
         } else {
+          // JSON 回應
           const data = await response.json();
           console.log('✅ 生成成功:', data);
           
@@ -2602,11 +2589,9 @@ const HTML_CONTENT = `<!DOCTYPE html>
             const imageUrl = result.image || result.url;
             
             currentImage = imageUrl;
-            currentMetadata = { prompt: prompt, model: model, style: style, width: width, height: height };
-            Object.assign(currentMetadata, result);
+            currentMetadata = result;
             
             displayResult(imageUrl, result);
-            saveToHistory(imageUrl, currentMetadata);
           } else {
             throw new Error('未收到圖片數據');
           }
@@ -2614,81 +2599,147 @@ const HTML_CONTENT = `<!DOCTYPE html>
         
       } catch (error) {
         console.error('❌ 生成失敗:', error);
-        resultContainer.innerHTML = '<div class="placeholder"><div class="icon" style="color: #ef4444;">❌</div><p style="color: #ef4444;">生成失敗：' + error.message + '</p><p style="font-size: 0.9em; color: #6b7280; margin-top: 10px;">請檢查網絡連接或稍後重試</p></div>';
+        resultContainer.innerHTML = \`
+          <div class="placeholder">
+            <div class="icon" style="color: #f44336;">❌</div>
+            <p style="color: #f44336;">生成失敗：\${error.message}</p>
+            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+              請檢查網絡連接或稍後重試
+            </p>
+          </div>
+        \`;
       } finally {
         generateBtn.disabled = false;
-        generateBtn.innerHTML = '<span data-i18n="generateBtn">' + translations[currentLang].generateBtn + '</span>';
+        generateBtn.innerHTML = '🎨 開始生成';
       }
     }
+    
+    // 顯示結果
     function displayResult(imageUrl, metadata) {
       const resultContainer = document.getElementById('resultContainer');
       const metaInfo = document.getElementById('metaInfo');
       const translationInfo = document.getElementById('translationInfo');
       const actionButtons = document.getElementById('actionButtons');
       
-      resultContainer.innerHTML = '<img src="' + imageUrl + '" alt="Generated Image">';
+      // 顯示圖片
+      resultContainer.innerHTML = \`
+        <img src="\${imageUrl}" alt="Generated Image">
+      \`;
       
-      const modelLabel = currentLang === 'zh' ? '模型' : 'Model';
-      const sizeLabel = currentLang === 'zh' ? '尺寸' : 'Size';
-      const styleLabel = currentLang === 'zh' ? '風格' : 'Style';
-      const qualityLabel = currentLang === 'zh' ? '質量' : 'Quality';
-      const seedLabel = currentLang === 'zh' ? '種子' : 'Seed';
-      const translatedLabel = currentLang === 'zh' ? '翻譯' : 'Translated';
-      const authLabel = currentLang === 'zh' ? '認證' : 'Auth';
+      // 顯示元資訊
+      const styleName = currentConfig.styles.find(s => s.id === metadata.style)?.name || metadata.style;
+      const qualityModeName = currentConfig.quality_modes.find(q => q.id === metadata.quality_mode || q.id === metadata.qualityMode)?.name || metadata.quality_mode || metadata.qualityMode;
+      const qualityModeName = currentConfig.quality_modes.find(q => q.id === (metadata.quality_mode || metadata.qualityMode))?.name || metadata.quality_mode || metadata.qualityMode;
       
-      let metaHTML = '<div><strong>🤖 ' + modelLabel + '</strong><span>' + metadata.model + '</span></div>' +
-        '<div><strong>📐 ' + sizeLabel + '</strong><span>' + metadata.width + ' × ' + metadata.height + '</span></div>' +
-        '<div><strong>🎨 ' + styleLabel + '</strong><span>' + metadata.style + '</span></div>' +
-        '<div><strong>💎 ' + qualityLabel + '</strong><span>' + (metadata.quality_mode || metadata.qualityMode) + '</span></div>';
-      
-      if (metadata.seed) {
-        metaHTML += '<div><strong>🎲 ' + seedLabel + '</strong><span>' + metadata.seed + '</span></div>';
-      }
-      
-      metaHTML += '<div><strong>✨ HD</strong><span>' + (metadata.hd_optimized || metadata.hdOptimized ? '✅' : '❌') + '</span></div>';
-      metaHTML += '<div><strong>🌐 ' + translatedLabel + '</strong><span>' + (metadata.auto_translated || metadata.autoTranslated ? '✅' : '❌') + '</span></div>';
-      metaHTML += '<div><strong>🔐 ' + authLabel + '</strong><span>' + (metadata.authenticated ? '✅' : '⚠️') + '</span></div>';
-      
-      metaInfo.innerHTML = metaHTML;
+      metaInfo.innerHTML = \`
+        <div>
+          <strong>🤖 模型</strong>
+          <span>\${metadata.model}</span>
+        </div>
+        <div>
+          <strong>📐 尺寸</strong>
+          <span>\${metadata.width} × \${metadata.height}</span>
+        </div>
+        <div>
+          <strong>🎨 風格</strong>
+          <span>\${styleName}</span>
+        </div>
+        <div>
+          <strong>💎 質量</strong>
+          <span>\${qualityModeName}</span>
+        </div>
+        \${metadata.seed ? \`
+        <div>
+          <strong>🎲 種子</strong>
+          <span>\${metadata.seed}</span>
+        </div>
+        \` : ''}
+        \${metadata.steps ? \`
+        <div>
+          <strong>🎯 步數</strong>
+          <span>\${metadata.steps}</span>
+        </div>
+        \` : ''}
+        \${metadata.guidance ? \`
+        <div>
+          <strong>📊 引導</strong>
+          <span>\${metadata.guidance}</span>
+        </div>
+        \` : ''}
+        <div>
+          <strong>✨ HD優化</strong>
+          <span>\${metadata.hd_optimized || metadata.hdOptimized ? '✅ 已啟用' : '❌ 未啟用'}</span>
+        </div>
+        <div>
+          <strong>🌐 自動翻譯</strong>
+          <span>\${metadata.auto_translated || metadata.autoTranslated ? '✅ 已翻譯' : '⚪ 未翻譯'}</span>
+        </div>
+        <div>
+          <strong>🔐 API認證</strong>
+          <span>\${metadata.authenticated ? '✅ 已認證' : '⚠️ 未認證'}</span>
+        </div>
+        \${metadata.generation_mode ? \`
+        <div>
+          <strong>🖼️ 生成模式</strong>
+          <span>\${metadata.generation_mode}</span>
+        </div>
+        \` : ''}
+      \`;
       metaInfo.style.display = 'block';
       
+      // 顯示翻譯資訊（如果有）
       if (metadata.translation_info && metadata.translation_info.original) {
-        const ti = metadata.translation_info;
-        const originalLabel = currentLang === 'zh' ? '原文' : 'Original';
-        const translatedTextLabel = currentLang === 'zh' ? '譯文' : 'Translated';
-        const engineLabel = currentLang === 'zh' ? '引擎' : 'Engine';
-        const freeLabel = currentLang === 'zh' ? '免費' : 'Free';
-        
-        translationInfo.innerHTML = '<h4>🌐 ' + (currentLang === 'zh' ? 'Google 翻譯資訊' : 'Google Translation Info') + '</h4>' +
-          '<p><strong>' + originalLabel + '：</strong>' + ti.original + '</p>' +
-          '<p><strong>' + translatedTextLabel + '：</strong>' + ti.translated + '</p>' +
-          '<p><strong>' + engineLabel + '：</strong>' + ti.model + ' <span class="badge success">' + freeLabel + '</span></p>';
+        translationInfo.innerHTML = \`
+          <h4>🌐 Google 翻譯資訊</h4>
+          <div class="content">
+            <div class="label">原文（\${metadata.translation_info.detected_language || 'zh'}）：</div>
+            <div class="text">\${metadata.translation_info.original}</div>
+          </div>
+          <div class="content">
+            <div class="label">譯文（en）：</div>
+            <div class="text">\${metadata.translation_info.translated}</div>
+          </div>
+          <div class="content">
+            <div class="label">翻譯引擎：</div>
+            <div class="text">\${metadata.translation_info.model} <span class="badge success">免費</span></div>
+          </div>
+          \${metadata.translation_info.confidence ? \`
+          <div class="content">
+            <div class="label">信心分數：</div>
+            <div class="text">\${(metadata.translation_info.confidence * 100).toFixed(0)}%</div>
+          </div>
+          \` : ''}
+        \`;
         translationInfo.style.display = 'block';
       } else {
         translationInfo.style.display = 'none';
       }
       
-      actionButtons.innerHTML = '<div class="action-buttons">' +
-        '<button class="btn btn-secondary" onclick="downloadImage()"><span data-i18n="downloadBtn">' + translations[currentLang].downloadBtn + '</span></button>' +
-        '<button class="btn btn-secondary" onclick="generateNew()"><span data-i18n="newBtn">' + translations[currentLang].newBtn + '</span></button>' +
-        '</div>';
-      actionButtons.style.display = 'block';
+      // 顯示操作按鈕
+      actionButtons.style.display = 'flex';
     }
     
+    // 下載圖片
     function downloadImage() {
       if (!currentImage) {
-        alert(translations[currentLang].no_image);
+        alert('沒有可下載的圖片');
         return;
       }
       
       const link = document.createElement('a');
       link.href = currentImage;
-      link.download = 'flux-ai-' + Date.now() + '.png';
+      link.download = \`flux-ai-\${Date.now()}.png\`;
       link.click();
     }
     
+    // 生成新圖
     function generateNew() {
-      document.getElementById('resultContainer').innerHTML = '<div class="placeholder"><div class="icon">🎨</div><p data-i18n="resultPlaceholder">' + translations[currentLang].resultPlaceholder + '</p></div>';
+      document.getElementById('resultContainer').innerHTML = \`
+        <div class="placeholder">
+          <div class="icon">🎨</div>
+          <p>設定參數後點擊「開始生成」</p>
+        </div>
+      \`;
       document.getElementById('metaInfo').style.display = 'none';
       document.getElementById('translationInfo').style.display = 'none';
       document.getElementById('actionButtons').style.display = 'none';
@@ -2696,52 +2747,43 @@ const HTML_CONTENT = `<!DOCTYPE html>
       currentMetadata = null;
     }
     
-    document.getElementById('generateBtn').addEventListener('click', generateImage);
+    // 綁定事件
+    document.getElementById('generateBtn')?.addEventListener('click', generateImage);
+    document.getElementById('downloadBtn')?.addEventListener('click', downloadImage);
+    document.getElementById('newBtn')?.addEventListener('click', generateNew);
     
-    document.getElementById('prompt').addEventListener('keydown', function(e) {
+    // Enter 鍵快捷生成
+    document.getElementById('prompt')?.addEventListener('keydown', (e) => {
       if (e.ctrlKey && e.key === 'Enter') {
         generateImage();
       }
     });
     
-    window.addEventListener('DOMContentLoaded', async function() {
-      console.log('🌙 Flux AI Pro Dark Mode 正在初始化...');
-      
-      switchLanguage(currentLang);
-      updateHistoryCount();
-      
-      try {
-        const response = await fetch('/api/config');
-        currentConfig = await response.json();
-        console.log('✅ 配置載入成功:', currentConfig);
-      } catch (error) {
-        console.error('❌ 載入配置失敗:', error);
-      }
-      
-      try {
-        const healthResponse = await fetch('/health');
-        const health = await healthResponse.json();
-        console.log('📊 系統狀態:', health);
-        
-        if (!health.api_key_configured) {
-          const warningBox = document.createElement('div');
-          warningBox.className = 'info-box warning';
-          warningBox.innerHTML = '<h4>⚠️ API Key 未設定</h4>' +
-            '<p>新 Pollinations API 端點需要 API Key 才能正常使用。請在 Cloudflare Workers 環境變數中設定 <code>POLLINATIONS_API_KEY</code>。</p>' +
-            '<p style="margin-top: 8px;">未設定 API Key 的請求可能會失敗。</p>';
-          document.querySelector('.left-panel').insertBefore(warningBox, document.querySelector('.info-box'));
-        }
-        
-        console.log('🌐 翻譯引擎:', health.translation_engine);
-        console.log('✅ 免費翻譯:', health.features && health.features.translation_free ? '是' : '否');
-        console.log('📜 歷史記錄:', imageHistory.length, '/ 100 條');
-        console.log('🌙 深色模式已啟用');
-      } catch (error) {
-        console.error('❌ 無法獲取系統狀態:', error);
-      }
-      
+    // 頁面載入時初始化
+    window.addEventListener('DOMContentLoaded', async () => {
+      console.log('🎨 Flux AI Pro 正在初始化...');
+      await loadConfig();
       console.log('✅ 初始化完成！');
-      console.log('💡 提示：使用 Ctrl+Enter 快速生成圖片');
+      
+      // 顯示系統狀態
+      const healthResponse = await fetch('/health');
+      const health = await healthResponse.json();
+      console.log('📊 系統狀態:', health);
+      
+      if (!health.api_key_configured) {
+        const warningBox = document.createElement('div');
+        warningBox.className = 'info-box warning';
+        warningBox.innerHTML = \`
+          <h4>⚠️ API Key 未設定</h4>
+          <p>新 Pollinations API 端點需要 API Key 才能正常使用。請在 Cloudflare Workers 環境變數中設定 <code>POLLINATIONS_API_KEY</code>。</p>
+          <p style="margin-top: 8px;">未設定 API Key 的請求可能會失敗。</p>
+        \`;
+        document.querySelector('.panel').insertBefore(warningBox, document.querySelector('.info-box'));
+      }
+      
+      // 顯示翻譯引擎資訊
+      console.log('🌐 翻譯引擎:', health.translation_engine);
+      console.log('✅ 免費翻譯:', health.features?.translation_free ? '是' : '否');
     });
   </script>
 </body>
