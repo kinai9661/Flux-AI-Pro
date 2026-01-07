@@ -26,7 +26,7 @@ const CONFIG = {
     method: "header"
   },
 
-@@ -33,11 +33,11 @@ const CONFIG = {
+const CONFIG = {
   PROVIDERS: {
     pollinations: {
       name: "Pollinations.ai",
