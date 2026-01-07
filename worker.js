@@ -1729,7 +1729,7 @@ export default {
   }
 };
 // =================================================================================
-// 前端 HTML 界面
+// 前端 HTML 界面（完整版 - 45+ 風格）
 // =================================================================================
 
 const HTML_CONTENT = `<!DOCTYPE html>
@@ -2508,7 +2508,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
       const translationInfo = document.getElementById('translationInfo');
       const actionButtons = document.getElementById('actionButtons');
       
-      // 檢查是否包含中文
+      // 檢查是否包含中文 - 修復版
       const hasChinese = /[\u4e00-\u9fa5]/.test(prompt);
       const translationHint = hasChinese ? '<p style="font-size: 0.9em; color: #999; margin-top: 10px;">🌐 自動翻譯中文提示詞...</p>' : '';
       
@@ -2626,7 +2626,7 @@ const HTML_CONTENT = `<!DOCTYPE html>
       
       // 顯示元資訊
       const styleName = currentConfig.styles.find(s => s.id === metadata.style)?.name || metadata.style;
-      const qualityModeName = currentConfig.quality_modes.find(q => q.id === metadata.quality_mode || q.id === metadata.qualityMode)?.name || metadata.quality_mode || metadata.qualityMode;
+      const qualityModeName = currentConfig.quality_modes.find(q => q.id === (metadata.quality_mode || metadata.qualityMode))?.name || metadata.quality_mode || metadata.qualityMode;
       
       metaInfo.innerHTML = \`
         <div>
