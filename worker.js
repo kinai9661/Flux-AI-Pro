@@ -1,12 +1,12 @@
 // =================================================================================
-//  項目: Flux AI Pro - Bilingual Edition
-//  版本: 9.8.0 (International)
-//  更新: 新增繁中/英文雙語切換 + Google 免費翻譯
+//  項目: Flux AI Pro - GPT-Image Edition
+//  版本: 9.9.0 (New Models Added)
+//  更新: 新增 GPT-Image 與 GPT-Image Large 模型支援
 // =================================================================================
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "9.8.0-i18n",
+  PROJECT_VERSION: "9.9.0-gpt",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -42,6 +42,8 @@ const CONFIG = {
         private_mode: true, custom_size: true, seed_control: true, negative_prompt: true, enhance: true, nologo: true, style_presets: true, auto_hd: true, quality_modes: true, auto_translate: true, reference_images: true, image_to_image: true, batch_generation: true, api_key_auth: true
       },
       models: [
+        { id: "gptimage", name: "GPT-Image 🎨", confirmed: true, category: "gptimage", description: "通用 GPT 圖像生成模型", max_size: 2048, pricing: { image_price: 0.0002, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
+        { id: "gptimage-large", name: "GPT-Image Large 🌟", confirmed: true, category: "gptimage", description: "高質量 GPT 圖像生成模型", max_size: 2048, pricing: { image_price: 0.0003, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
         { id: "zimage", name: "Z-Image Turbo ⚡", confirmed: true, category: "zimage", description: "快速 6B 參數圖像生成 (Alpha)", max_size: 2048, pricing: { image_price: 0.0002, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
         { id: "flux", name: "Flux 標準版", confirmed: true, category: "flux", description: "快速且高質量的圖像生成", max_size: 2048, pricing: { image_price: 0.00012, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
         { id: "turbo", name: "Flux Turbo ⚡", confirmed: true, category: "flux", description: "超快速圖像生成", max_size: 2048, pricing: { image_price: 0.0003, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
@@ -112,7 +114,14 @@ const CONFIG = {
   },
   
   OPTIMIZATION_RULES: {
-    MODEL_STEPS: { "zimage": { min: 8, optimal: 15, max: 25 }, "flux": { min: 15, optimal: 20, max: 30 }, "turbo": { min: 4, optimal: 8, max: 12 }, "kontext": { min: 18, optimal: 25, max: 35 } },
+    MODEL_STEPS: { 
+      "gptimage": { min: 10, optimal: 18, max: 28 },
+      "gptimage-large": { min: 15, optimal: 25, max: 35 },
+      "zimage": { min: 8, optimal: 15, max: 25 }, 
+      "flux": { min: 15, optimal: 20, max: 30 }, 
+      "turbo": { min: 4, optimal: 8, max: 12 }, 
+      "kontext": { min: 18, optimal: 25, max: 35 } 
+    },
     SIZE_MULTIPLIER: { small: { threshold: 512 * 512, multiplier: 0.8 }, medium: { threshold: 1024 * 1024, multiplier: 1.0 }, large: { threshold: 1536 * 1536, multiplier: 1.15 }, xlarge: { threshold: 2048 * 2048, multiplier: 1.3 } },
     STYLE_ADJUSTMENT: { "photorealistic": 1.1, "oil-painting": 1.05, "watercolor": 0.95, "sketch": 0.9, "manga": 1.0, "pixel-art": 0.85, "3d-render": 1.15, "default": 1.0 }
   },
@@ -127,6 +136,8 @@ const CONFIG = {
     HD_PROMPTS: { basic: "high quality, detailed, sharp", enhanced: "high quality, highly detailed, sharp focus, professional, 8k uhd", maximum: "masterpiece, best quality, ultra detailed, 8k uhd, high resolution, professional photography, sharp focus, HDR" },
     HD_NEGATIVE: "blurry, low quality, distorted, ugly, bad anatomy, low resolution, pixelated, artifacts, noise",
     MODEL_QUALITY_PROFILES: {
+      "gptimage": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.0, guidance_boost: 1.0, recommended_quality: "standard" },
+      "gptimage-large": { min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.05, recommended_quality: "ultra" },
       "zimage": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.0, guidance_boost: 1.0, recommended_quality: "economy" },
       "flux": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.1, guidance_boost: 1.0, recommended_quality: "standard" },
       "turbo": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 0.9, guidance_boost: 0.95, recommended_quality: "economy" },
@@ -711,7 +722,22 @@ select{cursor:pointer}
 <div class="left-panel">
 <div class="section-title" data-t="settings_title">⚙️ 生成參數</div>
 <form id="generateForm">
-<div class="form-group"><label data-t="model_label">模型選擇</label><select id="model"><optgroup label="⚡ Z-Image Series"><option value="zimage" selected>Z-Image Turbo ⚡ (6B, Fast)</option></optgroup><optgroup label="🎨 Flux Series"><option value="flux">Flux Standard</option><option value="turbo">Flux Turbo ⚡</option></optgroup><optgroup label="🖼️ Kontext Series"><option value="kontext">Kontext 🎨 (Img2Img)</option></optgroup></select><div class="input-hint" data-t="price_hint">💰 價格: Z-Image (0.0002) | Flux (0.00012)</div></div>
+<div class="form-group"><label data-t="model_label">模型選擇</label><select id="model">
+<optgroup label="🤖 GPT-Image Series">
+<option value="gptimage" selected>GPT-Image 🎨</option>
+<option value="gptimage-large">GPT-Image Large 🌟</option>
+</optgroup>
+<optgroup label="⚡ Z-Image Series">
+<option value="zimage">Z-Image Turbo ⚡ (6B)</option>
+</optgroup>
+<optgroup label="🎨 Flux Series">
+<option value="flux">Flux Standard</option>
+<option value="turbo">Flux Turbo ⚡</option>
+</optgroup>
+<optgroup label="🖼️ Kontext Series">
+<option value="kontext">Kontext 🎨 (Img2Img)</option>
+</optgroup>
+</select><div class="input-hint" data-t="price_hint">💰 Price: GPT (0.0002) | Flux (0.00012)</div></div>
 <div class="form-group"><label data-t="size_label">尺寸預設</label><select id="size"><option value="square-1k" selected>Square 1024x1024</option><option value="square-1.5k">Square 1536x1536</option><option value="square-2k">Square 2048x2048</option><option value="portrait-9-16-hd">Portrait 1080x1920</option><option value="landscape-16-9-hd">Landscape 1920x1080</option><option value="instagram-square">Instagram Square</option><option value="wallpaper-fhd">Wallpaper FHD</option></select></div>
 <div class="form-group"><label data-t="style_label">藝術風格 🎨</label><select id="style">${styleOptionsHTML}</select><div class="style-hint" data-t="style_hint_text">✨ 多種風格可選</div></div>
 <div class="form-group"><label data-t="quality_label">質量模式</label><select id="qualityMode"><option value="economy">Economy (Fast)</option><option value="standard" selected>Standard (Balanced)</option><option value="ultra">Ultra HD (Best)</option></select></div>
@@ -752,10 +778,10 @@ select{cursor:pointer}
 <script>
 const I18N = {
   zh: {
-    nav_gen: "🎨 生成圖像", nav_his: "📚 歷史記錄", settings_title: "⚙️ 生成參數", model_label: "模型選擇", price_hint: "💰 價格: Z-Image (0.0002) | Flux (0.00012)", size_label: "尺寸預設", style_label: "藝術風格 🎨", style_hint_text: "✨ 多種風格可選", quality_label: "質量模式", adv_toggle: "▼ 進階選項", seed_hint: "-1 = 隨機", count_label: "生成數量", auto_opt: "自動優化參數", auto_hd: "自動HD增強", gen_btn: "🎨 開始生成", result_title: "🖼️ 生成結果", empty_title: "尚未生成任何圖像", empty_desc: "填寫左側參數並輸入提示詞後點擊生成", prompt_title: "💬 提示詞", pos_prompt: "正面提示詞", trans_hint: "✅ 支持中文自動翻譯 (Google)", neg_prompt: "負面提示詞 (可選)", ref_img: "參考圖像 URL (可選)", ref_hint: "📌 僅支持 Kontext 模型", style_info: "🎨 風格提示", curr_style: "當前已選", config_prev: "📋 當前配置預覽", prev_model: "模型", prev_size: "尺寸", prev_style: "風格", stat_total: "📊 總記錄數", stat_storage: "💾 存儲空間", stat_recent: "🎨 最近風格", btn_export: "📥 導出記錄", btn_clear: "🗑️ 清空記錄", no_history: "暫無歷史記錄", btn_reuse: "🔄 重用", btn_dl: "💾 下載", badge_styles: "風格"
+    nav_gen: "🎨 生成圖像", nav_his: "📚 歷史記錄", settings_title: "⚙️ 生成參數", model_label: "模型選擇", price_hint: "💰 價格: GPT (0.0002) | Flux (0.00012)", size_label: "尺寸預設", style_label: "藝術風格 🎨", style_hint_text: "✨ 多種風格可選", quality_label: "質量模式", adv_toggle: "▼ 進階選項", seed_hint: "-1 = 隨機", count_label: "生成數量", auto_opt: "自動優化參數", auto_hd: "自動HD增強", gen_btn: "🎨 開始生成", result_title: "🖼️ 生成結果", empty_title: "尚未生成任何圖像", empty_desc: "填寫左側參數並輸入提示詞後點擊生成", prompt_title: "💬 提示詞", pos_prompt: "正面提示詞", trans_hint: "✅ 支持中文自動翻譯 (Google)", neg_prompt: "負面提示詞 (可選)", ref_img: "參考圖像 URL (可選)", ref_hint: "📌 僅支持 Kontext 模型", style_info: "🎨 風格提示", curr_style: "當前已選", config_prev: "📋 當前配置預覽", prev_model: "模型", prev_size: "尺寸", prev_style: "風格", stat_total: "📊 總記錄數", stat_storage: "💾 存儲空間", stat_recent: "🎨 最近風格", btn_export: "📥 導出記錄", btn_clear: "🗑️ 清空記錄", no_history: "暫無歷史記錄", btn_reuse: "🔄 重用", btn_dl: "💾 下載", badge_styles: "風格"
   },
   en: {
-    nav_gen: "🎨 Create", nav_his: "📚 History", settings_title: "⚙️ Settings", model_label: "Model", price_hint: "💰 Price: Z-Image (0.0002) | Flux (0.00012)", size_label: "Size", style_label: "Art Style 🎨", style_hint_text: "✨ Various styles", quality_label: "Quality", adv_toggle: "▼ Advanced", seed_hint: "-1 = Random", count_label: "Count", auto_opt: "Auto Optimize", auto_hd: "Auto HD", gen_btn: "🎨 Generate", result_title: "🖼️ Results", empty_title: "No images yet", empty_desc: "Enter prompt and click Generate", prompt_title: "💬 Prompt", pos_prompt: "Positive Prompt", trans_hint: "✅ Google Auto-Translate Supported", neg_prompt: "Negative Prompt (Optional)", ref_img: "Ref Image URL (Optional)", ref_hint: "📌 Kontext model only", style_info: "🎨 Style Info", curr_style: "Selected", config_prev: "📋 Preview", prev_model: "Model", prev_size: "Size", prev_style: "Style", stat_total: "📊 Total", stat_storage: "💾 Storage", stat_recent: "🎨 Recent", btn_export: "📥 Export", btn_clear: "🗑️ Clear", no_history: "No history found", btn_reuse: "🔄 Reuse", btn_dl: "💾 Save", badge_styles: "Styles"
+    nav_gen: "🎨 Create", nav_his: "📚 History", settings_title: "⚙️ Settings", model_label: "Model", price_hint: "💰 Price: GPT (0.0002) | Flux (0.00012)", size_label: "Size", style_label: "Art Style 🎨", style_hint_text: "✨ Various styles", quality_label: "Quality", adv_toggle: "▼ Advanced", seed_hint: "-1 = Random", count_label: "Count", auto_opt: "Auto Optimize", auto_hd: "Auto HD", gen_btn: "🎨 Generate", result_title: "🖼️ Results", empty_title: "No images yet", empty_desc: "Enter prompt and click Generate", prompt_title: "💬 Prompt", pos_prompt: "Positive Prompt", trans_hint: "✅ Google Auto-Translate Supported", neg_prompt: "Negative Prompt (Optional)", ref_img: "Ref Image URL (Optional)", ref_hint: "📌 Kontext model only", style_info: "🎨 Style Info", curr_style: "Selected", config_prev: "📋 Preview", prev_model: "Model", prev_size: "Size", prev_style: "Style", stat_total: "📊 Total", stat_storage: "💾 Storage", stat_recent: "🎨 Recent", btn_export: "📥 Export", btn_clear: "🗑️ Clear", no_history: "No history found", btn_reuse: "🔄 Reuse", btn_dl: "💾 Save", badge_styles: "Styles"
   }
 };
 let curLang = 'zh';
@@ -798,7 +824,7 @@ function updatePreview(){
   const style=document.getElementById('style').value;
   const sizeConfig=PRESET_SIZES[sizePreset]||PRESET_SIZES['square-1k'];
   const styleConfig=STYLE_PRESETS[style];
-  const modelNames={'zimage':'Z-Image Turbo ⚡','flux':'Flux Standard','turbo':'Flux Turbo ⚡','kontext':'Kontext 🎨'};
+  const modelNames={'gptimage':'GPT-Image 🎨','gptimage-large':'GPT-Image Large 🌟','zimage':'Z-Image Turbo ⚡','flux':'Flux Standard','turbo':'Flux Turbo ⚡','kontext':'Kontext 🎨'};
   document.getElementById('previewModel').textContent=modelNames[model]||model;
   document.getElementById('previewSize').textContent=sizeConfig.name;
   document.getElementById('previewStyle').textContent=styleConfig ? styleConfig.icon + ' ' + styleConfig.name : 'None';
