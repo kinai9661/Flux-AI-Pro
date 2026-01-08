@@ -56,23 +56,71 @@ const CONFIG = {
   
   DEFAULT_PROVIDER: "pollinations",
   
-  STYLE_PRESETS: {
-    none: { name: "無風格", prompt: "", negative: "", category: "basic", icon: "⚡", description: "使用原始提示詞" },
-    anime: { name: "動漫風格", prompt: "anime style, anime art, vibrant colors, cel shading, detailed anime", negative: "realistic, photograph, 3d, ugly", category: "illustration", icon: "🎭", description: "日系動漫風格" },
-    photorealistic: { name: "寫實照片", prompt: "photorealistic, 8k uhd, high quality, detailed, professional photography, sharp focus", negative: "anime, cartoon, illustration, painting, drawing, art", category: "realistic", icon: "📷", description: "攝影級寫實效果" },
-    "oil-painting": { name: "油畫", prompt: "oil painting, canvas texture, visible brushstrokes, rich colors, artistic, masterpiece", negative: "photograph, digital art, anime, flat", category: "painting", icon: "🖼️", description: "經典油畫質感" },
-    watercolor: { name: "水彩畫", prompt: "watercolor painting, soft colors, watercolor texture, artistic, hand-painted, paper texture, flowing colors", negative: "photograph, digital, sharp edges, 3d", category: "painting", icon: "💧", description: "清新水彩風格" },
-    cyberpunk: { name: "賽博朋克", prompt: "cyberpunk style, neon lights, futuristic, sci-fi, dystopian, high-tech low-life, blade runner style", negative: "natural, rustic, medieval, fantasy", category: "scifi", icon: "🌃", description: "賽博朋克未來科幻" },
-    fantasy: { name: "奇幻風格", prompt: "fantasy art, magical, epic fantasy, detailed fantasy illustration, mystical, enchanted", negative: "modern, realistic, mundane, contemporary", category: "fantasy", icon: "🐉", description: "奇幻魔法世界" }
-  },
-  
   STYLE_CATEGORIES: {
-    'basic': { name: '基礎', icon: '⚡', order: 1 },
-    'illustration': { name: '插畫動畫', icon: '🎨', order: 2 },
-    'realistic': { name: '寫實照片', icon: '📷', order: 3 },
-    'painting': { name: '繪畫風格', icon: '🖼️', order: 4 },
-    'scifi': { name: '科幻', icon: '🚀', order: 5 },
-    'fantasy': { name: '奇幻', icon: '🐉', order: 6 }
+    'photorealism': { name: '攝影寫實', icon: '📷', order: 1 },
+    'artistic': { name: '藝術繪畫', icon: '🎨', order: 2 },
+    'digital': { name: '數位創作', icon: '💻', order: 3 },
+    'anime': { name: '動漫插畫', icon: '🌸', order: 4 },
+    'special': { name: '特殊風格', icon: '✨', order: 5 }
+  },
+
+  STYLE_PRESETS: {
+    // === 0. 基礎 ===
+    none: { name: "無風格 (Raw)", prompt: "", negative: "", category: "photorealism", icon: "⚡" },
+    
+    // === 1. 攝影寫實 (Photorealism) ===
+    photorealistic: { name: "極致寫實", prompt: "photorealistic, 8k uhd, high quality, masterpiece, sharp focus, detailed texture", negative: "illustration, painting, cartoon, low quality", category: "photorealism", icon: "📸" },
+    cinematic: { name: "電影質感", prompt: "cinematic lighting, movie scene, dramatic atmosphere, color graded, anamorphic lens, shallow depth of field", category: "photorealism", icon: "🎬" },
+    analog: { name: "底片膠卷", prompt: "analog film, grain, vintage photography, kodak portra 400, film texture, nostalgic", category: "photorealism", icon: "🎞️" },
+    polaroid: { name: "拍立得", prompt: "polaroid photo, vintage instant photo, flash photography, candid, soft focus, vignette", category: "photorealism", icon: "📷" },
+    studio: { name: "攝影棚人像", prompt: "studio lighting, professional portrait, rim light, softbox, high detail skin texture, 8k", category: "photorealism", icon: "💡" },
+    macro: { name: "微距攝影", prompt: "macro photography, extreme close-up, intricate details, shallow depth of field, bokeh", category: "photorealism", icon: "🔍" },
+    monochrome: { name: "黑白攝影", prompt: "black and white photography, monochrome, high contrast, dramatic shadows, noir style", category: "photorealism", icon: "⚫" },
+    drone: { name: "空拍視角", prompt: "aerial photography, drone shot, bird's eye view, wide angle, epic scale", category: "photorealism", icon: "🚁" },
+    
+    // === 2. 藝術繪畫 (Artistic) ===
+    oil: { name: "經典油畫", prompt: "oil painting, canvas texture, impasto, visible brushstrokes, classical art", category: "artistic", icon: "🖼️" },
+    watercolor: { name: "清新水彩", prompt: "watercolor painting, wet on wet, soft edges, paper texture, dripping paint, artistic", category: "artistic", icon: "💧" },
+    impressionism: { name: "印象派", prompt: "impressionist painting, monet style, loose brushwork, vibrant light and color", category: "artistic", icon: "🌻" },
+    surrealism: { name: "超現實主義", prompt: "surrealism, dali style, dreamlike, impossible physics, melting objects, weird", category: "artistic", icon: "🕰️" },
+    popart: { name: "普普藝術", prompt: "pop art, warhol style, bold colors, halftone dots, comic style, poster art", category: "artistic", icon: "🥫" },
+    ukiyo: { name: "浮世繪", prompt: "ukiyo-e style, japanese woodblock print, flat colors, outlines, traditional japanese art", category: "artistic", icon: "🌊" },
+    ink: { name: "水墨畫", prompt: "chinese ink wash painting, sumi-e, brush strokes, black ink, negative space", category: "artistic", icon: "🖌️" },
+    renaissance: { name: "文藝復興", prompt: "renaissance art, michelangelo style, classical anatomy, dramatic lighting, religious art style", category: "artistic", icon: "🏛️" },
+    sketch: { name: "素描手繪", prompt: "pencil sketch, charcoal drawing, rough lines, hand drawn, graphite texture", category: "artistic", icon: "✏️" },
+    
+    // === 3. 數位創作 (Digital) ===
+    cyberpunk: { name: "賽博朋克", prompt: "cyberpunk, neon lights, high-tech low-life, futuristic city, glowing, blue and pink", category: "digital", icon: "🌃" },
+    steampunk: { name: "蒸汽龐克", prompt: "steampunk, brass, gears, victorian industrial, copper, steam engine aesthetic", category: "digital", icon: "⚙️" },
+    render3d: { name: "3D 渲染", prompt: "3d render, blender, unreal engine 5, ray tracing, global illumination, octane render", category: "digital", icon: "🧊" },
+    lowpoly: { name: "低多邊形", prompt: "low poly, isometric, geometric shapes, minimal details, flat shading, 3d art", category: "digital", icon: "🔷" },
+    pixelart: { name: "像素藝術", prompt: "pixel art, 8-bit, retro game style, dithering, limited color palette", category: "digital", icon: "👾" },
+    vaporwave: { name: "蒸氣波", prompt: "vaporwave aesthetic, retro 80s, neon pink and blue, glitch art, statue, palm trees", category: "digital", icon: "📼" },
+    vector: { name: "向量插畫", prompt: "vector art, flat illustration, clean lines, solid colors, adobe illustrator style", category: "digital", icon: "📐" },
+    glitch: { name: "故障藝術", prompt: "glitch art, datamoshing, rgb shift, digital noise, distorted, cyberpunk aesthetic", category: "digital", icon: "📺" },
+    synthwave: { name: "合成波", prompt: "synthwave style, retrowave, 80s sci-fi, neon grid, sunset, chrome text", category: "digital", icon: "🌅" },
+    
+    // === 4. 動漫插畫 (Anime) ===
+    anime: { name: "日系動漫", prompt: "anime style, key visual, vibrant colors, cel shading, highly detailed", category: "anime", icon: "🌸" },
+    manga: { name: "黑白漫畫", prompt: "manga style, black and white, screen tones, ink lines, comic book aesthetic", category: "anime", icon: "📖" },
+    ghibli: { name: "吉卜力", prompt: "studio ghibli style, miyazaki style, painted background, soft colors, detailed environment, whimsical", category: "anime", icon: "🍃" },
+    makoto: { name: "新海誠", prompt: "makoto shinkai style, breathtaking sky, lens flare, detailed clouds, emotional atmosphere, vibrant", category: "anime", icon: "🌤️" },
+    comic: { name: "美式漫畫", prompt: "comic book style, marvel style, bold outlines, dynamic action, hatching, speech bubbles", category: "anime", icon: "💥" },
+    mecha: { name: "機甲風格", prompt: "mecha anime style, gundam, detailed robot parts, metallic textures, sci-fi battlefield", category: "anime", icon: "🤖" },
+    chibi: { name: "Q版角色", prompt: "chibi style, cute, big head small body, kawaii, simple details, sticker art", category: "anime", icon: "👶" },
+    nineties: { name: "90年代動漫", prompt: "90s anime style, retro anime, vhs effect, sailor moon style, cel animation aesthetic", category: "anime", icon: "📺" },
+    webtoon: { name: "韓漫風格", prompt: "webtoon style, manhwa, vertical scrolling composition, digital painting, vibrant colors", category: "anime", icon: "📱" },
+    
+    // === 5. 特殊風格 (Special) ===
+    origami: { name: "摺紙藝術", prompt: "origami style, paper craft, folded paper, paper texture, geometric, minimal", category: "special", icon: "🦢" },
+    clay: { name: "黏土定格", prompt: "claymation style, plasticine, stop motion, fingerprint texture, soft lighting, aardman style", category: "special", icon: "🧸" },
+    felt: { name: "羊毛氈", prompt: "felt texture, wool, fuzzy, soft fabric, craft style, handmade look", category: "special", icon: "🧶" },
+    stainedglass: { name: "彩繪玻璃", prompt: "stained glass window, colorful glass, lead lines, religious art, light passing through", category: "special", icon: "🪟" },
+    neon_sign: { name: "霓虹燈牌", prompt: "neon sign, glowing tubes, dark background, brick wall, electric colors, night club vibe", category: "special", icon: "⚡" },
+    blueprint: { name: "藍圖設計", prompt: "blueprint style, technical drawing, white lines on blue background, schematic, architectural", category: "special", icon: "📐" },
+    tattoo: { name: "紋身圖案", prompt: "tattoo design, blackwork, linework, bold lines, stippling, flash art", category: "special", icon: "🐉" },
+    lego: { name: "樂高積木", prompt: "lego style, plastic bricks, stud texture, toy photography, miniature world", category: "special", icon: "🧱" },
+    knolling: { name: "平鋪攝影", prompt: "knolling photography, flat lay, organized objects, top down view, clean background", category: "special", icon: "📦" }
   },
   
   OPTIMIZATION_RULES: {
