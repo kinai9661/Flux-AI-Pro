@@ -250,7 +250,6 @@ class Logger {
   get() { return this.logs; }
 }
 
-// ====== RateLimiter: 負責 KV 限制邏輯 ======
 class RateLimiter {
   constructor(env) {
     this.env = env;
@@ -264,15 +263,14 @@ class RateLimiter {
     }
     
     const key = `nano_limit:${ip}`;
-    const windowSize = 3600 * 1000; // 1小時 (毫秒)
-    const maxRequests = 20; // 限制數量
+    const windowSize = 3600 * 1000;
+    const maxRequests = 20;
     
     try {
       const rawData = await this.KV.get(key);
       let timestamps = rawData ? JSON.parse(rawData) : [];
       const now = Date.now();
       
-      // 清除過期的時間戳
       timestamps = timestamps.filter(ts => now - ts < windowSize);
       
       if (timestamps.length >= maxRequests) {
@@ -288,7 +286,6 @@ class RateLimiter {
         };
       }
       
-      // 添加當前請求的時間戳
       timestamps.push(now);
       await this.KV.put(key, JSON.stringify(timestamps), { expirationTtl: 3600 });
       
@@ -384,21 +381,18 @@ class HDOptimizer {
     const optimizations = [];
     const hdLevel = modeConfig.hd_level;
     
-    // 增強提示詞
     let enhancedPrompt = prompt;
     if (hdConfig.HD_PROMPTS[hdLevel]) { 
       enhancedPrompt = prompt + ", " + hdConfig.HD_PROMPTS[hdLevel]; 
       optimizations.push("HD增強: " + hdLevel); 
     }
     
-    // 增強負面提示詞
     let enhancedNegative = negativePrompt || "";
     if (qualityMode !== 'economy') { 
       enhancedNegative = enhancedNegative ? enhancedNegative + ", " + hdConfig.HD_NEGATIVE : hdConfig.HD_NEGATIVE; 
       optimizations.push("負面提示詞: 高清過濾"); 
     }
     
-    // 尺寸優化
     let finalWidth = width;
     let finalHeight = height;
     let sizeUpscaled = false;
@@ -631,7 +625,6 @@ class PollinationsProvider {
       }
     }
     
-    // 圖生圖模式驗證
     if (imageToImageMode && !supportsI2I) {
       logger.add("⚠️ Image-to-Image Not Supported", { 
         model: model, 
@@ -734,10 +727,8 @@ class PollinationsProvider {
     params.append('enhance', enhance.toString());
     params.append('private', privateMode.toString());
     
-    // 參考圖像處理
     if (validReferenceImages && validReferenceImages.length > 0) {
       if (imageToImageMode) {
-        // 圖生圖：只用第一張，添加 strength
         params.append('image', validReferenceImages[0]);
         params.append('strength', referenceStrength.toString());
         logger.add("🖼️ Image-to-Image Parameters", { 
@@ -745,7 +736,6 @@ class PollinationsProvider {
           strength: referenceStrength 
         });
       } else {
-        // 多圖融合：用所有圖
         params.append('image', validReferenceImages.join(','));
         logger.add("🔀 Reference Fusion Parameters", { 
           count: validReferenceImages.length, 
@@ -765,7 +755,7 @@ class PollinationsProvider {
     
     const authConfig = CONFIG.POLLINATIONS_AUTH;
     if (authConfig.enabled && authConfig.token) {
-      headers['Authorization'] = `Bearer ${authConfig.token}`;
+      headers['Authorization'] = 'Bearer ' + authConfig.token;
       logger.add("🔐 API Authentication", { 
         method: "Bearer Token", 
         token_prefix: authConfig.token.substring(0, 8) + "...", 
@@ -907,97 +897,6 @@ class MultiProviderRouter {
   }
 }
 
-export default {
-  async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    const startTime = Date.now();
-    const clientIP = getClientIP(request);
-    
-    if (env.POLLINATIONS_API_KEY) { 
-      CONFIG.POLLINATIONS_AUTH.enabled = true; 
-      CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; 
-    } 
-    else { 
-      console.warn("⚠️ POLLINATIONS_API_KEY not set - requests may fail on new API endpoint"); 
-      CONFIG.POLLINATIONS_AUTH.enabled = false; 
-      CONFIG.POLLINATIONS_AUTH.token = ""; 
-    }
-    
-    console.log("=== Request Info ===");
-    console.log("IP:", clientIP);
-    console.log("Path:", url.pathname);
-    console.log("Method:", request.method);
-    console.log("API Endpoint:", CONFIG.PROVIDERS.pollinations.endpoint);
-    console.log("===================");
-    
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() });
-    
-    try {
-      let response;
-      if (url.pathname === '/nano') { 
-        response = handleNanoPage(request); 
-      } 
-      else if (url.pathname === '/' || url.pathname === '') { 
-        response = handleUI(request); 
-      } 
-      else if (url.pathname === '/_internal/generate') { 
-        response = await handleInternalGenerate(request, env, ctx); 
-      } 
-      else if (url.pathname === '/health') {
-        response = new Response(JSON.stringify({
-          status: 'ok', 
-          version: CONFIG.PROJECT_VERSION, 
-          timestamp: new Date().toISOString(),
-          styles_count: Object.keys(CONFIG.STYLE_PRESETS).length,
-          api_auth: { 
-            enabled: CONFIG.POLLINATIONS_AUTH.enabled, 
-            method: CONFIG.POLLINATIONS_AUTH.method, 
-            has_token: !!CONFIG.POLLINATIONS_AUTH.token, 
-            endpoint: CONFIG.PROVIDERS.pollinations.endpoint 
-          },
-          models: CONFIG.PROVIDERS.pollinations.models.map(m => ({ 
-            id: m.id, 
-            name: m.name, 
-            category: m.category, 
-            supports_reference_images: m.supports_reference_images || false,
-            supports_image_to_image: m.supports_image_to_image || false
-          })),
-          style_categories: Object.keys(CONFIG.STYLE_CATEGORIES).map(key => ({ 
-            id: key, 
-            name: CONFIG.STYLE_CATEGORIES[key].name, 
-            icon: CONFIG.STYLE_CATEGORIES[key].icon, 
-            count: Object.values(CONFIG.STYLE_PRESETS).filter(s => s.category === key).length 
-          }))
-        }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-      } else {
-        response = new Response(JSON.stringify({ 
-          error: 'Not Found', 
-          message: '此 Worker 僅提供 Web UI 界面', 
-          available_paths: ['/', '/health', '/_internal/generate', '/nano'] 
-        }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-      }
-      
-      const duration = Date.now() - startTime;
-      const headers = new Headers(response.headers);
-      headers.set('X-Response-Time', duration + 'ms');
-      headers.set('X-Worker-Version', CONFIG.PROJECT_VERSION);
-      headers.set('X-API-Endpoint', CONFIG.PROVIDERS.pollinations.endpoint);
-      return new Response(response.body, { status: response.status, headers: headers });
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error('Worker error:', error);
-      return new Response(JSON.stringify({ 
-        error: { 
-          message: error.message, 
-          type: 'worker_error', 
-          timestamp: new Date().toISOString(), 
-          duration_ms: duration 
-        } 
-      }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-    }
-  }
-};
-
 async function handleInternalGenerate(request, env, ctx) {
   const logger = new Logger();
   const startTime = Date.now();
@@ -1008,9 +907,7 @@ async function handleInternalGenerate(request, env, ctx) {
     const prompt = body.prompt;
     if (!prompt || !prompt.trim()) throw new Error("Prompt is required");
 
-    // ====== NanoBanana 來源與限流檢查 ======
     if (body.model === 'nano-banana') {
-        // 1. 來源檢查：必須帶有特殊 Header
         const source = request.headers.get('X-Source');
         if (source !== 'nano-page') {
              return new Response(JSON.stringify({ 
@@ -1018,7 +915,6 @@ async function handleInternalGenerate(request, env, ctx) {
             }), { status: 403, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
         }
 
-        // 2. 限流檢查 - 詳細返回信息
         const limiter = new RateLimiter(env);
         const check = await limiter.checkLimit(clientIP);
         
@@ -1035,7 +931,6 @@ async function handleInternalGenerate(request, env, ctx) {
             }), { status: 429, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
         }
 
-        // 3. 成功，回傳剩餘額度
         logger.add("🍌 Rate Limit Status", { 
             remaining: check.remaining, 
             used: check.used,
@@ -1044,26 +939,22 @@ async function handleInternalGenerate(request, env, ctx) {
             window: "1小時"
         });
     }
-    // ===============================================
     
     let width = 1024, height = 1024;
     if (body.width) width = body.width;
     if (body.height) height = body.height;
     
-    // ====== 參考圖像處理（支持多張，最多 3 張）======
     let referenceImages = [];
     if (body.reference_images && Array.isArray(body.reference_images)) {
       referenceImages = body.reference_images.filter(url => { 
         try { new URL(url); return true; } 
         catch { return false; } 
-      }).slice(0, 3); // 限制最多 3 張
+      }).slice(0, 3);
     }
 
-    // 圖生圖模式：使用第一張參考圖作為基礎
     const imageToImageMode = body.generation_mode === 'image-to-image' && referenceImages.length > 0;
     const referenceStrength = body.reference_strength !== undefined ? parseFloat(body.reference_strength) : 0.7;
     
-    // 驗證 strength 範圍
     const validStrength = Math.max(0.1, Math.min(1.0, referenceStrength));
     
     if (imageToImageMode) {
@@ -1121,7 +1012,7 @@ async function handleInternalGenerate(request, env, ctx) {
       return new Response(result.imageData, {
         headers: { 
           'Content-Type': result.contentType || 'image/png', 
-          'Content-Disposition': `inline; filename="nano-${result.seed}.png"`,
+          'Content-Disposition': 'inline; filename="nano-' + result.seed + '.png"',
           'X-Model': result.model, 
           'X-Model-Name': result.style_name || result.model,
           'X-Seed': result.seed.toString(), 
@@ -1149,7 +1040,7 @@ async function handleInternalGenerate(request, env, ctx) {
         const len = uint8Array.byteLength;
         for (let i = 0; i < len; i++) binary += String.fromCharCode(uint8Array[i]);
         return { 
-          image: `data:${r.contentType};base64,${btoa(binary)}`, 
+          image: 'data:' + r.contentType + ';base64,' + btoa(binary), 
           model: r.model, 
           seed: r.seed, 
           width: r.width, 
@@ -1188,943 +1079,157 @@ async function handleInternalGenerate(request, env, ctx) {
   }
 }
 
-function handleNanoPage(request) {
-  const html = \`<!DOCTYPE html>
+function getHtmlContent() {
+  return `<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🍌 NanoBanana Pro - 方案 C</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍌</text></svg>">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flux AI Pro</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{width:100%;height:100%}
-body{font-family:system-ui,sans-serif;background:#1a1a1a;color:#fff;display:flex;flex-direction:column}
-.top-bar{background:rgba(0,0,0,0.5);border-bottom:1px solid #444;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
-.logo-area{display:flex;align-items:center;gap:12px;font-size:28px}
-.title{color:#FACC15;font-weight:900;font-size:18px}
-.subtitle{font-size:10px;color:#888}
-.quota-display{display:flex;align-items:center;gap:15px}
-.quota-item{background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.3);padding:6px 12px;border-radius:8px;font-size:12px}
-.quota-label{color:#aaa;font-size:10px;text-transform:uppercase}
-.quota-value{color:#FACC15;font-weight:900;font-size:16px}
-.nav-btn{padding:8px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#ddd;cursor:pointer;font-size:12px;text-decoration:none;transition:0.3s}
-.nav-btn:hover{border-color:#FACC15;color:#FACC15}
-
-.main{flex:1;display:grid;grid-template-columns:320px 1fr 380px;gap:20px;padding:20px;overflow:hidden}
-.panel{background:#2a2a2a;border:1px solid #333;border-radius:12px;padding:20px;overflow-y:auto}
-
-.section-title{color:#FACC15;font-size:13px;font-weight:900;text-transform:uppercase;margin-bottom:15px}
-.form-group{margin-bottom:16px}
-label{display:block;margin-bottom:6px;font-size:12px;color:#bbb;font-weight:600}
-input,textarea,select{width:100%;padding:10px;background:#333;border:1px solid #555;border-radius:8px;color:#fff;font-size:13px;font-family:inherit;transition:0.3s}
-input:focus,textarea:focus,select:focus{outline:none;border-color:#FACC15;box-shadow:0 0 8px rgba(250,204,21,0.2)}
-textarea{resize:vertical;min-height:80px}
-
-.mode-tabs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:15px}
-.mode-tab{padding:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;cursor:pointer;text-align:center;font-size:12px;transition:0.3s;font-weight:600}
-.mode-tab.active{background:rgba(250,204,21,0.2);border-color:#FACC15;color:#FACC15}
-
-.image-upload{border:2px dashed #555;border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:0.3s}
-.image-upload:hover{border-color:#FACC15}
-.image-upload.active{border-color:#FACC15;background:rgba(250,204,21,0.05)}
-.upload-icon{font-size:32px;margin-bottom:8px}
-
-.image-previews{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
-.preview-item{position:relative;border-radius:8px;overflow:hidden;background:#333;aspect-ratio:1}
-.preview-item img{width:100%;height:100%;object-fit:cover}
-.preview-remove{position:absolute;top:5px;right:5px;background:#ef4444;border:none;border-radius:50%;width:24px;height:24px;color:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
-
-.slider-group{margin-bottom:15px}
-.slider-label{display:flex;justify-content:space-between;margin-bottom:6px;font-size:12px;color:#bbb}
-.slider-value{color:#FACC15;font-weight:600}
-input[type="range"]{width:100%;cursor:pointer}
-
-.preset-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:15px}
-.preset-btn{padding:10px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.2);border-radius:6px;color:#FACC15;cursor:pointer;font-size:12px;font-weight:600;transition:0.3s}
-.preset-btn.active{background:rgba(250,204,21,0.3);border-color:#FACC15}
-.preset-btn:hover{background:rgba(250,204,21,0.25)}
-
-.advanced-toggle{display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer;user-select:none}
-input[type="checkbox"]{width:16px;height:16px;cursor:pointer}
-.advanced-params{background:#222;border:1px solid #555;border-radius:8px;padding:15px;display:none;margin-top:10px}
-.advanced-params.show{display:block}
-
-.btn{width:100%;padding:12px;background:linear-gradient(45deg, #FACC15, #EAB308);border:none;border-radius:8px;color:#000;font-weight:900;font-size:14px;cursor:pointer;transition:all 0.3s}
-.btn:hover{transform:translateY(-2px);box-shadow:0 5px 15px rgba(250,204,21,0.3)}
-.btn:disabled{opacity:0.5;cursor:not-allowed}
-
-.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;height:100%;overflow-y:auto}
-.gallery-item{position:relative;border-radius:10px;overflow:hidden;background:#333;border:1px solid #555;cursor:pointer;transition:0.3s;aspect-ratio:1}
-.gallery-item img{width:100%;height:100%;object-fit:cover;display:block}
-.gallery-item:hover{transform:scale(1.05);border-color:#FACC15;box-shadow:0 0 15px rgba(250,204,21,0.2)}
-
-.loading{text-align:center;padding:40px 20px;color:#FACC15}
-.spinner{border:3px solid rgba(250,204,21,0.2);border-top:3px solid #FACC15;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 15px}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#ef4444;color:white;padding:12px 24px;border-radius:8px;display:none;z-index:100;font-weight:600}
-.toast.success{background:#22c55e}
-
-.history-item{background:#333;border:1px solid #555;border-radius:8px;padding:10px;margin-bottom:8px;cursor:pointer;transition:0.3s}
-.history-item:hover{border-color:#FACC15;background:#404040}
-.history-time{font-size:10px;color:#888}
-.history-prompt{font-size:12px;color:#fff;margin:5px 0;word-break:break-all}
-.history-meta{font-size:10px;color:#666}
-
-@media(max-width:1400px){
-  .main{grid-template-columns:1fr;gap:15px}
-  .left-panel{display:none}
-}
-
-@media(max-width:900px){
-  .main{grid-template-columns:1fr;gap:15px}
-  .right-panel{display:none}
-}
-
-@media(max-width:768px){
-  .main{grid-template-columns:1fr;gap:15px}
-  .mode-tabs{grid-template-columns:1fr}
-  .image-previews{grid-template-columns:repeat(2,1fr)}
-  .quota-display{flex-direction:column;align-items:flex-start;gap:10px}
-}
-</style>
-</head>
-<body>
-<div id="toast" class="toast"></div>
-
-<!-- 頂部欄 -->
-<div class="top-bar">
-<div class="logo-area">
-  <span>🍌</span>
-  <div>
-    <div class="title">NanoBanana Pro</div>
-    <div class="subtitle">圖生圖 • 多圖融合 • 專業版 (方案 C)</div>
-  </div>
-</div>
-<div class="quota-display">
-  <div class="quota-item">
-    <div class="quota-label">📊 今天已用</div>
-    <div class="quota-value"><span id="usedQuota">0</span>/20</div>
-  </div>
-  <div class="quota-item">
-    <div class="quota-label">⚡ 剩餘額度</div>
-    <div class="quota-value" id="remainingQuota">20</div>
-  </div>
-  <a href="/" class="nav-btn">← 返回</a>
-</div>
-</div>
-
-<!-- 主內容 -->
-<div class="main">
-<!-- 左側：控制面板 -->
-<div class="panel" id="leftPanel">
-<div class="section-title">⚙️ 生成配置</div>
-
-<form id="genForm">
-<!-- 生成模式切換 -->
-<div class="form-group">
-  <label>🎨 生成模式</label>
-  <div class="mode-tabs">
-    <button type="button" class="mode-tab active" data-mode="text">📝 文生圖</button>
-    <button type="button" class="mode-tab" data-mode="image">🖼️ 圖生圖</button>
-    <button type="button" class="mode-tab" data-mode="fusion">🔀 融合</button>
-  </div>
-  <input type="hidden" id="genMode" value="text">
-</div>
-
-<!-- 提示詞 -->
-<div class="form-group">
-  <label>✍️ 描述 / 修改指令</label>
-  <textarea id="prompt" placeholder="例如: Make it more vibrant, change to sunset lighting..." required></textarea>
-</div>
-
-<!-- 參考圖上傳 -->
-<div class="form-group" id="imageUploadGroup" style="display:none">
-  <label>📸 上傳圖片 (最多 3 張)</label>
-  <div class="image-upload" id="imageUpload">
-    <div class="upload-icon">📤</div>
-    <div style="font-size:12px;color:#bbb">點擊或拖放上傳</div>
-  </div>
-  <input type="file" id="imageInput" accept="image/*" multiple hidden>
-  <div class="image-previews" id="previewsContainer"></div>
-</div>
-
-<!-- 尺寸 & 風格 -->
-<div class="form-group">
-  <label>📐 尺寸</label>
-  <select id="ratio">
-    <option value="1024,1024">方形 1024x1024</option>
-    <option value="1080,1920">豎屏 1080x1920</option>
-    <option value="1920,1080">寬屏 1920x1080</option>
-  </select>
-</div>
-
-<div class="form-group">
-  <label>🎨 風格</label>
-  <select id="style">
-    <option value="none">無風格</option>
-    <option value="photorealistic">寫實照片</option>
-    <option value="anime">日系動漫</option>
-    <option value="cyberpunk">賽博龐克</option>
-    <option value="oil-painting">油畫</option>
-  </select>
-</div>
-
-<!-- 參考強度滑塊（圖生圖模式）-->
-<div class="form-group" id="strengthGroup" style="display:none">
-  <label>💪 參考圖強度</label>
-  <div class="slider-group">
-    <div class="slider-label">
-      <span>弱 (更創意)</span>
-      <span class="slider-value" id="strengthValue">0.7</span>
-      <span>強 (更接近原圖)</span>
-    </div>
-    <input type="range" id="strength" min="0.1" max="1" step="0.1" value="0.7">
-  </div>
-</div>
-
-<!-- 質量模式 -->
-<div class="form-group">
-  <label>⭐ 質量模式</label>
-  <select id="quality">
-    <option value="economy">⚡ 經濟 (快速)</option>
-    <option value="standard" selected>📊 標準 (推薦)</option>
-    <option value="ultra">✨ 超高清</option>
-  </select>
-</div>
-
-<!-- 批量生成 -->
-<div class="form-group">
-  <label>📊 一次生成張數</label>
-  <div class="preset-buttons">
-    <button type="button" class="preset-btn active" data-n="1">1 張</button>
-    <button type="button" class="preset-btn" data-n="2">2 張</button>
-    <button type="button" class="preset-btn" data-n="4">4 張</button>
-  </div>
-  <input type="hidden" id="batchSize" value="1">
-</div>
-
-<!-- 進階參數 -->
-<div class="advanced-toggle" id="advToggle">
-  <input type="checkbox" id="advCheckbox">
-  <label for="advCheckbox" style="margin:0;cursor:pointer;font-size:12px">🛠️ 進階參數</label>
-</div>
-<div class="advanced-params" id="advParams">
-  <div class="form-group">
-    <label>Steps (生成步數)</label>
-    <input type="number" id="steps" value="20" min="5" max="50">
-  </div>
-  <div class="form-group">
-    <label>Guidance (引導係數)</label>
-    <input type="number" id="guidance" value="7.5" step="0.5" min="1" max="20">
-  </div>
-</div>
-
-<!-- 提交按鈕 -->
-<button type="submit" class="btn" style="margin-top:15px">🍌 立即生成</button>
-<button type="button" class="btn" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#ddd;margin-top:10px" id="clearHistoryBtn">🗑️ 清空歷史</button>
-</form>
-</div>
-
-<!-- 中間：結果預覽 -->
-<div class="panel" style="padding:0;display:flex;flex-direction:column">
-<div style="padding:20px;border-bottom:1px solid #444;flex-shrink:0">
-  <div class="section-title" style="margin:0">📸 結果畫廊</div>
-</div>
-<div id="resultGallery" class="gallery" style="flex:1">
-  <div class="loading">
-    <div style="font-size:24px">🍌</div>
-    <div style="margin-top:10px">還沒有生成任何圖像</div>
-  </div>
-</div>
-</div>
-
-<!-- 右側：歷史記錄 -->
-<div class="panel" id="rightPanel" style="padding:0;display:flex;flex-direction:column">
-<div style="padding:20px;border-bottom:1px solid #444;flex-shrink:0;display:flex;justify-content:space-between;align-items:center">
-  <div class="section-title" style="margin:0">📚 本地記錄</div>
-  <button id="clearAllBtn" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);padding:4px 8px;border-radius:4px;color:#ddd;cursor:pointer;font-size:11px">清空</button>
-</div>
-<div id="historyList" style="flex:1;overflow-y:auto;padding:10px">
-  <div style="text-align:center;padding:20px;color:#666;font-size:12px">暫無記錄</div>
-</div>
-</div>
-</div>
-
-<script>
-// ====== IndexedDB 設置 ======
-const DB_NAME='NanoBananaProDB',STORE_NAME='images',DB_VERSION=1;
-const dbPromise=new Promise((r,j)=>{
-  const req=indexedDB.open(DB_NAME,DB_VERSION);
-  req.onupgradeneeded=e=>{
-    const db=e.target.result;
-    if(!db.objectStoreNames.contains(STORE_NAME))db.createObjectStore(STORE_NAME,{keyPath:'id'});
-  };
-  req.onsuccess=e=>r(e.target.result);
-  req.onerror=e=>j(e.target.error);
-});
-
-async function saveToDB(item){
-  const db=await dbPromise;
-  return new Promise(r=>{
-    const tx=db.transaction(STORE_NAME,'readwrite');
-    tx.objectStore(STORE_NAME).put(item);
-    tx.oncomplete=()=>r();
-  });
-}
-
-async function getHistory(){
-  const db=await dbPromise;
-  return new Promise(r=>{
-    const tx=db.transaction(STORE_NAME,'readonly');
-    const req=tx.objectStore(STORE_NAME).getAll();
-    req.onsuccess=()=>r((req.result||[]).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)));
-  });
-}
-
-async function clearAllHistory(){
-  const db=await dbPromise;
-  const tx=db.transaction(STORE_NAME,'readwrite');
-  tx.objectStore(STORE_NAME).clear();
-  await new Promise(r=>tx.oncomplete=r);
-}
-
-// ====== UI 邏輯 ======
-const toast=document.getElementById('toast');
-function showToast(m,s=false){
-  toast.textContent=m;
-  toast.className='toast'+(s?' success':'');
-  toast.style.display='block';
-  setTimeout(()=>toast.style.display='none',3000);
-}
-
-// 生成模式切換
-const modeTabs=document.querySelectorAll('.mode-tab');
-const genModeInput=document.getElementById('genMode');
-const imageUploadGroup=document.getElementById('imageUploadGroup');
-const strengthGroup=document.getElementById('strengthGroup');
-
-modeTabs.forEach(tab=>{
-  tab.addEventListener('click',(e)=>{
-    e.preventDefault();
-    modeTabs.forEach(t=>t.classList.remove('active'));
-    tab.classList.add('active');
-    const mode=tab.dataset.mode;
-    genModeInput.value=mode;
-    
-    if(mode==='text'){
-      imageUploadGroup.style.display='none';
-      strengthGroup.style.display='none';
-    }else if(mode==='image'){
-      imageUploadGroup.style.display='block';
-      strengthGroup.style.display='block';
-    }else if(mode==='fusion'){
-      imageUploadGroup.style.display='block';
-      strengthGroup.style.display='none';
-    }
-  });
-});
-
-// 圖片上傳處理
-const imageUpload=document.getElementById('imageUpload');
-const imageInput=document.getElementById('imageInput');
-const previewsContainer=document.getElementById('previewsContainer');
-let uploadedImages=[];
-
-imageUpload.addEventListener('click',()=>imageInput.click());
-imageUpload.addEventListener('dragover',(e)=>{e.preventDefault();imageUpload.classList.add('active');});
-imageUpload.addEventListener('dragleave',()=>imageUpload.classList.remove('active'));
-imageUpload.addEventListener('drop',(e)=>{
-  e.preventDefault();
-  imageUpload.classList.remove('active');
-  handleFiles(e.dataTransfer.files);
-});
-imageInput.addEventListener('change',(e)=>handleFiles(e.target.files));
-
-function handleFiles(files){
-  uploadedImages=[];
-  previewsContainer.innerHTML='';
-  Array.from(files).slice(0,3).forEach((file,idx)=>{
-    const reader=new FileReader();
-    reader.onload=(e)=>{
-      const src=e.target.result;
-      uploadedImages.push(src);
-      const div=document.createElement('div');
-      div.className='preview-item';
-      div.innerHTML=\\\`<img src="\\\${src}" alt="preview"><button type="button" class="preview-remove" data-idx="\\\${idx}">×</button>\\\`;
-      div.querySelector('.preview-remove').addEventListener('click',(ev)=>{
-        ev.preventDefault();
-        uploadedImages.splice(idx,1);
-        div.remove();
-      });
-      previewsContainer.appendChild(div);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-// Strength 滑塊
-document.getElementById('strength').addEventListener('input',(e)=>{
-  document.getElementById('strengthValue').textContent=e.target.value;
-});
-
-// 批量大小
-document.querySelectorAll('.preset-btn').forEach(btn=>{
-  btn.addEventListener('click',(e)=>{
-    e.preventDefault();
-    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('batchSize').value=btn.dataset.n;
-  });
-});
-
-// 進階參數
-document.getElementById('advCheckbox').addEventListener('change',(e)=>{
-  document.getElementById('advParams').classList.toggle('show',e.target.checked);
-});
-
-// 生成邏輯
-document.getElementById('genForm').addEventListener('submit',async(e)=>{
-  e.preventDefault();
-  const prompt=document.getElementById('prompt').value.trim();
-  if(!prompt)return showToast('請輸入提示詞！');
-  
-  const mode=document.getElementById('genMode').value;
-  const [w,h]=document.getElementById('ratio').value.split(',').map(Number);
-  const style=document.getElementById('style').value;
-  const quality=document.getElementById('quality').value;
-  const batch=parseInt(document.getElementById('batchSize').value);
-  const strength=parseFloat(document.getElementById('strength').value);
-  const useAdv=document.getElementById('advCheckbox').checked;
-  
-  const btn=document.querySelector('button[type="submit"]');
-  btn.disabled=true;
-  document.getElementById('resultGallery').innerHTML=\\\`<div class="loading" style="grid-column:1/-1"><div class="spinner"></div><div>生成中 (\\\${batch} 張)...</div></div>\\\`;
-  
-  try{
-    for(let i=0;i<batch;i++){
-      const res=await fetch('/_internal/generate',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'X-Source':'nano-page'
-        },
-        body:JSON.stringify({
-          prompt,model:'nano-banana',width:w,height:h,style,quality_mode:quality,
-          seed:-1,auto_optimize:!useAdv,
-          generation_mode:mode,
-          reference_images:uploadedImages.length>0?uploadedImages:[],
-          reference_strength:strength,
-          steps:useAdv?parseInt(document.getElementById('steps').value):null,
-          guidance_scale:useAdv?parseFloat(document.getElementById('guidance').value):null,
-          nologo:true
-        })
-      });
-      
-      if(res.status===429){
-        const err=await res.json();
-        throw new Error(err.error.message);
-      }
-      if(!res.ok)throw new Error('生成失敗');
-      
-      const blob=await res.blob();
-      const url=URL.createObjectURL(blob);
-      const genMode=res.headers.get('X-Generation-Mode')||mode;
-      const item={
-        id:Date.now()+Math.random(),
-        timestamp:new Date().toISOString(),
-        prompt,style,mode:genMode,
-        blobUrl:url,
-        seed:res.headers.get('X-Seed')||'-1',
-        base64:await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(blob);})
-      };
-      await saveToDB(item);
-      
-      if(document.querySelector('.loading')){
-        document.getElementById('resultGallery').innerHTML='';
-      }
-      
-      const div=document.createElement('div');
-      div.className='gallery-item';
-      div.innerHTML=\\\`<img src="\\\${url}" alt="result">\\\`;
-      div.addEventListener('click',()=>{
-        const a=document.createElement('a');
-        a.href=url;
-        a.download='nano-\\\${item.id}.png';
-        a.click();
-      });
-      document.getElementById('resultGallery').insertBefore(div,document.getElementById('resultGallery').firstChild);
-    }
-    
-    updateQuotaDisplay();
-    renderHistory();
-    showToast('✅ 生成完成！',true);
-  }catch(err){
-    showToast('❌ '+err.message);
-  }finally{
-    btn.disabled=false;
-  }
-});
-
-// 配額顯示
-function updateQuotaDisplay(){
-  const used=parseInt(document.getElementById('usedQuota').textContent)||0;
-  document.getElementById('usedQuota').textContent=used+1;
-  document.getElementById('remainingQuota').textContent=Math.max(0,20-(used+1));
-}
-
-// 歷史記錄渲染
-async function renderHistory(){
-  const history=await getHistory();
-  const list=document.getElementById('historyList');
-  if(history.length===0){
-    list.innerHTML='<div style="text-align:center;padding:20px;color:#666;font-size:12px">暫無記錄</div>';
-    return;
-  }
-  list.innerHTML=history.map(item=>\\\`
-    <div class="history-item" onclick="copyPrompt(this)">
-      <div class="history-time">\\\${item.timestamp.slice(5,16)}</div>
-      <div class="history-prompt">\\\${item.prompt.slice(0,50)}...</div>
-      <div class="history-meta">\\\${item.mode} • \\\${item.style}</div>
-    </div>
-  \\\`).join('');
-}
-
-function copyPrompt(el){
-  const prompt=el.querySelector('.history-prompt').textContent;
-  navigator.clipboard.writeText(prompt).then(()=>showToast('✅ 已複製',true));
-}
-
-document.getElementById('clearAllBtn').addEventListener('click',async()=>{
-  if(confirm('確定要清空所有記錄？')){
-    await clearAllHistory();
-    renderHistory();
-    showToast('✅ 已清空',true);
-  }
-});
-
-window.addEventListener('load',()=>{
-  updateQuotaDisplay();
-  renderHistory();
-});
-</script>
-</body>
-</html>\`;
-  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders() } });
-}
-
-function handleUI() {
-  const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 已認證</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ 需要 API Key</span>';
-  
-  // 生成樣式選單 HTML
-  const styleCategories = CONFIG.STYLE_CATEGORIES;
-  const stylePresets = CONFIG.STYLE_PRESETS;
-  let styleOptionsHTML = '';
-  const sortedCategories = Object.entries(styleCategories).sort((a, b) => a[1].order - b[1].order);
-  for (const [categoryKey, categoryInfo] of sortedCategories) {
-    const stylesInCategory = Object.entries(stylePresets).filter(([key, style]) => style.category === categoryKey);
-    if (stylesInCategory.length > 0) {
-      styleOptionsHTML += `<optgroup label="${categoryInfo.icon} ${categoryInfo.name}">`;
-      for (const [styleKey, styleConfig] of stylesInCategory) {
-        const selected = styleKey === 'none' ? ' selected' : '';
-        styleOptionsHTML += `<option value="${styleKey}"${selected}>${styleConfig.icon} ${styleConfig.name}</option>`;
-      }
-      styleOptionsHTML += '</optgroup>';
-    }
-  }
-  
-  const html = `<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flux AI Pro v${CONFIG.PROJECT_VERSION}</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
-<style>
-/* 主頁 CSS 省略 - 保持原樣 */
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 100%);color:#fff;min-height:100vh}
-.container{max-width:100%;margin:0;padding:0;height:100vh;display:flex;flex-direction:column}
-.top-nav{background:rgba(255,255,255,0.05);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,0.1);padding:15px 25px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
-.nav-left{display:flex;align-items:center;gap:20px}
-.logo{color:#f59e0b;font-size:24px;font-weight:800;text-shadow:0 0 20px rgba(245,158,11,0.6);display:flex;align-items:center;gap:10px}
-.badge{background:linear-gradient(135deg,#10b981 0%,#059669 100%);padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600}
-.nav-menu{display:flex;gap:10px;align-items:center}
-.nav-btn{padding:8px 16px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#9ca3af;cursor:pointer;font-size:14px;font-weight:600;transition:all 0.3s;display:flex;align-items:center;gap:6px;text-decoration:none}
-.nav-btn:hover{border-color:#f59e0b;color:#fff}
-.nav-btn.active{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#fff;border-color:#f59e0b}
-.nav-btn.nano-btn:hover {border-color: #FACC15; background: rgba(250, 204, 21, 0.1); color: #FACC15; box-shadow: 0 0 10px rgba(250, 204, 21, 0.2);}
-.lang-btn{padding:6px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#ccc;cursor:pointer;font-size:12px;margin-left:10px}
-.main-content{flex:1;display:flex;overflow:hidden}
-.left-panel{width:320px;background:rgba(255,255,255,0.03);border-right:1px solid rgba(255,255,255,0.1);overflow-y:auto;padding:20px;flex-shrink:0}
-.center-panel{flex:1;padding:20px;overflow-y:auto}
-.right-panel{width:380px;background:rgba(255,255,255,0.03);border-left:1px solid rgba(255,255,255,0.1);overflow-y:auto;padding:20px;flex-shrink:0}
-@media(max-width:1024px){.main-content{flex-direction:column}.left-panel,.right-panel{width:100%;border:none;border-bottom:1px solid rgba(255,255,255,0.1)}}
-.page{display:none}
-.page.active{display:block}
-.page.active .main-content{display:flex}
-.form-group{margin-bottom:16px}
-label{display:block;margin-bottom:6px;font-weight:600;font-size:13px;color:#e5e7eb}
-input,textarea,select{width:100%;padding:10px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#fff;font-size:13px;transition:all 0.3s}
-input:focus,textarea:focus,select:focus{outline:none;border-color:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,0.1)}
-select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer}
-.btn{padding:12px 24px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.3s;display:inline-flex;align-items:center;gap:8px;justify-content:center;width:100%}
-.btn-primary{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);color:#fff;box-shadow:0 4px 15px rgba(245,158,11,0.3)}
-.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
-.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
-.gallery-item{background:rgba(0,0,0,0.4);border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);transition:all 0.3s}
-.gallery-item img{width:100%;height:280px;object-fit:cover;display:block;cursor:pointer}
-.gallery-info{padding:15px}
-.gallery-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:5px}
-.model-badge,.seed-badge,.style-badge{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;background:rgba(255,255,255,0.1)}
-.gallery-actions{display:flex;gap:8px;margin-top:10px}
-.action-btn{padding:6px 12px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:6px;font-size:12px;color:#fff;cursor:pointer;flex:1}
-.action-btn:hover{background:rgba(255,255,255,0.2)}
-.loading{text-align:center;padding:60px 20px;color:#9ca3af}
-.spinner{border:3px solid rgba(255,255,255,0.1);border-top:3px solid #f59e0b;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 15px}
-@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-.history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding:20px;background:rgba(255,255,255,0.03);border-radius:12px}
-.history-stats{display:flex;gap:20px;font-size:14px}
-.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.9);align-items:center;justify-content:center}
-.modal.show{display:flex}
-.modal-content img{max-width:90vw;max-height:90vh;border-radius:8px}
-.modal-close{position:absolute;top:20px;right:20px;color:#fff;font-size:32px;cursor:pointer}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a1a; color: #fff; min-height: 100vh; }
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.header { margin-bottom: 30px; }
+.title { font-size: 32px; font-weight: bold; margin-bottom: 10px; }
+.nav { display: flex; gap: 10px; margin-bottom: 20px; }
+.nav-btn { padding: 10px 20px; background: #333; border: none; color: #fff; border-radius: 8px; cursor: pointer; }
+.nav-btn:hover { background: #444; }
+.form-group { margin-bottom: 15px; }
+label { display: block; margin-bottom: 5px; font-weight: 600; }
+input, textarea, select { width: 100%; padding: 10px; background: #333; border: 1px solid #555; border-radius: 8px; color: #fff; font-family: inherit; }
+input:focus, textarea:focus, select:focus { outline: none; border-color: #f59e0b; }
+.btn { padding: 12px 24px; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; border-radius: 8px; color: #fff; font-weight: bold; cursor: pointer; }
+.btn:hover { opacity: 0.9; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 30px; }
+.gallery-item { background: #333; border-radius: 12px; overflow: hidden; }
+.gallery-item img { width: 100%; height: 250px; object-fit: cover; }
 </style>
 </head>
 <body>
 <div class="container">
-<div class="top-nav">
-    <div class="nav-left">
-        <div class="logo">🎨 Flux AI Pro <span class="badge">v${CONFIG.PROJECT_VERSION}</span></div>
-        <div><div class="api-status">${authStatus}</div></div>
-    </div>
-    <div class="nav-menu">
-        <a href="/nano" target="_blank" class="nav-btn nano-btn" style="border-color:rgba(250,204,21,0.5);color:#FACC15;margin-right:5px">
-            🍌 Nano版
-        </a>
-        <button class="nav-btn active" data-page="generate"><span data-t="nav_gen">🎨 生成圖像</span></button>
-        <button class="nav-btn" data-page="history"><span data-t="nav_his">📚 歷史記錄</span> <span id="historyCount" style="background:rgba(245,158,11,0.2);padding:2px 8px;border-radius:10px;font-size:11px">0</span></button>
-        <button class="lang-btn" id="langSwitch">EN / 繁中</button>
-    </div>
+<div class="header">
+<h1 class="title">🎨 Flux AI Pro</h1>
+<p>Powered by Pollinations.ai</p>
 </div>
-<div id="generatePage" class="page active">
-<div class="main-content">
-<div class="left-panel">
-<div class="section-title" data-t="settings_title">⚙️ 生成參數</div>
-<form id="generateForm">
+<div class="nav">
+<button class="nav-btn" onclick="showPage('generate')">生成圖像</button>
+<button class="nav-btn" onclick="window.open('/nano', '_blank')">🍌 Nano版本</button>
+<a href="/health" class="nav-btn">系統狀態</a>
+</div>
+<div id="generate" style="display: none;">
 <div class="form-group">
-    <label data-t="model_label">模型選擇</label>
-    <select id="model">
-        <optgroup label="🤖 GPT-Image Series">
-        <option value="gptimage" selected>GPT-Image 🎨</option>
-        <option value="gptimage-large">GPT-Image Large 🌟</option>
-        </optgroup>
-        <optgroup label="⚡ Z-Image Series">
-        <option value="zimage">Z-Image Turbo ⚡ (6B)</option>
-        </optgroup>
-        <optgroup label="🎨 Flux Series">
-        <option value="flux">Flux Standard</option>
-        <option value="turbo">Flux Turbo ⚡</option>
-        </optgroup>
-        <optgroup label="🖼️ Kontext Series">
-        <option value="kontext">Kontext 🎨 (Img2Img)</option>
-        </optgroup>
-    </select>
+<label>模型選擇</label>
+<select id="model">
+<option value="gptimage">GPT-Image</option>
+<option value="flux">Flux</option>
+<option value="turbo">Flux Turbo</option>
+<option value="nano-banana">Nano Banana 🍌</option>
+</select>
 </div>
-<div class="form-group"><label data-t="size_label">尺寸預設</label><select id="size"><option value="square-1k" selected>Square 1024x1024</option><option value="square-1.5k">Square 1536x1536</option><option value="portrait-9-16-hd">Portrait 1080x1920</option><option value="landscape-16-9-hd">Landscape 1920x1080</option></select></div>
-<div class="form-group"><label data-t="style_label">藝術風格 🎨</label><select id="style">${styleOptionsHTML}</select></div>
-<div class="form-group"><label data-t="quality_label">質量模式</label><select id="qualityMode"><option value="economy">Economy</option><option value="standard" selected>Standard</option><option value="ultra">Ultra HD</option></select></div>
-
 <div class="form-group">
-    <label data-t="seed_label">Seed (種子碼)</label>
-    <div style="display:flex; gap:10px;">
-        <input type="number" id="seed" value="-1" placeholder="Random (-1)" disabled style="flex:1; opacity: 0.7; cursor: not-allowed; font-family: monospace;">
-        <button type="button" id="seedToggleBtn" class="btn" style="width:auto; padding:0 15px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);">🎲</button>
-    </div>
+<label>提示詞</label>
+<textarea id="prompt" placeholder="描述你想生成的圖像..." rows="4"></textarea>
 </div>
-
-<div class="form-group" style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-top:15px;">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div>
-            <label for="autoOptimize" style="margin:0; cursor:pointer;" data-t="auto_opt_label">✨ 自動優化</label>
-            <div style="font-size:11px; color:#9ca3af; margin-top:2px;" data-t="auto_opt_desc">自動調整 Steps 與 Guidance</div>
-        </div>
-        <input type="checkbox" id="autoOptimize" checked style="width:auto; width:20px; height:20px; cursor:pointer;">
-    </div>
-    
-    <div id="advancedParams" style="display:none; margin-top:15px; border-top:1px solid rgba(255,255,255,0.1); padding-top:15px;">
-        <div style="font-size:12px; color:#f59e0b; margin-bottom:10px; font-weight:bold;" data-t="adv_settings">🛠️ 進階參數</div>
-        
-        <div class="form-group">
-            <label data-t="steps_label">生成步數 (Steps)</label>
-            <input type="number" id="steps" value="25" min="1" max="50">
-        </div>
-        
-        <div class="form-group">
-            <label data-t="guidance_label">引導係數 (Guidance)</label>
-            <input type="number" id="guidanceScale" value="7.5" step="0.1" min="1" max="20">
-        </div>
-    </div>
+<div class="form-group">
+<label>尺寸</label>
+<select id="size">
+<option value="1024,1024">1024x1024</option>
+<option value="1920,1080">1920x1080</option>
+</select>
 </div>
-
-<button type="submit" class="btn btn-primary" id="generateBtn" data-t="gen_btn" style="margin-top:10px;">🎨 開始生成</button>
-</form>
+<button class="btn" onclick="generate()">生成圖像</button>
+<div class="gallery" id="gallery"></div>
 </div>
-<div class="center-panel">
-<div id="results"><div class="empty-state"><p data-t="empty_title">尚未生成任何圖像</p></div></div>
 </div>
-<div class="right-panel">
-<div class="form-group"><label data-t="pos_prompt">正面提示詞</label><textarea id="prompt" placeholder="Describe your image..." required></textarea></div>
-<div class="form-group"><label data-t="neg_prompt">負面提示詞 (可選)</label><textarea id="negativePrompt" placeholder="What to avoid..." rows="4"></textarea></div>
-<div class="form-group"><label data-t="ref_img">參考圖像 URL (Kontext 專用)</label><textarea id="referenceImages" placeholder="Image URLs separated by comma" rows="3"></textarea></div>
-</div></div></div>
-<div id="historyPage" class="page">
-<div class="main-content" style="flex-direction:column;padding:20px">
-<div class="history-header">
-<div class="history-stats"><div class="stat-item"><div class="label" data-t="stat_total">📊 總記錄數</div><div class="value" id="historyTotal">0</div></div><div class="stat-item"><div class="label" data-t="stat_storage">💾 存儲空間 (永久)</div><div class="value" id="storageSize">0 KB</div></div></div>
-<div class="history-actions"><button class="btn btn-secondary" id="exportBtn" style="width:auto;padding:10px 20px" data-t="btn_export">📥 導出</button><button class="btn btn-danger" id="clearBtn" style="width:auto;padding:10px 20px" data-t="btn_clear">🗑️ 清空</button></div>
-</div>
-<div id="historyList" style="padding:0 20px"><p>Loading history...</p></div>
-</div></div>
-<div id="imageModal" class="modal"><span class="modal-close" id="modalCloseBtn">×</span><div class="modal-content"><img id="modalImage" src=""></div></div>
 <script>
-// ====== IndexedDB 管理核心 (解決死圖) ======
-const DB_NAME='FluxAI_DB',STORE_NAME='images',DB_VERSION=1;
-const dbPromise=new Promise((resolve,reject)=>{
-    const req=indexedDB.open(DB_NAME,DB_VERSION);
-    req.onupgradeneeded=(e)=>{
-        const db=e.target.result;
-        if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id'});
-    };
-    req.onsuccess=(e)=>resolve(e.target.result);
-    req.onerror=(e)=>reject(e.target.error);
-});
-async function saveToDB(item){
-    const db=await dbPromise;
-    return new Promise((resolve)=>{
-        const tx=db.transaction(STORE_NAME,'readwrite');
-        const store=tx.objectStore(STORE_NAME);
-        store.put(item);
-        tx.oncomplete=()=>resolve();
+function showPage(page) {
+  const el = document.getElementById(page);
+  if (el) el.style.display = 'block';
+}
+async function generate() {
+  const prompt = document.getElementById('prompt').value;
+  if (!prompt) { alert('請輸入提示詞'); return; }
+  const model = document.getElementById('model').value;
+  const [w, h] = document.getElementById('size').value.split(',').map(Number);
+  try {
+    const res = await fetch('/_internal/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, model, width: w, height: h, style: 'none' })
     });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const div = document.createElement('div');
+    div.className = 'gallery-item';
+    div.innerHTML = '<img src="' + url + '" alt="generated">';
+    document.getElementById('gallery').appendChild(div);
+  } catch (e) {
+    alert('錯誤: ' + e.message);
+  }
 }
-async function getHistoryFromDB(){
-    const db=await dbPromise;
-    return new Promise((resolve)=>{
-        const tx=db.transaction(STORE_NAME,'readonly');
-        const store=tx.objectStore(STORE_NAME);
-        const req=store.getAll();
-        req.onsuccess=()=>resolve((req.result||[]).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp)));
-    });
-}
-async function deleteFromDB(id){
-    const db=await dbPromise;
-    const tx=db.transaction(STORE_NAME,'readwrite');
-    tx.objectStore(STORE_NAME).delete(id);
-    await new Promise(r=>tx.oncomplete=r);
-    updateHistoryDisplay();
-}
-async function clearDB(){
-    const db=await dbPromise;
-    const tx=db.transaction(STORE_NAME,'readwrite');
-    tx.objectStore(STORE_NAME).clear();
-    await new Promise(r=>tx.oncomplete=r);
-    updateHistoryDisplay();
-}
-
-// ====== I18N 與 UI 邏輯 ======
-const I18N={
-    zh:{
-        nav_gen:"🎨 生成圖像", nav_his:"📚 歷史記錄", settings_title:"⚙️ 生成參數", model_label:"模型選擇", size_label:"尺寸預設", style_label:"藝術風格 🎨", quality_label:"質量模式", seed_label:"Seed (種子碼)", seed_random:"🎲 隨機", seed_lock:"🔒 鎖定", auto_opt_label:"✨ 自動優化", auto_opt_desc:"自動調整 Steps 與 Guidance", adv_settings:"🛠️ 進階參數", steps_label:"生成步數 (Steps)", guidance_label:"引導係數 (Guidance)", gen_btn:"🎨 開始生成", empty_title:"尚未生成任何圖像", pos_prompt:"正面提示詞", neg_prompt:"負面提示詞 (可選)", ref_img:"參考圖像 URL (Kontext 專用)", stat_total:"📊 總記錄數", stat_storage:"💾 存儲空間 (永久)", btn_export:"📥 導出", btn_clear:"🗑️ 清空", no_history:"暫無歷史記錄", btn_reuse:"🔄 重用", btn_dl:"💾 下載"
-    },
-    en:{
-        nav_gen:"🎨 Create", nav_his:"📚 History", settings_title:"⚙️ Settings", model_label:"Model", size_label:"Size", style_label:"Art Style 🎨", quality_label:"Quality", seed_label:"Seed", seed_random:"🎲 Random", seed_lock:"🔒 Lock", auto_opt_label:"✨ Auto Optimize", auto_opt_desc:"Auto adjust Steps & Guidance", adv_settings:"🛠️ Advanced", steps_label:"Steps", guidance_label:"Guidance Scale", gen_btn:"🎨 Generate", empty_title:"No images yet", pos_prompt:"Positive Prompt", neg_prompt:"Negative Prompt", ref_img:"Reference Image URL", stat_total:"📊 Total", stat_storage:"💾 Storage", btn_export:"📥 Export", btn_clear:"🗑️ Clear", no_history:"No history found", btn_reuse:"🔄 Reuse", btn_dl:"💾 Save"
-    }
-};
-let curLang='zh';
-function toggleLang(){curLang=curLang==='zh'?'en':'zh';updateLang();}
-function updateLang(){
-    document.querySelectorAll('[data-t]').forEach(el=>{const k=el.getAttribute('data-t');if(I18N[curLang][k])el.textContent=I18N[curLang][k];});
-    const seedToggleBtn = document.getElementById('seedToggleBtn');
-    if(seedToggleBtn && isSeedRandom !== undefined) {
-        seedToggleBtn.innerHTML = isSeedRandom ? I18N[curLang].seed_random : I18N[curLang].seed_lock;
-    }
-}
-document.getElementById('langSwitch').onclick=toggleLang;
-
-// 頁面切換 (排除 Nano 按鈕)
-document.querySelectorAll('.nav-btn:not(.nano-btn)').forEach(btn=>{
-    btn.addEventListener('click',function(){
-        const p=this.dataset.page;
-        if(!p) return;
-        document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
-        document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));
-        document.getElementById(p+'Page').classList.add('active');
-        this.classList.add('active');
-        if(p==='history') updateHistoryDisplay();
-    });
-});
-
-// Seed Toggle 與 Auto Optimize 邏輯
-const seedInput = document.getElementById('seed');
-const seedToggleBtn = document.getElementById('seedToggleBtn');
-const autoOptCheckbox = document.getElementById('autoOptimize');
-const advParamsDiv = document.getElementById('advancedParams');
-let isSeedRandom = true;
-
-function updateSeedUI() {
-    if (isSeedRandom) {
-        seedInput.value = '-1';
-        seedInput.disabled = true;
-        seedInput.style.opacity = '0.7';
-        seedInput.style.cursor = 'not-allowed';
-        seedToggleBtn.innerHTML = I18N[curLang].seed_random;
-        seedToggleBtn.classList.remove('active');
-        seedToggleBtn.style.background = 'rgba(255,255,255,0.1)';
-        seedToggleBtn.style.color = '#fff';
-    } else {
-        if(seedInput.value === '-1') seedInput.value = Math.floor(Math.random() * 1000000);
-        seedInput.disabled = false;
-        seedInput.style.opacity = '1';
-        seedInput.style.cursor = 'text';
-        seedToggleBtn.innerHTML = I18N[curLang].seed_lock;
-        seedToggleBtn.classList.add('active');
-        seedToggleBtn.style.background = '#f59e0b';
-        seedToggleBtn.style.color = '#000';
-    }
-}
-
-seedToggleBtn.addEventListener('click', () => { isSeedRandom = !isSeedRandom; updateSeedUI(); });
-autoOptCheckbox.addEventListener('change', () => { advParamsDiv.style.display = autoOptCheckbox.checked ? 'none' : 'block'; });
-
-// 生成與歷史記錄處理
-const PRESET_SIZES=\${JSON.stringify(CONFIG.PRESET_SIZES)};
-const STYLE_PRESETS=\${JSON.stringify(CONFIG.STYLE_PRESETS)};
-
-async function addToHistory(item){
-    let base64Data = item.image;
-    if(!base64Data && item.url){
-        try{
-            const resp = await fetch(item.url);
-            const blob = await resp.blob();
-            base64Data = await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
-        }catch(e){console.error("Image convert failed",e);}
-    }
-    const record={
-        id: Date.now()+Math.random(), timestamp: new Date().toISOString(), prompt: item.prompt, model: item.model, style: item.style, seed: item.seed, base64: base64Data || item.url
-    };
-    await saveToDB(record);
-}
-
-async function updateHistoryDisplay(){
-    const history = await getHistoryFromDB();
-    const list = document.getElementById('historyList');
-    document.getElementById('historyCount').textContent=history.length;
-    document.getElementById('historyTotal').textContent=history.length;
-    const size = JSON.stringify(history).length;
-    document.getElementById('storageSize').textContent = (size/1024/1024).toFixed(2)+' MB';
-
-    if(history.length===0){ list.innerHTML='<div class="empty-state"><p>'+I18N[curLang].no_history+'</p></div>'; return; }
-    const div=document.createElement('div');div.className='gallery';
-    history.forEach(item=>{
-        const imgSrc = item.base64 || item.url;
-        const d=document.createElement('div'); d.className='gallery-item';
-        d.innerHTML=\`<img src="\${imgSrc}" loading="lazy"><div class="gallery-info"><div class="gallery-meta"><span class="model-badge">\${item.model}</span><span class="seed-badge">#\${item.seed}</span></div><div class="gallery-actions"><button class="action-btn reuse-btn">\${I18N[curLang].btn_reuse}</button><button class="action-btn download-btn">\${I18N[curLang].btn_dl}</button><button class="action-btn delete delete-btn">🗑️</button></div></div>\`;
-        d.querySelector('img').onclick=()=>openModal(imgSrc);
-        d.querySelector('.reuse-btn').onclick=()=>{
-            document.getElementById('prompt').value=item.prompt||'';
-            document.getElementById('model').value=item.model||'gptimage';
-            document.getElementById('style').value=item.style||'none';
-            const savedSeed = item.seed;
-            if (savedSeed && savedSeed !== -1 && savedSeed !== '-1') { isSeedRandom = false; seedInput.value = savedSeed; } else { isSeedRandom = true; seedInput.value = '-1'; }
-            updateSeedUI();
-            document.querySelector('[data-page="generate"]').click();
-        };
-        d.querySelector('.download-btn').onclick=()=>{const a=document.createElement('a');a.href=imgSrc;a.download='flux-'+item.seed+'.png';a.click();};
-        d.querySelector('.delete-btn').onclick=()=>deleteFromDB(item.id);
-        div.appendChild(d);
-    });
-    list.innerHTML=''; list.appendChild(div);
-}
-
-function openModal(src){document.getElementById('modalImage').src=src;document.getElementById('imageModal').classList.add('show');}
-document.getElementById('modalCloseBtn').onclick=()=>document.getElementById('imageModal').classList.remove('show');
-document.getElementById('clearBtn').onclick=()=>{if(confirm('Clear all history?'))clearDB();};
-document.getElementById('exportBtn').onclick=async()=>{
-    const history=await getHistoryFromDB();
-    const blob=new Blob([JSON.stringify(history,null,2)],{type:'application/json'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download='flux-history.json';a.click();
-};
-
-document.getElementById('generateForm').addEventListener('submit',async(e)=>{
-    e.preventDefault();
-    const btn=document.getElementById('generateBtn');
-    const prompt=document.getElementById('prompt').value;
-    const resDiv=document.getElementById('results');
-    const sizeConfig=PRESET_SIZES[document.getElementById('size').value];
-    
-    if(!prompt)return;
-    btn.disabled=true; btn.textContent=curLang==='zh'?'生成中...':'Generating...';
-    resDiv.innerHTML='<div class="loading"><div class="spinner"></div></div>';
-    
-    const currentSeed = isSeedRandom ? -1 : parseInt(seedInput.value);
-    const isAutoOpt = autoOptCheckbox.checked;
-
-    try{
-        const res=await fetch('/_internal/generate',{
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-                prompt, model:document.getElementById('model').value, width:sizeConfig.width, height:sizeConfig.height,
-                style:document.getElementById('style').value, quality_mode:document.getElementById('qualityMode').value,
-                seed: currentSeed, auto_optimize: isAutoOpt,
-                steps: isAutoOpt ? null : parseInt(document.getElementById('steps').value),
-                guidance_scale: isAutoOpt ? null : parseFloat(document.getElementById('guidanceScale').value),
-                negative_prompt:document.getElementById('negativePrompt').value,
-                reference_images:document.getElementById('referenceImages').value.split(',').filter(u=>u.trim())
-            })
-        });
-        
-        let items=[];
-        const contentType=res.headers.get('content-type');
-        if(contentType&&contentType.startsWith('image/')){
-            const blob=await res.blob();
-            const reader=new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend=async()=>{
-                const base64=reader.result;
-                const realSeed = res.headers.get('X-Seed');
-                const item={ image:base64, prompt, model:res.headers.get('X-Model'), seed: realSeed, style:res.headers.get('X-Style') };
-                await addToHistory(item);
-                displayResult([item]);
-            };
-        }else{
-            const data=await res.json();
-            if(data.error) throw new Error(data.error.message);
-            for(const d of data.data){ const item={...d, prompt}; await addToHistory(item); items.push(item); }
-            displayResult(items);
-        }
-    }catch(err){ resDiv.innerHTML='<p style="color:red;text-align:center">'+err.message+'</p>'; }
-    finally{ btn.disabled=false; btn.textContent=I18N[curLang].gen_btn; }
-});
-
-function displayResult(items){
-    const div=document.createElement('div');div.className='gallery';
-    items.forEach(item=>{
-        const d=document.createElement('div');d.className='gallery-item';
-        d.innerHTML=\`<img src="\${item.image||item.url}" onclick="openModal(this.src)">\`;
-        div.appendChild(d);
-    });
-    document.getElementById('results').innerHTML='';
-    document.getElementById('results').appendChild(div);
-}
-
-window.onload=()=>{
-    updateLang();
-    updateHistoryDisplay();
-};
+window.addEventListener('load', () => showPage('generate'));
 </script>
 </body>
-</html>\`;
-  
+</html>`;
+}
+
+function handleUI() {
+  const html = getHtmlContent();
   return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders() } });
 }
+
+function handleNanoPage(request) {
+  const html = getHtmlContent();
+  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders() } });
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    const startTime = Date.now();
+    const clientIP = getClientIP(request);
+    
+    if (env.POLLINATIONS_API_KEY) { 
+      CONFIG.POLLINATIONS_AUTH.enabled = true; 
+      CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; 
+    } 
+    else { 
+      console.warn("⚠️ POLLINATIONS_API_KEY not set"); 
+      CONFIG.POLLINATIONS_AUTH.enabled = false; 
+      CONFIG.POLLINATIONS_AUTH.token = ""; 
+    }
+    
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() });
+    
+    try {
+      let response;
+      if (url.pathname === '/nano') { 
+        response = handleNanoPage(request); 
+      } 
+      else if (url.pathname === '/' || url.pathname === '') { 
+        response = handleUI(); 
+      } 
+      else if (url.pathname === '/_internal/generate') { 
+        response = await handleInternalGenerate(request, env, ctx); 
+      } 
+      else if (url.pathname === '/health') {
+        response = new Response(JSON.stringify({
+          status: 'ok', 
+          version: CONFIG.PROJECT_VERSION
+        }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+      } else {
+        response = new Response(JSON.stringify({ error: 'Not Found' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+      }
+      
+      const duration = Date.now() - startTime;
+      const headers = new Headers(response.headers);
+      headers.set('X-Response-Time', duration + 'ms');
+      return new Response(response.body, { status: response.status, headers: headers });
+    } catch (error) {
+      console.error('Worker error:', error);
+      return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+    }
+  }
+};
