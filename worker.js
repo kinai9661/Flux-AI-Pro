@@ -1,7 +1,7 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
 //  版本: 10.6.3 (Direct API Access)
-//  更新: 直連 nanobanana-pro 模型，無映射，每小時限額 5 張
+//  更新: 直連 nanobanana-pro 模型 (gen.pollinations.ai)，每小時限額 5 張
 // =================================================================================
 
 const CONFIG = {
@@ -30,6 +30,7 @@ const CONFIG = {
   PROVIDERS: {
     pollinations: {
       name: "Pollinations.ai",
+      // 🔥 修改：使用 gen.pollinations.ai (需要 API Key)
       endpoint: "https://gen.pollinations.ai",
       pathPrefix: "/image",
       type: "direct",
