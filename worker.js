@@ -262,7 +262,7 @@ class RateLimiter {
       return { allowed: true, remaining: 20 };
     }
     
-    const key = `nano_limit:${ip}`;
+    const key = `nano_limit:` + ip;
     const windowSize = 3600 * 1000;
     const maxRequests = 20;
     
@@ -279,7 +279,7 @@ class RateLimiter {
         const waitMin = Math.ceil((resetTime - now) / 60000);
         return { 
           allowed: false, 
-          reason: `🍌 香蕉能量耗盡！限額已滿 (20張/小時)。請休息 ${waitMin} 分鐘後再來。`, 
+          reason: `🍌 香蕉能量耗盡！限額已滿 (20張/小時)。請休息 ` + waitMin + ` 分鐘後再來。`, 
           remaining: 0,
           resetTime: resetTime,
           waitMinutes: waitMin
@@ -322,7 +322,7 @@ async function translateToEnglish(text, env) {
       } 
     });
     
-    if (!response.ok) throw new Error(`Google API HTTP ${response.status}`);
+    if (!response.ok) throw new Error(`Google API HTTP ` + response.status);
     
     const data = await response.json();
     let translatedText = "";
@@ -335,7 +335,7 @@ async function translateToEnglish(text, env) {
     
     if (!translatedText) throw new Error("Empty translation result");
     
-    console.log(`✅ [Google GTX] Translated: "${text.substring(0,10)}..." -> "${translatedText.substring(0,10)}..."`);
+    console.log(`✅ [Google GTX] Translated: "` + text.substring(0,10) + `..." -> "` + translatedText.substring(0,10) + `..."`);
     return { text: translatedText.trim(), translated: true, original: text, model: "google-gtx-free" };
   } catch (error) {
     console.error("❌ Translate Error:", error.message);
@@ -952,7 +952,7 @@ async function handleInternalGenerate(request, env, ctx) {
       }).slice(0, 3);
     }
 
-    const imageToImageMode = body.generation_mode === 'image-to-image' && referenceImages.length > 0;
+    let imageToImageMode = body.generation_mode === 'image-to-image' && referenceImages.length > 0;
     const referenceStrength = body.reference_strength !== undefined ? parseFloat(body.reference_strength) : 0.7;
     
     const validStrength = Math.max(0.1, Math.min(1.0, referenceStrength));
