@@ -674,7 +674,6 @@ async function handleInternalGenerate(request, env, ctx) {
     return new Response(JSON.stringify({ error: { message: e.message, debug_logs: logger.get(), api_endpoint: CONFIG.PROVIDERS.pollinations.endpoint, authenticated: CONFIG.POLLINATIONS_AUTH.enabled } }), { status: 400, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
   }
 }
-// --- PART 1 END ---
 // --- PART 2 START: Nano Page UI ---
 function handleNanoPage(request) {
   const html = `<!DOCTYPE html>
@@ -1168,7 +1167,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
   
   return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders() } });
 }
-
+// --- PART 3 START: Main Dashboard UI ---
 function handleUI() {
   const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 已認證</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ 需要 API Key</span>';
   
