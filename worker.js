@@ -1,12 +1,12 @@
 // =================================================================================
-//  項目: Flux AI Pro - Ultimate Edition
-//  版本: 10.7.0 (Full Featured)
-//  說明: 完整無刪減版，包含所有風格預設、詳細優化邏輯、翻譯、Rate Limit 與前後端分離架構
+//  項目: Flux AI Pro - NanoBanana Edition
+//  版本: 10.6.3 (Direct API Access)
+//  更新: 直連 nanobanana-pro 模型 (gen.pollinations.ai)，每小時限額 5 張
 // =================================================================================
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "10.7.0",
+  PROJECT_VERSION: "10.6.3",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -30,6 +30,7 @@ const CONFIG = {
   PROVIDERS: {
     pollinations: {
       name: "Pollinations.ai",
+      // 🔥 修改：使用 gen.pollinations.ai (需要 API Key)
       endpoint: "https://gen.pollinations.ai",
       pathPrefix: "/image",
       type: "direct",
@@ -42,6 +43,7 @@ const CONFIG = {
         private_mode: true, custom_size: true, seed_control: true, negative_prompt: true, enhance: true, nologo: true, style_presets: true, auto_hd: true, quality_modes: true, auto_translate: true, reference_images: true, image_to_image: true, batch_generation: true, api_key_auth: true
       },
       models: [
+        // 🔥 核心模型: nanobanana-pro (直連)
         { id: "nanobanana-pro", name: "Nano Banana Pro 🍌", confirmed: true, category: "special", description: "Nano Banana Pro 風格模型 (每小時限額 5 張)", max_size: 2048, pricing: { image_price: 0, currency: "free" }, input_modalities: ["text"], output_modalities: ["image"] },
         { id: "gptimage", name: "GPT-Image 🎨", confirmed: true, category: "gptimage", description: "通用 GPT 圖像生成模型", max_size: 2048, pricing: { image_price: 0.0002, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
         { id: "gptimage-large", name: "GPT-Image Large 🌟", confirmed: true, category: "gptimage", description: "高質量 GPT 圖像生成模型", max_size: 2048, pricing: { image_price: 0.0003, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
@@ -57,7 +59,6 @@ const CONFIG = {
   
   DEFAULT_PROVIDER: "pollinations",
   
-  // 完整保留所有風格預設
   STYLE_PRESETS: {
     none: { name: "無風格", prompt: "", negative: "", category: "basic", icon: "⚡", description: "使用原始提示詞" },
     anime: { name: "動漫風格", prompt: "anime style, anime art, vibrant colors, cel shading, detailed anime", negative: "realistic, photograph, 3d, ugly", category: "illustration", icon: "🎭", description: "日系動漫風格" },
@@ -156,46 +157,38 @@ class Logger {
   get() { return this.logs; }
 }
 
+// ====== RateLimiter: 負責 KV 限制邏輯 (5次/小時) ======
 class RateLimiter {
   constructor(env) {
     this.env = env;
     this.KV = env.FLUX_KV;
   }
   async checkLimit(ip) {
-    if (!this.KV) return { allowed: true };
+    if (!this.KV) {
+      console.warn("⚠️ FLUX_KV 未綁定，跳過限制");
+      return { allowed: true };
+    }
     const key = `nano_limit:${ip}`;
-    const windowSize = 3600 * 1000; // 1 hr
-    const cooldownTime = 60 * 1000; // 60 sec forced interval
+    const windowSize = 3600 * 1000; // 1小時 (毫秒)
     const maxRequests = 5; 
     try {
       const rawData = await this.KV.get(key);
       let timestamps = rawData ? JSON.parse(rawData) : [];
       const now = Date.now();
-      
-      // Filter out old requests (>1h)
       timestamps = timestamps.filter(ts => now - ts < windowSize);
-      
-      // Check 60s cooldown
-      if (timestamps.length > 0) {
-          const lastReq = timestamps[timestamps.length - 1];
-          const diff = now - lastReq;
-          if (diff < cooldownTime) {
-              const wait = Math.ceil((cooldownTime - diff) / 1000);
-              return { allowed: false, reason: `❄️ 系統冷卻中，請等待 ${wait} 秒。` };
-          }
-      }
-
-      // Check max limit
       if (timestamps.length >= maxRequests) {
         const oldest = timestamps[0];
-        const waitMin = Math.ceil(((oldest + windowSize) - now) / 60000);
-        return { allowed: false, reason: `🍌 能量耗盡！請休息 ${waitMin} 分鐘。`, remaining: 0 };
+        const resetTime = oldest + windowSize;
+        const waitMin = Math.ceil((resetTime - now) / 60000);
+        return { allowed: false, reason: `🍌 香蕉能量耗盡！限額已滿 (5張/小時)。請休息 ${waitMin} 分鐘後再來。`, remaining: 0 };
       }
-      
       timestamps.push(now);
       await this.KV.put(key, JSON.stringify(timestamps), { expirationTtl: 3600 });
       return { allowed: true, remaining: maxRequests - timestamps.length };
-    } catch (err) { console.error("KV Error:", err); return { allowed: true }; }
+    } catch (err) {
+      console.error("KV Error:", err);
+      return { allowed: true };
+    }
   }
 }
 
@@ -214,6 +207,7 @@ async function translateToEnglish(text, env) {
     let translatedText = "";
     if (data && data[0] && Array.isArray(data[0])) { data[0].forEach(segment => { if (segment && segment[0]) translatedText += segment[0]; }); }
     if (!translatedText) throw new Error("Empty translation result");
+    console.log(`✅ [Google GTX] Translated: "${text.substring(0,10)}..." -> "${translatedText.substring(0,10)}..."`);
     return { text: translatedText.trim(), translated: true, original: text, model: "google-gtx-free" };
   } catch (error) {
     console.error("❌ Translate Error:", error.message);
@@ -356,7 +350,6 @@ async function fetchWithTimeout(url, options = {}, timeout = CONFIG.FETCH_TIMEOU
 function corsHeaders(additionalHeaders = {}) {
   return { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Source', 'Access-Control-Max-Age': '86400', ...additionalHeaders };
 }
-
 class PollinationsProvider {
   constructor(config, env) { this.config = config; this.name = config.name; this.env = env; }
   
@@ -367,6 +360,7 @@ class PollinationsProvider {
       qualityMode = 'standard', referenceImages = []
     } = options;
 
+    // 🔥 修改確認: 直連模式，不進行模型 ID 轉換
     let apiModel = model; 
     
     const modelConfig = this.config.models.find(m => m.id === model);
@@ -450,6 +444,7 @@ class PollinationsProvider {
     let baseUrl = this.config.endpoint + pathPrefix + "/" + encodedPrompt;
     
     const params = new URLSearchParams();
+    // 這裡直接使用 apiModel (即 nanobanana-pro)
     params.append('model', apiModel); 
     params.append('width', finalWidth.toString());
     params.append('height', finalHeight.toString());
@@ -540,6 +535,13 @@ export default {
     if (env.POLLINATIONS_API_KEY) { CONFIG.POLLINATIONS_AUTH.enabled = true; CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; } 
     else { console.warn("⚠️ POLLINATIONS_API_KEY not set - requests may fail on new API endpoint"); CONFIG.POLLINATIONS_AUTH.enabled = false; CONFIG.POLLINATIONS_AUTH.token = ""; }
     
+    console.log("=== Request Info ===");
+    console.log("IP:", clientIP);
+    console.log("Path:", url.pathname);
+    console.log("Method:", request.method);
+    console.log("API Endpoint:", CONFIG.PROVIDERS.pollinations.endpoint);
+    console.log("===================");
+    
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() });
     
     try {
@@ -588,6 +590,8 @@ async function handleInternalGenerate(request, env, ctx) {
     const prompt = body.prompt;
     if (!prompt || !prompt.trim()) throw new Error("Prompt is required");
 
+    // ====== NanoBanana Pro 來源與限流檢查 ======
+    // 直接檢查 nanobanana-pro
     if (body.model === 'nanobanana-pro') {
         const source = request.headers.get('X-Source');
         if (source !== 'nano-page') {
@@ -607,6 +611,7 @@ async function handleInternalGenerate(request, env, ctx) {
             }), { status: 429, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
         }
     }
+    // ===============================================
     
     let width = 1024, height = 1024;
     if (body.width) width = body.width;
@@ -674,7 +679,8 @@ async function handleInternalGenerate(request, env, ctx) {
     return new Response(JSON.stringify({ error: { message: e.message, debug_logs: logger.get(), api_endpoint: CONFIG.PROVIDERS.pollinations.endpoint, authenticated: CONFIG.POLLINATIONS_AUTH.enabled } }), { status: 400, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
   }
 }
-// --- PART 2 START: Nano Page UI ---
+
+// 🔥 Cyber-Banana UI: 包含每小時限額(5張)、Pro模型、燈箱、下載功能
 function handleNanoPage(request) {
   const html = `<!DOCTYPE html>
 <html lang="zh-TW">
@@ -810,7 +816,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             <div class="logo-area">
                 <div class="logo-icon">🍌</div>
                 <div class="logo-text">
-                    <h1>Nano Pro <span class="badge">V10.7</span></h1>
+                    <h1>Nano Pro <span class="badge">V10.6</span></h1>
                     <p style="color:#666; font-size:12px">Flux Engine • Pro Model</p>
                 </div>
             </div>
@@ -939,6 +945,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         lbDownload: document.getElementById('lbDownload')
     };
     
+    // UI Quota Logic (Syncs with server limit of 5)
     let currentQuota = 5;
     const maxQuota = 5;
     
@@ -1048,42 +1055,6 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         div.classList.add('active');
     }
 
-    // ====== 冷卻邏輯 (持久化) ======
-    const COOLDOWN_SECONDS = 60;
-    const COOLDOWN_KEY = 'nano_last_gen_time';
-
-    // 初始化檢查冷卻
-    window.addEventListener('load', () => {
-        const lastTime = localStorage.getItem(COOLDOWN_KEY);
-        if (lastTime) {
-            const elapsed = Math.floor((Date.now() - parseInt(lastTime)) / 1000);
-            if (elapsed < COOLDOWN_SECONDS) {
-                startCooldown(COOLDOWN_SECONDS - elapsed);
-            }
-        }
-    });
-
-    function startCooldown(seconds) {
-        let t = seconds;
-        els.genBtn.disabled = true;
-        els.genBtn.innerHTML = \`<span>❄️ 冷卻中 (\${t}s)</span><span style="font-size:12px;opacity:0.6;display:block;margin-top:4px">系統散熱中...</span>\`;
-
-        const timer = setInterval(() => {
-            t--;
-            if(t <= 0) {
-                clearInterval(timer);
-                if(currentQuota > 0) {
-                    els.genBtn.disabled = false;
-                    els.genBtn.innerHTML = \`<span>生成圖像</span><span style="font-size:12px;opacity:0.6;display:block;margin-top:4px">消耗 1 香蕉能量 🍌</span>\`;
-                } else {
-                    updateQuotaUI();
-                }
-            } else {
-                els.genBtn.innerHTML = \`<span>❄️ 冷卻中 (\${t}s)</span><span style="font-size:12px;opacity:0.6;display:block;margin-top:4px">系統散熱中...</span>\`;
-            }
-        }, 1000);
-    }
-
     els.genBtn.onclick = async () => {
         const p = els.prompt.value.trim();
         if(!p) return toast("⚠️ 請輸入提示詞");
@@ -1112,17 +1083,12 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 
             if(res.status === 429) {
                 const err = await res.json();
-                if(err.error.message.includes('冷卻')) {
-                    toast("❄️ " + err.error.message);
-                } else {
-                    currentQuota = 0;
-                    const n = new Date();
-                    const h = n.toDateString() + '-' + n.getHours();
-                    localStorage.setItem('nano_quota_hourly_v2', JSON.stringify({hour: h, val: 0}));
-                    updateQuotaUI();
-                    toast("🚫 限額已滿");
-                }
-                throw new Error(err.error?.message || '生成受限');
+                currentQuota = 0;
+                const n = new Date();
+                const h = n.toDateString() + '-' + n.getHours();
+                localStorage.setItem('nano_quota_hourly_v2', JSON.stringify({hour: h, val: 0}));
+                updateQuotaUI();
+                throw new Error(err.error?.message || '限額已滿');
             }
 
             if(!res.ok) {
@@ -1143,21 +1109,11 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 
             addHistory(url);
             consumeQuota();
-            
-            // 成功後啟動冷卻並記錄時間
-            localStorage.setItem(COOLDOWN_KEY, Date.now());
-            startCooldown(COOLDOWN_SECONDS);
 
         } catch(e) {
-            if(!e.message.includes('冷卻')) toast("❌ " + e.message);
-            // 失敗時若非冷卻錯誤，恢復按鈕
-            const lastTime = localStorage.getItem(COOLDOWN_KEY);
-            const elapsed = lastTime ? Math.floor((Date.now() - parseInt(lastTime)) / 1000) : 999;
-            if(elapsed > COOLDOWN_SECONDS && currentQuota > 0) {
-                 els.genBtn.disabled = false;
-                 els.genBtn.innerHTML = '<span>生成圖像</span><span style="display:block;font-size:12px;opacity:0.6;margin-top:4px">消耗 1 香蕉能量 🍌</span>';
-            }
+            toast("❌ " + e.message);
         } finally {
+            if(currentQuota > 0) els.genBtn.disabled = false;
             els.loader.style.display = 'none';
         }
     };
@@ -1167,7 +1123,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
   
   return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders() } });
 }
-// --- PART 3 START: Main Dashboard UI ---
+
 function handleUI() {
   const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 已認證</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ 需要 API Key</span>';
   
@@ -1195,6 +1151,7 @@ function handleUI() {
 <title>Flux AI Pro v${CONFIG.PROJECT_VERSION}</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
 <style>
+/* 完整版 CSS 樣式 - Flux Pro 主界面 */
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 100%);color:#fff;min-height:100vh}
 .container{max-width:100%;margin:0;padding:0;height:100vh;display:flex;flex-direction:column}
@@ -1341,7 +1298,7 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
 </div></div>
 <div id="imageModal" class="modal"><span class="modal-close" id="modalCloseBtn">×</span><div class="modal-content"><img id="modalImage" src=""></div></div>
 <script>
-// ====== IndexedDB 管理核心 ======
+// ====== IndexedDB 管理核心 (解決死圖) ======
 const DB_NAME='FluxAI_DB',STORE_NAME='images',DB_VERSION=1;
 const dbPromise=new Promise((resolve,reject)=>{
     const req=indexedDB.open(DB_NAME,DB_VERSION);
@@ -1479,7 +1436,7 @@ async function updateHistoryDisplay(){
     history.forEach(item=>{
         const imgSrc = item.base64 || item.url;
         const d=document.createElement('div'); d.className='gallery-item';
-        d.innerHTML=`<img src="${imgSrc}" loading="lazy"><div class="gallery-info"><div class="gallery-meta"><span class="model-badge">${item.model}</span><span class="seed-badge">#${item.seed}</span></div><div class="gallery-actions"><button class="action-btn reuse-btn">${I18N[curLang].btn_reuse}</button><button class="action-btn download-btn">${I18N[curLang].btn_dl}</button><button class="action-btn delete delete-btn">🗑️</button></div></div>`;
+        d.innerHTML=\`<img src="\${imgSrc}" loading="lazy"><div class="gallery-info"><div class="gallery-meta"><span class="model-badge">\${item.model}</span><span class="seed-badge">#\${item.seed}</span></div><div class="gallery-actions"><button class="action-btn reuse-btn">\${I18N[curLang].btn_reuse}</button><button class="action-btn download-btn">\${I18N[curLang].btn_dl}</button><button class="action-btn delete delete-btn">🗑️</button></div></div>\`;
         d.querySelector('img').onclick=()=>openModal(imgSrc);
         d.querySelector('.reuse-btn').onclick=()=>{
             document.getElementById('prompt').value=item.prompt||'';
@@ -1562,7 +1519,7 @@ function displayResult(items){
     const div=document.createElement('div');div.className='gallery';
     items.forEach(item=>{
         const d=document.createElement('div');d.className='gallery-item';
-        d.innerHTML=`<img src="${item.image||item.url}" onclick="openModal(this.src)">`;
+        d.innerHTML=\`<img src="\${item.image||item.url}" onclick="openModal(this.src)">\`;
         div.appendChild(d);
     });
     document.getElementById('results').innerHTML='';
