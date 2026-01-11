@@ -1,12 +1,12 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 10.6.6 (Error Handling Update)
-//  更新: 主頁遇到 HTTP 429 錯誤時強制進入冷卻模式
+//  版本: 10.6.5 (Nano Cooldown)
+//  更新: Nano Pro 頁面加入 60 秒強制冷卻機制 (抗重整)
 // =================================================================================
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "10.6.6",
+  PROJECT_VERSION: "10.6.5",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -1558,12 +1558,6 @@ document.getElementById('generateForm').addEventListener('submit',async(e)=>{
             })
         });
         
-        // 🔥 新增: 檢測 HTTP 429 狀態碼 (針對 Worker 內部限流)
-        if (res.status === 429) {
-             const data = await res.json();
-             throw new Error("HTTP 429: " + (data.error?.message || "Rate limit exceeded"));
-        }
-        
         let items=[];
         const contentType=res.headers.get('content-type');
         if(contentType&&contentType.startsWith('image/')){
@@ -1587,15 +1581,9 @@ document.getElementById('generateForm').addEventListener('submit',async(e)=>{
         }
     }catch(err){ 
         resDiv.innerHTML='<p style="color:red;text-align:center">'+err.message+'</p>'; 
-        
-        // 🔥 修改: 若錯誤訊息包含 429 或 limit，則強制進入冷卻
-        if(err.message.includes("429") || err.message.toLowerCase().includes("limit")) {
-            startCooldown();
-        } else {
-            // 其他錯誤則直接解鎖
-            btn.disabled=false; 
-            btn.textContent=I18N[curLang].gen_btn;
-        }
+        // 失敗時不冷卻，直接解鎖
+        btn.disabled=false; 
+        btn.textContent=I18N[curLang].gen_btn;
     }
 });
 
