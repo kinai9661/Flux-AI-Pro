@@ -1336,22 +1336,19 @@ function handleNanoPage(request) {
     }
   });
 }
-
-// =================================================================================
-//  主頁 UI：handleUI()（已修復：JSON 注入在模板字串內，不會被 Wrangler 當成 Worker JS）
-// =================================================================================
-
 function handleUI(request) {
   const providerStatusHTML = Object.entries(CONFIG.PROVIDERS)
     .filter(([key, cfg]) => cfg.enabled)
     .map(([key, cfg]) => {
       const authEnabled = key === 'pollinations' ? CONFIG.POLLINATIONS_AUTH.enabled : CONFIG.INFIP_AUTH.enabled;
       const statusColor = authEnabled ? '#22c55e' : '#f59e0b';
-      const statusText = authEnabled ? 'Auth OK' : 'Need API Key';
-      return '<div style="font-size:11px;color:' + statusColor + ';font-weight:700;margin-left:8px">' + cfg.name + ': ' + statusText + '</div>';
+      const statusIcon = authEnabled ? '🔐' : '⚠️';
+      const statusText = authEnabled ? '已認證' : '需要 API Key';
+      return '<div style="font-size:11px;color:' + statusColor + ';font-weight:600;margin-left:8px">' +
+        statusIcon + ' ' + cfg.name + ': ' + statusText +
+      '</div>';
     }).join('');
 
-  // style options
   const styleCategories = CONFIG.STYLE_CATEGORIES;
   const stylePresets = CONFIG.STYLE_PRESETS;
 
@@ -1369,7 +1366,6 @@ function handleUI(request) {
     }
   }
 
-  // 前端要用的 provider/model 資料（注意：這是 Worker 端 const，不會輸出到全域重複宣告）
   const ENABLED_PROVIDERS_DATA = Object.entries(CONFIG.PROVIDERS)
     .filter(([id, p]) => p.enabled)
     .map(([id, p]) => ({ id: id, name: p.name, supports_seed: id !== 'infip' }));
@@ -1379,128 +1375,452 @@ function handleUI(request) {
       .filter(([id, p]) => p.enabled)
       .map(([id, p]) => {
         const models = (p.models || []).filter(m => m.id !== 'nanobanana-pro');
-        return [id, models.map(m => ({ id: m.id, name: m.name || m.id }))];
+        return [id, models.map(m => ({ id: m.id, name: m.name || m.id, category: m.category || 'default' }))];
       })
   );
 
   const html = `<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${CONFIG.PROJECT_NAME} v${CONFIG.PROJECT_VERSION}</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+
 <style>
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#0b0b0f;color:#fff;margin:0}
-  .top{padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.12);display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04)}
-  .logo{font-weight:900;color:#f59e0b}
-  .wrap{max-width:1200px;margin:0 auto;padding:18px}
-  .grid{display:grid;grid-template-columns: 330px 1fr; gap:16px}
-  .card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px}
-  label{display:block;margin:10px 0 6px;font-size:12px;color:#cbd5e1;font-weight:700}
-  input,textarea,select,button{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.25);color:#fff}
-  textarea{resize:vertical;min-height:110px}
-  .btn{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);border:none;font-weight:900;cursor:pointer}
-  .btn:disabled{opacity:.6;cursor:not-allowed}
-  .muted{color:#94a3b8;font-size:12px}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  img{max-width:100%;border-radius:12px;border:1px solid rgba(255,255,255,.12)}
-  .actions{display:flex;gap:10px;margin-top:10px}
-  .actions button{width:auto}
-  .historyItem{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid rgba(255,255,255,.10);border-radius:12px;margin-top:10px;background:rgba(0,0,0,.18)}
-  .historyItem img{width:110px;height:110px;object-fit:cover}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+  color: #fff;
+  min-height: 100vh;
+}
+.container { max-width: 100%; margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; }
+
+.top-nav {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 15px 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.nav-left { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.logo {
+  color: #f59e0b;
+  font-size: 24px;
+  font-weight: 800;
+  text-shadow: 0 0 20px rgba(245,158,11,0.6);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.badge {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.api-status { display: flex; gap: 5px; flex-wrap: wrap; }
+
+.nav-menu { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.nav-btn {
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+.nav-btn:hover { border-color: #f59e0b; color: #fff; }
+.nav-btn.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #fff;
+  border-color: #f59e0b;
+}
+.nav-btn.nano-btn:hover {
+  border-color: #FACC15;
+  background: rgba(250,204,21,0.1);
+  color: #FACC15;
+  box-shadow: 0 0 10px rgba(250,204,21,0.2);
+}
+
+.main-content { flex: 1; display: flex; overflow: hidden; }
+
+.left-panel {
+  width: 320px;
+  background: rgba(255,255,255,0.03);
+  border-right: 1px solid rgba(255,255,255,0.1);
+  overflow-y: auto;
+  padding: 20px;
+  flex-shrink: 0;
+}
+.center-panel {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+.right-panel {
+  width: 380px;
+  background: rgba(255,255,255,0.03);
+  border-left: 1px solid rgba(255,255,255,0.1);
+  overflow-y: auto;
+  padding: 20px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1024px) {
+  .main-content { flex-direction: column; }
+  .left-panel, .right-panel {
+    width: 100%;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+}
+
+.form-group { margin-bottom: 16px; }
+label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #e5e7eb;
+}
+input, textarea, select {
+  width: 100%;
+  padding: 10px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #f59e0b;
+  background: rgba(0,0,0,0.5);
+}
+textarea { resize: vertical; min-height: 100px; font-family: inherit; }
+
+.btn {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(245,158,11,0.3);
+}
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(245,158,11,0.5);
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.size-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.size-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.size-card:hover { background: rgba(255,255,255,0.1); }
+.size-card.active {
+  border-color: #f59e0b;
+  background: rgba(245,158,11,0.1);
+}
+.size-name { font-size: 11px; font-weight: 600; color: #d1d5db; }
+.size-dim { font-size: 10px; color: #6b7280; margin-top: 4px; }
+
+.result-image {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.meta-item {
+  background: rgba(255,255,255,0.05);
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.meta-label { color: #9ca3af; font-weight: 600; }
+.meta-value { color: #e5e7eb; margin-top: 4px; }
+
+.action-btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+.action-btn {
+  flex: 1;
+  padding: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #e5e7eb;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.3s;
+  text-align: center;
+}
+.action-btn:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: #f59e0b;
+}
+
+.history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.history-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.history-item:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+.history-item img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  display: block;
+}
+.history-meta {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+  padding: 8px;
+  font-size: 10px;
+  color: #d1d5db;
+}
+.history-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(239,68,68,0.9);
+  border: none;
+  color: #fff;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.history-item:hover .history-delete { opacity: 1; }
+
+.status-text {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-top: 12px;
+  padding: 10px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 6px;
+  border-left: 3px solid #f59e0b;
+}
+
+.advanced-toggle {
+  margin-top: 12px;
+  padding: 8px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+.advanced-toggle:hover { background: rgba(255,255,255,0.08); }
+.advanced-panel { display: none; margin-top: 12px; }
+.advanced-panel.active { display: block; }
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.storage-info {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 8px;
+  text-align: center;
+}
 </style>
 </head>
 <body>
-  <div class="top">
-    <div>
-      <div class="logo">${CONFIG.PROJECT_NAME} <span style="font-weight:700;color:#94a3b8">v${CONFIG.PROJECT_VERSION}</span></div>
-      <div class="muted" style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">${providerStatusHTML}</div>
-    </div>
-    <div style="display:flex;gap:10px;align-items:center;">
-      <a href="/nano" style="color:#FACC15;text-decoration:none;border:1px solid rgba(250,204,21,.35);padding:8px 10px;border-radius:10px;background:rgba(250,204,21,.08)">Nano</a>
-      <button id="openHistory" style="width:auto;">History</button>
-      <span class="muted">Records: <span id="historyCount">0</span></span>
-    </div>
-  </div>
-
-  <div class="wrap">
-    <div class="grid">
-      <div class="card">
-        <label>Provider</label>
-        <select id="provider"></select>
-
-        <label>Model</label>
-        <select id="model"></select>
-
-        <div class="row">
+  <div class="container">
+    <div class="top-nav">
+      <div class="nav-left">
+        <div class="logo">
+          <span>🎨</span>
           <div>
-            <label>Width</label>
-            <input id="width" type="number" value="1024" min="256" max="2048">
+            <div>${CONFIG.PROJECT_NAME}</div>
+            <div class="badge">v${CONFIG.PROJECT_VERSION}</div>
           </div>
-          <div>
-            <label>Height</label>
-            <input id="height" type="number" value="1024" min="256" max="2048">
+        </div>
+        <div class="api-status">${providerStatusHTML}</div>
+      </div>
+      <div class="nav-menu">
+        <a href="/nano" class="nav-btn nano-btn">🍌 Nano Pro</a>
+        <button id="historyBtn" class="nav-btn">📚 歷史記錄 (<span id="historyCount">0</span>)</button>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="left-panel">
+        <div class="form-group">
+          <label>🎯 Provider</label>
+          <select id="provider"></select>
+        </div>
+
+        <div class="form-group">
+          <label>🤖 Model</label>
+          <select id="model"></select>
+        </div>
+
+        <div class="form-group">
+          <label>📐 預設尺寸</label>
+          <div class="size-grid" id="sizePresets"></div>
+        </div>
+
+        <div class="form-group">
+          <div class="row">
+            <div>
+              <label>寬度</label>
+              <input type="number" id="width" value="1024" min="256" max="2048">
+            </div>
+            <div>
+              <label>高度</label>
+              <input type="number" id="height" value="1024" min="256" max="2048">
+            </div>
           </div>
         </div>
 
-        <label>Style</label>
-        <select id="style">${styleOptionsHTML}</select>
-
-        <label>Quality</label>
-        <select id="qualityMode">
-          <option value="economy">Economy</option>
-          <option value="standard" selected>Standard</option>
-          <option value="ultra">Ultra</option>
-        </select>
-
-        <label>Seed (toggle to unlock)</label>
-        <div class="row">
-          <input id="seed" type="number" value="-1" disabled>
-          <button id="toggleSeed" style="width:auto;">Toggle</button>
+        <div class="form-group">
+          <label>🎨 風格預設</label>
+          <select id="style">${styleOptionsHTML}</select>
         </div>
 
-        <label>Prompt</label>
-        <textarea id="prompt" placeholder="Describe your image..."></textarea>
+        <div class="form-group">
+          <label>⚡ 品質模式</label>
+          <select id="qualityMode">
+            <option value="economy">Economy - 快速生成</option>
+            <option value="standard" selected>Standard - 標準品質</option>
+            <option value="ultra">Ultra - 超高品質</option>
+          </select>
+        </div>
 
-        <label>Negative (optional)</label>
-        <textarea id="negativePrompt" placeholder="What to avoid..."></textarea>
+        <div class="advanced-toggle" id="advancedToggle">🔧 進階選項</div>
+        <div class="advanced-panel" id="advancedPanel">
+          <div class="form-group">
+            <label>🎲 Seed</label>
+            <div class="row">
+              <input type="number" id="seed" value="-1" disabled>
+              <button id="toggleSeed" class="action-btn">鎖定 Seed</button>
+            </div>
+          </div>
 
-        <label>Reference Images (Kontext only)</label>
-        <textarea id="referenceImages" placeholder="comma separated URLs"></textarea>
+          <div class="form-group">
+            <label>🖼️ 參考圖像 (Kontext 專用)</label>
+            <textarea id="referenceImages" rows="2" placeholder="輸入圖片網址，逗號分隔"></textarea>
+          </div>
 
-        <div style="margin-top:12px;">
-          <button id="genBtn" class="btn">Generate</button>
-          <div id="status" class="muted" style="margin-top:10px;">Idle.</div>
+          <div class="form-group">
+            <label>📊 生成數量</label>
+            <input type="number" id="numOutputs" value="1" min="1" max="4">
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <div style="font-weight:900;margin-bottom:10px;">Result</div>
-        <img id="img" style="display:none;">
-        <div class="actions">
-          <button id="downloadBtn" style="display:none;">Download</button>
+      <div class="center-panel">
+        <div class="form-group">
+          <label>✨ 提示詞 (Prompt)</label>
+          <textarea id="prompt" rows="5" placeholder="描述你想生成的圖像... (支援中文自動翻譯)"></textarea>
         </div>
 
-        <div id="historyPanel" style="display:none;margin-top:16px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="font-weight:900;">History</div>
-            <div class="actions">
-              <button id="exportBtn">Export</button>
-              <button id="clearBtn">Clear</button>
-            </div>
-          </div>
-          <div class="muted" style="margin-top:6px;">Storage: <span id="storageSize">0 KB</span></div>
-          <div id="historyList"></div>
+        <div class="form-group">
+          <label>🚫 負面提示詞 (Negative Prompt)</label>
+          <textarea id="negativePrompt" rows="3" placeholder="描述你不想要的元素..."></textarea>
         </div>
+
+        <button id="genBtn" class="btn">🎨 開始生成</button>
+
+        <div class="status-text" id="status">準備就緒</div>
+
+        <div id="resultArea" style="display:none; margin-top:24px;">
+          <img id="resultImg" class="result-image" alt="Generated Image">
+          <div class="action-btns">
+            <button id="downloadBtn" class="action-btn">💾 下載</button>
+            <button id="saveToHistoryBtn" class="action-btn">📌 保存到歷史</button>
+          </div>
+          <div class="meta-grid" id="metaGrid"></div>
+        </div>
+      </div>
+
+      <div class="right-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <label style="margin:0;">📚 生成歷史</label>
+          <div style="display:flex; gap:8px;">
+            <button id="exportBtn" class="action-btn" style="flex:none; padding:6px 12px;">匯出</button>
+            <button id="clearBtn" class="action-btn" style="flex:none; padding:6px 12px;">清空</button>
+          </div>
+        </div>
+        <div class="storage-info">儲存空間: <span id="storageSize">0 KB</span></div>
+        <div class="history-grid" id="historyGrid"></div>
       </div>
     </div>
   </div>
 
 <script>
-  // ====== 注入資料（修復點：這些必須在模板字串裡）======
   var ENABLED_PROVIDERS = ${JSON.stringify(ENABLED_PROVIDERS_DATA)};
   var MODELS_BY_PROVIDER = ${JSON.stringify(MODELS_BY_PROVIDER_DATA)};
+  var PRESET_SIZES = ${JSON.stringify(CONFIG.PRESET_SIZES)};
 
-  // ====== IndexedDB (FIXED) ======
   var DB_NAME = 'FluxAI_DB';
   var STORE_NAME = 'images';
   var DB_VERSION = 2;
@@ -1575,66 +1895,38 @@ function handleUI(request) {
       .replace(/'/g, '&#39;');
   }
 
-  async function updateHistoryCount() {
-    var images = await dbGetAllImages();
-    document.getElementById('historyCount').textContent = images.length;
-
-    var total = images.reduce(function(sum, img) { return sum + (img.size || 0); }, 0);
-    document.getElementById('storageSize').textContent = (total / 1024).toFixed(2) + ' KB';
-  }
-
-  async function loadHistory() {
-    var images = await dbGetAllImages();
-    var list = document.getElementById('historyList');
-    list.innerHTML = '';
-    images.slice().reverse().forEach(function(img) {
-      var div = document.createElement('div');
-      div.className = 'historyItem';
-      div.innerHTML =
-        '<img src="' + img.url + '">' +
-        '<div style="flex:1">' +
-          '<div style="font-weight:800;">' + escapeHtml(img.provider) + ' / ' + escapeHtml(img.model) + '</div>' +
-          '<div class="muted">Seed: ' + escapeHtml(img.seed) + ' | ' + escapeHtml(img.width) + 'x' + escapeHtml(img.height) + '</div>' +
-          '<div class="muted" style="margin-top:6px;">' + escapeHtml((img.prompt || '').slice(0, 120)) + '</div>' +
-          '<div class="actions" style="margin-top:8px;">' +
-            '<button data-id="' + img.id + '" class="delBtn">Delete</button>' +
-          '</div>' +
-        '</div>';
-      list.appendChild(div);
-    });
-
-    list.querySelectorAll('.delBtn').forEach(function(btn) {
-      btn.onclick = async function() {
-        var id = parseInt(btn.getAttribute('data-id'), 10);
-        await dbDeleteImageById(id);
-        await updateHistoryCount();
-        await loadHistory();
-      };
-    });
-  }
-
-  // ====== UI wiring ======
   var els = {
     provider: document.getElementById('provider'),
     model: document.getElementById('model'),
+    sizePresets: document.getElementById('sizePresets'),
     width: document.getElementById('width'),
     height: document.getElementById('height'),
     style: document.getElementById('style'),
     qualityMode: document.getElementById('qualityMode'),
     seed: document.getElementById('seed'),
     toggleSeed: document.getElementById('toggleSeed'),
+    referenceImages: document.getElementById('referenceImages'),
+    numOutputs: document.getElementById('numOutputs'),
     prompt: document.getElementById('prompt'),
     negativePrompt: document.getElementById('negativePrompt'),
-    referenceImages: document.getElementById('referenceImages'),
     genBtn: document.getElementById('genBtn'),
     status: document.getElementById('status'),
-    img: document.getElementById('img'),
+    resultArea: document.getElementById('resultArea'),
+    resultImg: document.getElementById('resultImg'),
     downloadBtn: document.getElementById('downloadBtn'),
-    openHistory: document.getElementById('openHistory'),
-    historyPanel: document.getElementById('historyPanel'),
+    saveToHistoryBtn: document.getElementById('saveToHistoryBtn'),
+    metaGrid: document.getElementById('metaGrid'),
+    historyGrid: document.getElementById('historyGrid'),
+    historyCount: document.getElementById('historyCount'),
+    historyBtn: document.getElementById('historyBtn'),
     exportBtn: document.getElementById('exportBtn'),
     clearBtn: document.getElementById('clearBtn'),
+    storageSize: document.getElementById('storageSize'),
+    advancedToggle: document.getElementById('advancedToggle'),
+    advancedPanel: document.getElementById('advancedPanel')
   };
+
+  var currentResult = null;
 
   function populateProviders() {
     els.provider.innerHTML = '';
@@ -1651,7 +1943,7 @@ function handleUI(request) {
     els.model.innerHTML = '';
     var models = MODELS_BY_PROVIDER[providerId] || [];
     if (!models.length) {
-      els.model.innerHTML = '<option value="">No models</option>';
+      els.model.innerHTML = '<option value="">無可用模型</option>';
       return;
     }
     models.forEach(function(m) {
@@ -1659,6 +1951,25 @@ function handleUI(request) {
       opt.value = m.id;
       opt.textContent = m.name;
       els.model.appendChild(opt);
+    });
+  }
+
+  function populateSizePresets() {
+    els.sizePresets.innerHTML = '';
+    Object.entries(PRESET_SIZES).forEach(function([key, preset]) {
+      var div = document.createElement('div');
+      div.className = 'size-card';
+      div.dataset.width = preset.width;
+      div.dataset.height = preset.height;
+      div.innerHTML = '<div class="size-name">' + escapeHtml(preset.name) + '</div><div class="size-dim">' + preset.width + 'x' + preset.height + '</div>';
+      div.onclick = function() {
+        document.querySelectorAll('.size-card').forEach(function(c) { c.classList.remove('active'); });
+        div.classList.add('active');
+        els.width.value = preset.width;
+        els.height.value = preset.height;
+      };
+      els.sizePresets.appendChild(div);
+      if (key === 'square-1k') div.classList.add('active');
     });
   }
 
@@ -1672,30 +1983,71 @@ function handleUI(request) {
     if (seedLocked) {
       els.seed.disabled = false;
       if (els.seed.value === '-1') els.seed.value = Math.floor(Math.random() * 1000000);
+      els.toggleSeed.textContent = '解鎖 Seed';
     } else {
       els.seed.value = '-1';
       els.seed.disabled = true;
+      els.toggleSeed.textContent = '鎖定 Seed';
     }
+  };
+
+  els.advancedToggle.onclick = function() {
+    els.advancedPanel.classList.toggle('active');
+    els.advancedToggle.textContent = els.advancedPanel.classList.contains('active') ? '🔽 收起進階' : '🔧 進階選項';
   };
 
   els.downloadBtn.onclick = function() {
+    if (!currentResult) return;
     var a = document.createElement('a');
-    a.href = els.img.src;
-    a.download = 'flux-image.png';
+    a.href = currentResult.url;
+    a.download = 'flux-ai-' + currentResult.seed + '.png';
     a.click();
   };
 
-  els.openHistory.onclick = async function() {
-    var show = els.historyPanel.style.display !== 'none';
-    els.historyPanel.style.display = show ? 'none' : 'block';
-    if (!show) {
-      await updateHistoryCount();
-      await loadHistory();
-    }
+  els.saveToHistoryBtn.onclick = async function() {
+    if (!currentResult) return;
+    await dbAddImage(currentResult);
+    await updateHistoryCount();
+    await loadHistory();
+    els.status.textContent = '✅ 已保存到歷史記錄';
   };
 
+  async function updateHistoryCount() {
+    var images = await dbGetAllImages();
+    els.historyCount.textContent = images.length;
+    var total = images.reduce(function(sum, img) { return sum + (img.size || 0); }, 0);
+    els.storageSize.textContent = (total / 1024).toFixed(2) + ' KB';
+  }
+
+  async function loadHistory() {
+    var images = await dbGetAllImages();
+    els.historyGrid.innerHTML = '';
+    images.slice().reverse().forEach(function(img) {
+      var div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = '<img src="' + img.url + '"><div class="history-meta">Seed: ' + escapeHtml(img.seed) + '</div><button class="history-delete">×</button>';
+      
+      div.querySelector('img').onclick = function() {
+        els.resultImg.src = img.url;
+        els.resultArea.style.display = 'block';
+        currentResult = img;
+        displayMetadata(img);
+      };
+      
+      div.querySelector('.history-delete').onclick = async function(e) {
+        e.stopPropagation();
+        if (!confirm('確定刪除此圖片？')) return;
+        await dbDeleteImageById(img.id);
+        await updateHistoryCount();
+        await loadHistory();
+      };
+      
+      els.historyGrid.appendChild(div);
+    });
+  }
+
   els.clearBtn.onclick = async function() {
-    if (!confirm('Clear all history?')) return;
+    if (!confirm('確定清空所有歷史記錄？')) return;
     await dbClearAllImages();
     await updateHistoryCount();
     await loadHistory();
@@ -1711,15 +2063,37 @@ function handleUI(request) {
     a.click();
   };
 
+  function displayMetadata(data) {
+    els.metaGrid.innerHTML = '';
+    var meta = {
+      'Provider': data.provider,
+      'Model': data.model,
+      'Seed': data.seed,
+      '尺寸': data.width + 'x' + data.height,
+      '風格': data.style_name || data.style,
+      '品質': data.quality_mode
+    };
+    Object.entries(meta).forEach(function([k, v]) {
+      var div = document.createElement('div');
+      div.className = 'meta-item';
+      div.innerHTML = '<div class="meta-label">' + escapeHtml(k) + '</div><div class="meta-value">' + escapeHtml(v) + '</div>';
+      els.metaGrid.appendChild(div);
+    });
+  }
+
   els.genBtn.onclick = async function() {
     var p = els.prompt.value.trim();
-    if (!p) { els.status.textContent = 'Prompt required.'; return; }
+    if (!p) {
+      els.status.textContent = '❌ 請輸入提示詞';
+      return;
+    }
 
     els.genBtn.disabled = true;
-    els.status.textContent = 'Generating...';
+    els.status.textContent = '🎨 正在生成...';
+
     try {
       var refs = els.referenceImages.value.trim();
-      var refList = refs ? refs.split(',').map(function(s){return s.trim();}).filter(Boolean) : [];
+      var refList = refs ? refs.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
 
       var payload = {
         prompt: p,
@@ -1731,7 +2105,7 @@ function handleUI(request) {
         style: els.style.value,
         quality_mode: els.qualityMode.value,
         seed: parseInt(els.seed.value, 10),
-        n: 1,
+        n: parseInt(els.numOutputs.value, 10),
         auto_optimize: true,
         auto_hd: true,
         reference_images: refList
@@ -1752,11 +2126,10 @@ function handleUI(request) {
       var blob = await res.blob();
       var url = URL.createObjectURL(blob);
 
-      els.img.src = url;
-      els.img.style.display = 'block';
-      els.downloadBtn.style.display = 'inline-block';
+      els.resultImg.src = url;
+      els.resultArea.style.display = 'block';
 
-      var meta = {
+      currentResult = {
         url: url,
         size: blob.size,
         timestamp: Date.now(),
@@ -1772,19 +2145,20 @@ function handleUI(request) {
         quality_mode: res.headers.get('X-Quality-Mode') || payload.quality_mode
       };
 
-      await dbAddImage(meta);
-      await updateHistoryCount();
+      displayMetadata(currentResult);
+      els.status.textContent = '✅ 生成完成！Provider: ' + currentResult.provider + ', Seed: ' + currentResult.seed;
 
-      els.status.textContent = 'Done. Provider=' + meta.provider + ', model=' + meta.model + ', seed=' + meta.seed;
     } catch (e) {
-      els.status.textContent = 'Error: ' + e.message;
+      els.status.textContent = '❌ 錯誤: ' + e.message;
     } finally {
       els.genBtn.disabled = false;
     }
   };
 
   populateProviders();
+  populateSizePresets();
   updateHistoryCount();
+  loadHistory();
 </script>
 </body>
 </html>`;
