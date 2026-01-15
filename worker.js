@@ -1508,6 +1508,7 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
     <select id="provider">
         <option value="pollinations" selected>Pollinations.ai (Free)</option>
         <option value="infip">Ghostbot (Infip) 🌟</option>
+        <option value="llm7">LLM7.io (All-in-One) 🚀</option>
     </select>
 </div>
 <div class="form-group" id="apiKeyGroup" style="display:none; background:rgba(245, 158, 11, 0.1); padding:10px; border-radius:8px; border:1px solid rgba(245, 158, 11, 0.3);">
