@@ -1609,7 +1609,6 @@ function updateModelOptions() {
 
 providerSelect.addEventListener('change', updateModelOptions);
 apiKeyInput.addEventListener('input', (e) => localStorage.setItem('infip_api_key', e.target.value));
-updateModelOptions();
 
 const PRESET_SIZES=${JSON.stringify(CONFIG.PRESET_SIZES)};
 const STYLE_PRESETS=${JSON.stringify(CONFIG.STYLE_PRESETS)};
@@ -1783,6 +1782,7 @@ function displayResult(items){
 window.onload=()=>{
     updateLang();
     updateHistoryDisplay();
+    updateModelOptions();
 };
 </script>
 </body>
