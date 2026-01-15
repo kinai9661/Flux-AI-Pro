@@ -72,31 +72,6 @@ const CONFIG = {
       ],
       rate_limit: { requests: 30, interval: 60 },
       max_size: { width: 1792, height: 1792 }
-    },
-    llm7: {
-      name: "LLM7.io",
-      endpoint: "https://api.llm7.io/v1",
-      type: "openai_compatible",
-      auth_mode: "bearer",
-      requires_key: false, 
-      enabled: true,
-      default: false,
-      description: "One LLM API (支持去浮水印)",
-      features: {
-        private_mode: false, custom_size: true, seed_control: false, negative_prompt: false, enhance: false, nologo: false, style_presets: true, auto_hd: false, quality_modes: false, auto_translate: true, reference_images: false, image_to_image: false, batch_generation: false, api_key_auth: true
-      },
-      models: [
-        { id: "flux", name: "Flux (LLM7) 💧", category: "flux", description: "Flux 模型 (可能帶有浮水印)", max_size: 1024 },
-        { id: "flux-1.1-pro", name: "Flux 1.1 Pro ⚡", category: "flux", description: "Flux 1.1 Pro (高效能)", max_size: 1024 },
-        { id: "flux-kontext-fast", name: "Flux Kontext Fast ⚡", category: "flux", description: "Flux 上下文感知快速版", max_size: 1024 },
-        { id: "flux-kontext-pro", name: "Flux Kontext Pro 🧠", category: "flux", description: "Flux 上下文感知專業版", max_size: 1024 },
-        { id: "flux-kontext-max", name: "Flux Kontext Max 🔥", category: "flux", description: "Flux 上下文感知旗艦版", max_size: 1024 },
-        { id: "dall-e-3", name: "DALL-E 3 (LLM7) 🎨", category: "dall-e", description: "OpenAI DALL-E 3", max_size: 1024 },
-        { id: "sdxl", name: "SDXL (LLM7) 🚀", category: "sd", description: "Stable Diffusion XL", max_size: 1024 }
-      ],
-      rate_limit: { requests: 60, interval: 60 },
-      max_size: { width: 1024, height: 1024 },
-      watermark_removal: true // 強制開啟去浮水印
     }
   },
   
@@ -636,90 +611,6 @@ class InfipProvider {
   }
 }
 
-class LLM7Provider {
-  constructor(config, env) { this.config = config; this.name = config.name; this.env = env; }
-  
-  async generate(prompt, options, logger) {
-    const { model = "flux", width = 1024, height = 1024, apiKey = "" } = options;
-    
-    // LLM7 allows anonymous (no key) or with key
-    // Prefer environment variable if available
-    const finalApiKey = this.env.LLM7_API_KEY || apiKey || "";
-
-    let basePrompt = prompt;
-    let translationLog = { translated: false };
-    if (/[\u4e00-\u9fa5]/.test(prompt)) {
-      logger.add("🌐 Pre-translation", { message: "Detecting Chinese, translating first..." });
-      const translation = await translateToEnglish(prompt, this.env);
-      if (translation.translated) {
-        basePrompt = translation.text;
-        translationLog = translation;
-        logger.add("✅ Translation Success", { original: prompt, translated: basePrompt });
-      }
-    }
-
-    const url = `${this.config.endpoint}/images/generations`;
-    const headers = {
-      'Content-Type': 'application/json',
-      'User-Agent': 'Flux-AI-Pro-Worker'
-    };
-    if (finalApiKey) {
-        headers['Authorization'] = `Bearer ${finalApiKey}`;
-    }
-    
-    // Standard OpenAI Image Body
-    const body = {
-      model: model,
-      prompt: basePrompt,
-      n: 1,
-      size: `${width}x${height}`, 
-      response_format: "url"
-    };
-
-    logger.add("📡 LLM7 Request", { endpoint: url, model: model, size: body.size, authenticated: !!finalApiKey });
-
-    try {
-      const response = await fetchWithTimeout(url, { method: 'POST', headers: headers, body: JSON.stringify(body) }, 60000);
-      
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`LLM7 API Error (${response.status}): ${errText}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.data && data.data.length > 0 && data.data[0].url) {
-        const imgUrl = data.data[0].url;
-        logger.add("⬇️ Downloading Image", { url: imgUrl });
-        
-        const imgResp = await fetch(imgUrl);
-        const imageBuffer = await imgResp.arrayBuffer();
-        const contentType = imgResp.headers.get('content-type') || 'image/png';
-        
-        return { 
-            imageData: imageBuffer, 
-            contentType: contentType, 
-            url: imgUrl, 
-            provider: this.name, 
-            model: model, 
-            seed: -1, 
-            width: width, 
-            height: height, 
-            auto_translated: translationLog.translated,
-            authenticated: !!finalApiKey,
-            cost: "FREE/QUOTA",
-            needs_watermark_removal: this.config.watermark_removal // Flag for frontend
-        };
-      } else {
-        throw new Error("Invalid response format from LLM7 API");
-      }
-    } catch (e) {
-      logger.add("❌ LLM7 Failed", { error: e.message });
-      throw e;
-    }
-  }
-}
-
 class MultiProviderRouter {
   constructor(apiKeys = {}, env = null) {
     this.providers = {};
@@ -729,7 +620,6 @@ class MultiProviderRouter {
       if (config.enabled) {
         if (key === 'pollinations') this.providers[key] = new PollinationsProvider(config, env);
         else if (key === 'infip') this.providers[key] = new InfipProvider(config, env);
-        else if (key === 'llm7') this.providers[key] = new LLM7Provider(config, env);
       }
     }
   }
@@ -1404,11 +1294,10 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
   return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders() } });
 }
 function handleUI(request, env) {
-  const hasInfipServerKey = !!(env && env.INFIP_API_KEY);
-  const hasLLM7ServerKey = !!(env && env.LLM7_API_KEY);
-  const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 已認證</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ 需要 API Key</span>';
-  
-  // 生成樣式選單 HTML
+    const hasInfipServerKey = !!(env && env.INFIP_API_KEY);
+    const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 已認證</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ 需要 API Key</span>';
+    
+    // 生成樣式選單 HTML
   const styleCategories = CONFIG.STYLE_CATEGORIES;
   const stylePresets = CONFIG.STYLE_PRESETS;
   let styleOptionsHTML = '';
@@ -1508,7 +1397,6 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
     <select id="provider">
         <option value="pollinations" selected>Pollinations.ai (Free)</option>
         <option value="infip">Ghostbot (Infip) 🌟</option>
-        <option value="llm7">LLM7.io (All-in-One) 🚀</option>
     </select>
 </div>
 <div class="form-group" id="apiKeyGroup" style="display:none; background:rgba(245, 158, 11, 0.1); padding:10px; border-radius:8px; border:1px solid rgba(245, 158, 11, 0.3);">
@@ -1711,12 +1599,7 @@ function updateModelOptions() {
     
     // Logic: Show API Key input only if required AND not provided by server
     if(config.requires_key && config.auth_mode === 'bearer') {
-        // Special handling for LLM7 optional key
-        if (p === 'llm7' && !config.has_server_key) {
-             apiKeyGroup.style.display = 'block';
-             apiKeyInput.placeholder = "Optional: Paste LLM7 Key for higher limits";
-             apiKeyInput.value = localStorage.getItem('llm7_api_key') || '';
-        } else if (config.has_server_key) {
+        if (config.has_server_key) {
             apiKeyGroup.style.display = 'none';
         } else {
             apiKeyGroup.style.display = 'block';
@@ -1767,9 +1650,6 @@ const STYLE_PRESETS=${JSON.stringify(CONFIG.STYLE_PRESETS)};
 const frontendProviders = ${JSON.stringify(CONFIG.PROVIDERS)};
 if (${hasInfipServerKey} && frontendProviders.infip) {
     frontendProviders.infip.has_server_key = true;
-}
-if (${hasLLM7ServerKey} && frontendProviders.llm7) {
-    frontendProviders.llm7.has_server_key = true;
 }
 const PROVIDERS=frontendProviders;
 
@@ -1844,7 +1724,6 @@ document.getElementById('generateForm').addEventListener('submit',async(e)=>{
     const curProvider = document.getElementById('provider').value;
     const curKey = document.getElementById('apiKey').value;
     if(curProvider === 'infip') localStorage.setItem('infip_api_key', curKey);
-    else if(curProvider === 'llm7') localStorage.setItem('llm7_api_key', curKey);
 
     const prompt=document.getElementById('prompt').value;
     const resDiv=document.getElementById('results');
@@ -1895,14 +1774,6 @@ document.getElementById('generateForm').addEventListener('submit',async(e)=>{
             reader.readAsDataURL(blob);
             reader.onloadend=async()=>{
                 let base64=reader.result;
-                
-                // LLM7 Auto Watermark Removal
-                if (document.getElementById('provider').value === 'llm7') {
-                     try {
-                        base64 = await removeWatermark(base64);
-                     } catch(e) { console.error("Watermark removal failed", e); }
-                }
-
                 const realSeed = res.headers.get('X-Seed');
                 const item={ image:base64, prompt, model:res.headers.get('X-Model'), seed: realSeed, style:res.headers.get('X-Style') };
                 await addToHistory(item);
@@ -1961,38 +1832,6 @@ function displayResult(items){
     });
     document.getElementById('results').innerHTML='';
     document.getElementById('results').appendChild(div);
-}
-
-// Client-side Watermark Removal (Crop bottom 50px)
-function removeWatermark(imageUrl) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "Anonymous";
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            // Increased crop area to ensure watermark removal (50px -> 60px)
-            const cropBottom = 60; 
-            
-            if (img.height <= cropBottom) {
-                resolve(imageUrl); // Image too small, return original
-                return;
-            }
-
-            canvas.width = img.width;
-            canvas.height = img.height - cropBottom;
-            
-            // Draw image (top part only)
-            ctx.drawImage(img, 0, 0, img.width, img.height - cropBottom, 0, 0, img.width, img.height - cropBottom);
-            
-            // Convert to dataURL
-            const newUrl = canvas.toDataURL('image/png');
-            resolve(newUrl);
-        };
-        img.onerror = (e) => reject(e);
-        img.src = imageUrl;
-    });
 }
 
 window.onload=()=>{
