@@ -720,6 +720,11 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const startTime = Date.now();
+
+    // Heartbeat for online count (KV based)
+    if (url.pathname === '/heartbeat') {
+      return handleHeartbeat(request, env);
+    }
     const clientIP = getClientIP(request);
     if (env.POLLINATIONS_API_KEY) { CONFIG.POLLINATIONS_AUTH.enabled = true; CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; } 
     else { console.warn("⚠️ POLLINATIONS_API_KEY not set - requests may fail on new API endpoint"); CONFIG.POLLINATIONS_AUTH.enabled = false; CONFIG.POLLINATIONS_AUTH.token = ""; }
@@ -1149,22 +1154,23 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     const COOLDOWN_SEC = 180;
     let cooldownInterval = null;
 
-    // Online Count Simulation
-    let onlineBase = 120 + Math.floor(Math.random() * 50); // Initial 120-170
-    function updateOnlineCount() {
-        const variance = Math.floor(Math.random() * 7) - 3; // -3 to +3
-        onlineBase += variance;
-        if(onlineBase < 80) onlineBase = 80;
-        if(onlineBase > 300) onlineBase = 300;
-        
-        const el = document.getElementById('onlineCount');
-        if(el) {
-            el.textContent = onlineBase;
-            el.parentElement.title = "Real-time active users (Estimated)";
-        }
-        setTimeout(updateOnlineCount, 2000 + Math.random() * 3000);
+    // Online Count (KV Heartbeat)
+    function startHeartbeat() {
+        const update = async () => {
+            try {
+                const res = await fetch('/heartbeat');
+                const data = await res.json();
+                const el = document.getElementById('onlineCount');
+                if(el) {
+                    el.textContent = data.count;
+                    el.parentElement.title = "Active users (KV-based)";
+                }
+            } catch(e) { console.error("Heartbeat failed", e); }
+        };
+        update();
+        setInterval(update, 10000); // Poll every 10s
     }
-    updateOnlineCount();
+    startHeartbeat();
 
     function checkAndStartCooldown() {
         const lastTime = localStorage.getItem(COOLDOWN_KEY);
@@ -1388,6 +1394,34 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
   
   return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders() } });
 }
+// KV-based Online Counter (Free)
+async function handleHeartbeat(request, env) {
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const now = Math.floor(Date.now() / 1000);
+  const key = `online:${ip}`;
+  
+  // 1. Update current user's heartbeat
+  await env.FLUX_KV.put(key, now.toString(), { expirationTtl: 60 }); // Expire in 60s
+  
+  // 2. Count active keys (Approximate)
+  // Note: KV list is eventually consistent and might be slow for huge lists.
+  // For free tier small traffic, this is acceptable.
+  // Ideally, we would use a counter in KV, but race conditions exist.
+  // Instead, we just list keys with prefix 'online:'
+  
+  let count = 0;
+  try {
+      const list = await env.FLUX_KV.list({ prefix: 'online:' });
+      count = list.keys.length;
+  } catch(e) {
+      count = 1; // Fallback
+  }
+
+  return new Response(JSON.stringify({ count }), { 
+    headers: { 'Content-Type': 'application/json', ...corsHeaders() } 
+  });
+}
+
 function handleUI(request, env) {
     const hasInfipServerKey = !!(env && env.INFIP_API_KEY);
     const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 已認證</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ 需要 API Key</span>';
@@ -1464,13 +1498,20 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
 .modal.show{display:flex}
 .modal-content img{max-width:90vw;max-height:90vh;border-radius:8px}
 .modal-close{position:absolute;top:20px;right:20px;color:#fff;font-size:32px;cursor:pointer}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 </style>
 </head>
 <body>
 <div class="container">
 <div class="top-nav">
     <div class="nav-left">
-        <div class="logo">🎨 Flux AI Pro <span class="badge">v${CONFIG.PROJECT_VERSION}</span></div>
+        <div class="logo">
+    🎨 Flux AI Pro <span class="badge">v${CONFIG.PROJECT_VERSION}</span>
+    <div style="font-size:12px; color:#22c55e; margin-left:15px; display:flex; align-items:center; gap:6px; font-weight:normal; text-shadow:none;">
+        <span style="width:8px; height:8px; background:#22c55e; border-radius:50%; display:inline-block; animation:pulse 2s infinite"></span>
+        <span id="mainOnlineCount">--</span> Online
+    </div>
+</div>
         <div><div class="api-status">${authStatus}</div></div>
     </div>
     <div class="nav-menu">
@@ -1961,7 +2002,22 @@ function displayResult(items){
     document.getElementById('results').appendChild(div);
 }
 
+// Online Count (KV Heartbeat)
+function startMainHeartbeat() {
+    const update = async () => {
+        try {
+            const res = await fetch('/heartbeat');
+            const data = await res.json();
+            const el = document.getElementById('mainOnlineCount');
+            if(el) el.textContent = data.count;
+        } catch(e) { console.error("Heartbeat failed", e); }
+    };
+    update();
+    setInterval(update, 10000);
+}
+
 window.onload=()=>{
+    startMainHeartbeat();
     updateLang();
     updateHistoryDisplay();
     updateModelOptions();
