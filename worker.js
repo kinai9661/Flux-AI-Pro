@@ -1,12 +1,12 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 10.9.0 (SeeDream Models & Online Count)
-//  更新: 新增 SeeDream 模型、Nano 介面在線人數模擬
+//  版本: 11.0.0 (KV Online Count & History Fix)
+//  更新: 真實線上人數統計(KV)、歷史記錄模型修復、檔案下載優化
 // =================================================================================
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "10.9.0",
+  PROJECT_VERSION: "11.0.0",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -1842,14 +1842,40 @@ async function updateHistoryDisplay(){
         d.querySelector('img').onclick=()=>openModal(imgSrc);
         d.querySelector('.reuse-btn').onclick=()=>{
             document.getElementById('prompt').value=item.prompt||'';
-            document.getElementById('model').value=item.model||'gptimage';
+            const modelSelect = document.getElementById('model');
+            const targetModel = item.model || 'gptimage';
+            
+            // Check if model exists in current provider, if not, try to switch provider or just warn
+            // Ideally we should switch provider based on model, but we don't store provider in history yet (we should!)
+            // For now, let's just try to set value. If not found, it stays default.
+            
+            // Try to find which provider has this model
+            let providerFound = null;
+            for(const [pKey, pConfig] of Object.entries(PROVIDERS)) {
+                if(pConfig.models.some(m => m.id === targetModel)) {
+                    providerFound = pKey;
+                    break;
+                }
+            }
+            
+            if(providerFound) {
+                document.getElementById('provider').value = providerFound;
+                updateModelOptions(); // Refresh model list
+            }
+            
+            modelSelect.value = targetModel;
             document.getElementById('style').value=item.style||'none';
             const savedSeed = item.seed;
             if (savedSeed && savedSeed !== -1 && savedSeed !== '-1') { isSeedRandom = false; seedInput.value = savedSeed; } else { isSeedRandom = true; seedInput.value = '-1'; }
             updateSeedUI();
             document.querySelector('[data-page="generate"]').click();
         };
-        d.querySelector('.download-btn').onclick=()=>{const a=document.createElement('a');a.href=imgSrc;a.download='flux-'+item.seed+'.png';a.click();};
+        d.querySelector('.download-btn').onclick=()=>{
+            const a=document.createElement('a');
+            a.href=imgSrc;
+            a.download=`${item.model}-${item.seed}.png`;
+            a.click();
+        };
         d.querySelector('.delete-btn').onclick=()=>deleteFromDB(item.id);
         div.appendChild(d);
     });
