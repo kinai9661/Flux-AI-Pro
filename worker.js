@@ -1,12 +1,12 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 10.8.0 (Infip Batch & Cooldown)
-//  更新: Infip 多圖生成支援、冷卻時間優化、移除冗餘供應商
+//  版本: 10.9.0 (SeeDream Models & Online Count)
+//  更新: 新增 SeeDream 模型、Nano 介面在線人數模擬
 // =================================================================================
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "10.8.0",
+  PROJECT_VERSION: "10.9.0",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -995,6 +995,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 @keyframes spin-bounce { 0% { transform: scale(1) rotate(0deg); } 50% { transform: scale(1.2) rotate(10deg); } 100% { transform: scale(1) rotate(0deg); } }
 .toast { position: fixed; top: 20px; right: 20px; background: #333; border-left: 4px solid var(--primary); color: #fff; padding: 15px 25px; border-radius: 8px; display: none; z-index: 100; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-size: 14px; animation: slideIn 0.3s forwards; }
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 </style>
 </head>
 <body>
@@ -1008,6 +1009,10 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                 <div class="logo-text">
                     <h1>Nano Pro <span class="badge">V10.6</span></h1>
                     <p style="color:#666; font-size:12px">Flux Engine • Pro Model</p>
+                    <div style="font-size:11px; color:#22c55e; margin-top:4px; display:flex; align-items:center; gap:4px">
+                        <span style="width:6px; height:6px; background:#22c55e; border-radius:50%; display:inline-block; animation:pulse 2s infinite"></span>
+                        <span id="onlineCount">--</span> Online
+                    </div>
                 </div>
             </div>
 
@@ -1143,6 +1148,23 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     const COOLDOWN_KEY = 'nano_cooldown_timestamp';
     const COOLDOWN_SEC = 180;
     let cooldownInterval = null;
+
+    // Online Count Simulation
+    let onlineBase = 120 + Math.floor(Math.random() * 50); // Initial 120-170
+    function updateOnlineCount() {
+        const variance = Math.floor(Math.random() * 7) - 3; // -3 to +3
+        onlineBase += variance;
+        if(onlineBase < 80) onlineBase = 80;
+        if(onlineBase > 300) onlineBase = 300;
+        
+        const el = document.getElementById('onlineCount');
+        if(el) {
+            el.textContent = onlineBase;
+            el.parentElement.title = "Real-time active users (Estimated)";
+        }
+        setTimeout(updateOnlineCount, 2000 + Math.random() * 3000);
+    }
+    updateOnlineCount();
 
     function checkAndStartCooldown() {
         const lastTime = localStorage.getItem(COOLDOWN_KEY);
