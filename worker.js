@@ -1402,6 +1402,7 @@ async function handleHeartbeat(request, env) {
   });
 }
 
+function handleUI(request, env) {
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
   const now = Math.floor(Date.now() / 1000);
   const key = `ratelimit:${ip}`;
