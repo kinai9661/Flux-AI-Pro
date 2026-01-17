@@ -1126,6 +1126,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         </div>
     </div>
 
+    <div class="footer">
+    <div class="footer">
+        Powered by Flux AI Pro • <a href="https://github.com/pollinations/pollinations" target="_blank">Engine</a> • <a href="/nano" target="_blank">Nano Version</a><br>
+        <span style="opacity:0.7">友情鏈接: </span> <a href="https://pollinations.ai" target="_blank">Pollinations.ai</a> • <a href="https://infip.pro" target="_blank">Infip</a> • <a href="https://github.com" target="_blank">GitHub</a><br>
+        <div style="margin-top:10px"><a href="https://showmebest.ai" target="_blank"><img src="https://showmebest.ai/badge/feature-badge-dark.webp" alt="Featured on ShowMeBestAI" width="220" height="60"></a></div>
+    </div>
+</div>
 <script>
     const els = {
         prompt: document.getElementById('prompt'),
@@ -1441,7 +1448,11 @@ function handleUI(request, env) {
 <title>Flux AI Pro v${CONFIG.PROJECT_VERSION}</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
 <style>
-/* 完整版 CSS 樣式 - Flux Pro 主界面 */
+/* 完整版 CSS 樣式 - Flux Pro 主界面 (深空紫主題) */
+/* 頁腳樣式 */
+.footer{padding:20px;text-align:center;font-size:12px;color:#64748b;border-top:1px solid rgba(255,255,255,0.05);margin-top:auto;line-height:1.8}
+.footer a{color:#fbbf24;text-decoration:none;transition:0.3s;margin:0 4px}
+.footer a:hover{text-decoration:underline;color:#f59e0b}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 100%);color:#fff;min-height:100vh}
 .container{max-width:100%;margin:0;padding:0;height:100vh;display:flex;flex-direction:column}
