@@ -1,12 +1,12 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 11.3.0 (Img2Img Pro)
-//  更新: 獨立圖生圖介面、圖片上傳修復、模型精簡與優化
+//  版本: 11.2.0 (UI Overhaul & Klein Model)
+//  更新: 深空紫主題、FLUX.2 Klein 4B 模型、自動 Ultra 畫質、頁腳優化
 // =================================================================================
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "11.3.0",
+  PROJECT_VERSION: "11.2.0",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -29,9 +29,7 @@ const CONFIG = {
     "portrait-4-5": { name: "豎屏 4:5", width: 1080, height: 1350 },
     "landscape-4-3": { name: "橫屏 4:3", width: 1024, height: 768 },
     "landscape-3-2": { name: "橫屏 3:2", width: 1200, height: 800 },
-    "cinematic-21-9": { name: "電影感 21:9", width: 1920, height: 822 },
-    "double-screen": { name: "雙屏 32:9", width: 2048, height: 576 },
-    "ultrawide": { name: "超寬 18:9", width: 2048, height: 1024 }
+    "cinematic-21-9": { name: "電影感 21:9", width: 1920, height: 822 }
   },
   
   PROVIDERS: {
@@ -165,15 +163,15 @@ const CONFIG = {
       standard: { name: "標準模式", description: "平衡質量與速度", min_resolution: 1280, max_resolution: 2048, steps_multiplier: 1.0, guidance_multiplier: 1.0, hd_level: "enhanced" },
       ultra: { name: "超高清模式", description: "極致質量", min_resolution: 1536, max_resolution: 2048, steps_multiplier: 1.35, guidance_multiplier: 1.15, hd_level: "maximum", force_upscale: true }
     },
-    HD_PROMPTS: { basic: "high quality, detailed, sharp", enhanced: "high quality, highly detailed, sharp focus, professional, 8k uhd", maximum: "masterpiece, best quality, ultra detailed, 8k uhd, high resolution, professional photography, sharp focus, HDR, cinematic lighting, hyperrealistic, award winning, intricate details" },
-    HD_NEGATIVE: "blurry, low quality, distorted, ugly, bad anatomy, low resolution, pixelated, artifacts, noise, jpeg artifacts, watermark, text, signature, mutation, deformed, extra limbs, extra fingers, bad hands, bad feet, poor composition, out of frame",
+    HD_PROMPTS: { basic: "high quality, detailed, sharp", enhanced: "high quality, highly detailed, sharp focus, professional, 8k uhd", maximum: "masterpiece, best quality, ultra detailed, 8k uhd, high resolution, professional photography, sharp focus, HDR" },
+    HD_NEGATIVE: "blurry, low quality, distorted, ugly, bad anatomy, low resolution, pixelated, artifacts, noise",
     MODEL_QUALITY_PROFILES: {
       "nanobanana-pro": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.0, guidance_boost: 1.0, recommended_quality: "standard" },
       "gptimage": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.0, guidance_boost: 1.0, recommended_quality: "standard" },
       "gptimage-large": { min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.05, recommended_quality: "ultra" },
       "zimage": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.0, guidance_boost: 1.0, recommended_quality: "economy" },
-      "flux": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.05, recommended_quality: "ultra" },
-      "klein": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.25, guidance_boost: 1.2, recommended_quality: "ultra" },
+      "flux": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.1, guidance_boost: 1.0, recommended_quality: "standard" },
+      "klein": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "ultra" },
       "turbo": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 0.9, guidance_boost: 0.95, recommended_quality: "economy" },
       "kontext": { min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.2, guidance_boost: 1.1, recommended_quality: "ultra" }
     }
@@ -1494,13 +1492,6 @@ function handleUI(request, env) {
       styleOptionsHTML += '</optgroup>';
     }
   }
-
-  // 生成尺寸選單 HTML
-  let sizeOptionsHTML = '';
-  for (const [key, size] of Object.entries(CONFIG.PRESET_SIZES)) {
-      const selected = key === 'square-1k' ? ' selected' : '';
-      sizeOptionsHTML += `<option value="${key}"${selected}>${size.name} (${size.width}x${size.height})</option>`;
-  }
   
   const html = `<!DOCTYPE html>
 <html lang="zh-TW">
@@ -1510,58 +1501,6 @@ function handleUI(request, env) {
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
 <style>
 /* 完整版 CSS 樣式 - Flux Pro 主界面 (深空紫主題) */
-/* 獨立圖生圖介面樣式 */
-.img2img-panel {
-    background: rgba(0,0,0,0.3);
-    border: 1px dashed rgba(255,255,255,0.2);
-    border-radius: 12px;
-    padding: 15px;
-    margin-bottom: 20px;
-    transition: all 0.3s;
-}
-.img2img-panel:hover {
-    border-color: #fbbf24;
-    background: rgba(251,191,36,0.05);
-}
-.img2img-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #e2e8f0;
-}
-.img2img-content {
-    display: none; /* 默認折疊 */
-}
-.img2img-content.active {
-    display: block;
-    animation: fadeIn 0.3s;
-}
-.upload-area {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 20px;
-    border: 1px dashed rgba(255,255,255,0.1);
-    border-radius: 8px;
-    cursor: pointer;
-    background: rgba(0,0,0,0.2);
-    transition: 0.2s;
-}
-.upload-area:hover {
-    background: rgba(255,255,255,0.05);
-}
-.upload-preview {
-    width: 100%;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 6px;
-    display: none;
-}
-
 /* 頁腳樣式 */
 .footer{padding:20px;text-align:center;font-size:12px;color:#64748b;border-top:1px solid rgba(255,255,255,0.05);margin-top:auto;line-height:1.8}
 .footer a{color:#fbbf24;text-decoration:none;transition:0.3s;margin:0 4px}
@@ -1671,7 +1610,7 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
         <!-- JS will populate this -->
     </select>
 </div>
-<div class="form-group"><label data-t="size_label">尺寸預設</label><select id="size">${sizeOptionsHTML}</select></div>
+<div class="form-group"><label data-t="size_label">尺寸預設</label><select id="size"><option value="square-1k" selected>Square 1024x1024</option><option value="square-1.5k">Square 1536x1536</option><option value="portrait-9-16-hd">Portrait 1080x1920</option><option value="landscape-16-9-hd">Landscape 1920x1080</option></select></div>
 <div class="form-group"><label data-t="style_label">藝術風格 🎨</label><select id="style">${styleOptionsHTML}</select></div>
 <div class="form-group"><label data-t="quality_label">質量模式</label><select id="qualityMode"><option value="economy">Economy</option><option value="standard" selected>Standard</option><option value="ultra">Ultra HD</option></select></div>
 
@@ -1729,53 +1668,13 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
 <div class="right-panel">
 <div class="form-group"><label data-t="pos_prompt">正面提示詞</label><textarea id="prompt" placeholder="Describe your image..." required></textarea></div>
 <div class="form-group"><label data-t="neg_prompt">負面提示詞 (可選)</label><textarea id="negativePrompt" placeholder="What to avoid..." rows="4"></textarea></div>
-<!-- 獨立圖生圖介面 -->
-<div class="img2img-panel">
-    <div class="img2img-header">
-        <span style="display:flex; align-items:center; gap:6px;">📸 圖生圖 (Img2Img) <span class="badge" style="background:#3b82f6">Beta</span></span>
-        <label class="switch" style="transform:scale(0.8)">
-            <input type="checkbox" id="img2imgToggle">
-            <span class="slider round"></span>
-        </label>
-    </div>
-    
-    <div class="img2img-content" id="img2imgContent">
+<div class="form-group"><label data-t="ref_img">參考圖像 (Img2Img) 📸</label>
+    <div style="margin-bottom:10px;">
         <input type="file" id="imageUpload" accept="image/*" style="display:none">
-        <div class="upload-area" onclick="document.getElementById('imageUpload').click()">
-            <div style="font-size:24px">📤</div>
-            <div id="uploadText" style="font-size:12px; color:#9ca3af">點擊上傳參考圖片</div>
-            <img id="uploadPreview" class="upload-preview">
-        </div>
-        
-        <div style="margin-top:10px">
-            <label style="font-size:11px; color:#9ca3af; margin-bottom:4px; display:block">使用模型 (Img2Img Model)</label>
-            <select id="img2imgModel" style="width:100%; padding:8px; font-size:12px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); color:#fff; border-radius:6px;">
-                <option value="kontext">Kontext (推薦 - 專為圖生圖設計)</option>
-                <option value="flux">Flux Standard (通用)</option>
-                <option value="klein">FLUX.2 Klein 4B (高畫質)</option>
-                <option value="turbo">Flux Turbo (極速)</option>
-            </select>
-        </div>
-
-        <div style="margin-top:10px">
-            <label style="font-size:11px; color:#9ca3af; margin-bottom:4px; display:block">圖片 URL (可選)</label>
-            <input type="text" id="referenceImages" placeholder="https://..." style="font-size:12px; padding:8px;">
-        </div>
-        
-        <div style="font-size:11px; color:#64748b; margin-top:8px; line-height:1.4">
-            * 支援模型: Kontext, Flux, Klein<br>
-            * 圖片將自動上傳至臨時伺服器
-        </div>
-    </div>
-</div>
-
-<div class="form-group"><label data-t="ref_img" style="display:none">參考圖像 (Img2Img) 📸</label>
-    <div style="margin-bottom:10px; display:none">
-        <input type="file" id="imageUpload_old" accept="image/*" style="display:none">
         <button type="button" class="btn" onclick="document.getElementById('imageUpload').click()" style="background:rgba(255,255,255,0.1); width:100%;">📤 上傳參考圖</button>
     </div>
-    <textarea id="referenceImages_old" placeholder="Image URL (or upload above)" rows="3" style="display:none"></textarea>
-    <div style="font-size:11px; color:#9ca3af; margin-top:4px; display:none">* 支援模型: Kontext, Flux, Klein</div>
+    <textarea id="referenceImages" placeholder="Image URL (or upload above)" rows="3"></textarea>
+    <div style="font-size:11px; color:#9ca3af; margin-top:4px;">* 支援模型: Kontext, Flux, Klein</div>
 </div>
 </div></div></div>
 <div id="historyPage" class="page">
@@ -1973,21 +1872,6 @@ function updateModelOptions() {
 }
 
 const imageUpload = document.getElementById('imageUpload');
-const img2imgToggle = document.getElementById('img2imgToggle');
-const img2imgContent = document.getElementById('img2imgContent');
-const uploadPreview = document.getElementById('uploadPreview');
-const uploadText = document.getElementById('uploadText');
-
-// Toggle Logic
-img2imgToggle.addEventListener('change', () => {
-    if(img2imgToggle.checked) {
-        img2imgContent.classList.add('active');
-    } else {
-        img2imgContent.classList.remove('active');
-        // Clear inputs when disabled if needed, or keep state
-    }
-});
-
 imageUpload.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1998,50 +1882,62 @@ imageUpload.addEventListener('change', async (e) => {
         return;
     }
 
-    uploadText.textContent = "⏳ Uploading...";
-    
-    // Show local preview immediately
-    const localReader = new FileReader();
-    localReader.onload = (e) => {
-        uploadPreview.src = e.target.result;
-        uploadPreview.style.display = 'block';
-    };
-    localReader.readAsDataURL(file);
+    const btn = e.target.nextElementSibling;
+    const originalText = btn.textContent;
+    btn.textContent = "⏳ Uploading...";
+    btn.disabled = true;
 
     try {
-        const formData = new FormData();
-        formData.append('fileToUpload', file);
-        
-        try {
-            // Use our own worker proxy endpoint to avoid CORS issues
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
-            });
+        // Convert to Base64
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const base64 = event.target.result;
+            // Upload to catbox.moe (or similar temporary host) for URL
+            // Since we need a public URL for the API
+            // For now, let's use a simple cors-proxy trick or just assume direct base64 support if API allows
+            // Pollinations supports base64 in some endpoints but URL is safer.
+            
+            // Using a free image host upload via backend proxy would be best, 
+            // but for a static-like worker, we can try to use the image directly if the model supports it.
+            // However, 'reference_images' usually expects URLs.
+            // Let's use a reliable temporary host service.
+            
+            const formData = new FormData();
+            formData.append('fileToUpload', file);
+            
+            try {
+                // Use our own worker proxy endpoint to avoid CORS issues
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
 
-            if (response.ok) {
-                const data = await response.json();
-                if (data.url && data.url.startsWith('http')) {
-                        const refInput = document.getElementById('referenceImages');
-                        refInput.value = data.url; // Replace content for single image focus
-                        uploadText.textContent = "✅ Uploaded!";
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.url && data.url.startsWith('http')) {
+                         const textarea = document.getElementById('referenceImages');
+                         const currentVal = textarea.value.trim();
+                         textarea.value = currentVal ? currentVal + ', ' + data.url : data.url;
+                         btn.textContent = "✅ Uploaded!";
+                    } else {
+                        throw new Error("Invalid response from server");
+                    }
                 } else {
-                    throw new Error("Invalid response from server");
+                    const errData = await response.json().catch(()=>({}));
+                    throw new Error("Upload failed: " + (errData.error || response.status));
                 }
-            } else {
-                const errData = await response.json().catch(()=>({}));
-                throw new Error("Upload failed: " + (errData.error || response.status));
+            } catch (proxyError) {
+                console.error("Upload error:", proxyError);
+                alert("Upload failed: " + proxyError.message);
             }
-        } catch (proxyError) {
-            console.error("Upload error:", proxyError);
-            alert("Upload failed: " + proxyError.message);
-            uploadText.textContent = "❌ Upload Failed";
-        }
+
+            setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+        };
+        reader.readAsDataURL(file);
     } catch (err) {
         console.error(err);
-        uploadText.textContent = "❌ Error";
-    }
-});
+        btn.textContent = "❌ Error";
+        setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
     }
 });
 
@@ -2199,22 +2095,11 @@ document.getElementById('generateForm').addEventListener('submit',async(e)=>{
         finalNegative = negParts.join(', ');
     }
 
-    // Img2Img Model Overwrite Logic
-    let selectedModel = document.getElementById('model').value;
-    const img2imgToggle = document.getElementById('img2imgToggle');
-    if (img2imgToggle && img2imgToggle.checked) {
-        const img2imgModel = document.getElementById('img2imgModel').value;
-        if (img2imgModel) {
-            selectedModel = img2imgModel;
-            console.log("Using Img2Img specialized model:", selectedModel);
-        }
-    }
-
     try{
         const res=await fetch('/_internal/generate',{
             method:'POST', headers:{'Content-Type':'application/json'},
             body:JSON.stringify({
-                prompt, model:selectedModel, width:sizeConfig.width, height:sizeConfig.height,
+                prompt, model:document.getElementById('model').value, width:sizeConfig.width, height:sizeConfig.height,
                 style:document.getElementById('style').value, quality_mode:qualityMode,
                 seed: currentSeed, auto_optimize: isAutoOpt,
                 steps: isAutoOpt ? null : parseInt(document.getElementById('steps').value),
