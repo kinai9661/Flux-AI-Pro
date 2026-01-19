@@ -33,7 +33,7 @@ const CONFIG = {
       endpoint: "https://gen.pollinations.ai",
       pathPrefix: "/image",
       type: "direct",
-      auth_mode: "required",
+      auth_mode: "bearer",
       requires_key: true,
       enabled: true,
       default: true,
@@ -490,14 +490,35 @@ class PollinationsProvider {
     if (finalGuidance !== 7.5) params.append('guidance', finalGuidance.toString());
     if (finalSteps !== 20) params.append('steps', finalSteps.toString());
     
-    const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'image/*', 'Referer': 'https://pollinations.ai/' };
-    const authConfig = CONFIG.POLLINATIONS_AUTH;
-    if (authConfig.enabled && authConfig.token) {
-      headers['Authorization'] = `Bearer ${authConfig.token}`;
-      logger.add("🔐 API Authentication", { method: "Bearer Token", token_prefix: authConfig.token.substring(0, 8) + "...", enabled: true, endpoint: this.config.endpoint });
-    } else {
-      logger.add("⚠️ No API Key", { authenticated: false, note: "新 API 端點需要 API Key，請設置 POLLINATIONS_API_KEY 環境變量", endpoint: this.config.endpoint, warning: "未認證的請求可能會失敗" });
-    }
+    const headers = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+  'Accept': 'image/*',
+  'Referer': 'https://pollinations.ai/'
+};
+
+// ✅ 新增：优先使用“请求带来的 key”，其次 env，最后才用 CONFIG 里的 token
+const requestKey = (options && options.apiKey) ? String(options.apiKey).trim() : "";
+const envKey = (this.env && this.env.POLLINATIONS_API_KEY) ? String(this.env.POLLINATIONS_API_KEY).trim() : "";
+const fallbackKey = (CONFIG.POLLINATIONS_AUTH && CONFIG.POLLINATIONS_AUTH.token) ? String(CONFIG.POLLINATIONS_AUTH.token).trim() : "";
+
+const finalKey = requestKey || envKey || fallbackKey;
+
+if (finalKey) {
+  headers['Authorization'] = `Bearer ${finalKey}`;
+  logger.add("🔐 API Authentication", {
+    method: "Bearer Token",
+    token_prefix: finalKey.substring(0, 8) + "...",
+    source: requestKey ? "request" : (envKey ? "env" : "config"),
+    endpoint: this.config.endpoint
+  });
+} else {
+  logger.add("⚠️ No API Key", {
+    authenticated: false,
+    note: "新 API 端點需要 API Key：可在 UI 填入（本地保存），或設置 env.POLLINATIONS_API_KEY",
+    endpoint: this.config.endpoint,
+    warning: "未認證的請求可能會失敗"
+  });
+}
     
     const url = baseUrl + '?' + params.toString();
     logger.add("📡 API Request", { endpoint: this.config.endpoint, path: pathPrefix + "/" + encodedPrompt.substring(0, 50) + "...", model: apiModel, authenticated: authConfig.enabled && !!authConfig.token, full_url: url.substring(0, 100) + "..." });
@@ -1421,6 +1442,7 @@ function handleUI(request, env) {
   const now = Math.floor(Date.now() / 1000);
   const key = `ratelimit:${ip}`;
     const hasInfipServerKey = !!(env && env.INFIP_API_KEY);
+    const hasPollinationsServerKey = !!(env && env.POLLINATIONS_API_KEY);
     const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 已認證</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ 需要 API Key</span>';
     
     // 生成樣式選單 HTML
@@ -1766,14 +1788,15 @@ function updateModelOptions() {
         } else {
             apiKeyGroup.style.display = 'block';
             let storedKey = '';
-            if (p === 'infip') storedKey = localStorage.getItem('infip_api_key');
-            
-            apiKeyInput.value = storedKey || '';
-            apiKeyInput.placeholder = "Paste your API Key here";
-        }
-    } else {
-        apiKeyGroup.style.display = 'none';
-    }
+if (p === 'pollinations') storedKey = localStorage.getItem('pollinations_api_key');
+if (p === 'infip') storedKey = localStorage.getItem('infip_api_key');
+apiKeyInput.value = storedKey || '';
+
+if (p === 'pollinations') {
+  apiKeyInput.placeholder = "Paste your Pollinations token here";
+} else if (p === 'infip') {
+  apiKeyInput.placeholder = "Paste your Infip API Key here";
+}
     
     // Logic: Show NSFW Toggle only for Infip
     const nsfwGroup = document.getElementById('nsfwGroup');
@@ -1812,16 +1835,25 @@ function updateModelOptions() {
 }
 
 providerSelect.addEventListener('change', updateModelOptions);
-apiKeyInput.addEventListener('input', (e) => localStorage.setItem('infip_api_key', e.target.value));
+apiKeyInput.addEventListener('input', (e) => {
+  const p = providerSelect.value;
+  const keyName = (p === 'pollinations') ? 'pollinations_api_key' : 'infip_api_key';
+  localStorage.setItem(keyName, e.target.value);
+});
 
 const PRESET_SIZES=${JSON.stringify(CONFIG.PRESET_SIZES)};
 const STYLE_PRESETS=${JSON.stringify(CONFIG.STYLE_PRESETS)};
 // Inject server-side key status
 const frontendProviders = ${JSON.stringify(CONFIG.PROVIDERS)};
+
 if (${hasInfipServerKey} && frontendProviders.infip) {
-    frontendProviders.infip.has_server_key = true;
+  frontendProviders.infip.has_server_key = true;
 }
-const PROVIDERS=frontendProviders;
+if (${hasPollinationsServerKey} && frontendProviders.pollinations) {
+  frontendProviders.pollinations.has_server_key = true;
+}
+
+const PROVIDERS = frontendProviders;
 
 async function addToHistory(item){
     let base64Data = item.image;
