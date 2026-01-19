@@ -1857,21 +1857,40 @@ imageUpload.addEventListener('change', async (e) => {
             formData.append('fileToUpload', file);
             formData.append('reqtype', 'fileupload');
             
-            const response = await fetch('https://catbox.moe/user/api.php', {
-                method: 'POST',
-                body: formData
-            });
+            // Catbox API doesn't support CORS for browser requests directly.
+            // We need to use a CORS proxy or our own worker as proxy.
+            // For simplicity, let's use a public CORS proxy (demo only) or fallback to a different method.
+            // Actually, for Pollinations, we can try to use their upload if available, but they don't have a public upload endpoint documented.
             
-            if (response.ok) {
-                const url = await response.text();
-                const textarea = document.getElementById('referenceImages');
-                const currentVal = textarea.value.trim();
-                textarea.value = currentVal ? currentVal + ', ' + url : url;
-                btn.textContent = "✅ Uploaded!";
-                setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
-            } else {
-                throw new Error("Upload failed");
+            // ALTERNATIVE: Use tmpfiles.org API which is more CORS friendly or imgbb with key.
+            // Let's try to use a CORS proxy for catbox for now.
+            
+            try {
+                const response = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://catbox.moe/user/api.php'), {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const url = await response.text();
+                    if (url.startsWith('http')) {
+                         const textarea = document.getElementById('referenceImages');
+                         const currentVal = textarea.value.trim();
+                         textarea.value = currentVal ? currentVal + ', ' + url : url;
+                         btn.textContent = "✅ Uploaded!";
+                    } else {
+                        throw new Error("Invalid response from upload server");
+                    }
+                } else {
+                    throw new Error("Upload failed status: " + response.status);
+                }
+            } catch (proxyError) {
+                console.error("Proxy upload failed, trying direct...", proxyError);
+                // Fallback: simple alert for now as direct upload will likely fail due to CORS
+                alert("Upload failed due to network restrictions. Please use an image URL directly.");
             }
+
+            setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
         };
         reader.readAsDataURL(file);
     } catch (err) {
