@@ -1,7 +1,7 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 11.4.0 (Style System Enhancement)
-//  更新: 深空紫主題、FLUX.2 Klein 4B 模型、自動 Ultra 畫質、頁腳優化、風格系統擴展
+//  版本: 11.5.0 (Style System Enhancement)
+//  更新: 深空紫主題、FLUX.2 Klein 8B 模型、自動 Ultra 畫質、頁腳優化、風格系統擴展
 // =================================================================================
 
 // 導入風格適配器（僅在服務器端使用）
@@ -13,7 +13,7 @@ const mergedStyles = styleManager.merge();
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "11.4.0",
+  PROJECT_VERSION: "11.5.0",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -63,7 +63,9 @@ const CONFIG = {
         { id: "seedream", name: "SeeDream 🌈", confirmed: true, category: "seedream", description: "夢幻般的圖像生成", max_size: 2048, pricing: { image_price: 0.0002, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
         { id: "seedream-pro", name: "SeeDream Pro 🌟", confirmed: true, category: "seedream", description: "高品質夢幻圖像生成", max_size: 2048, pricing: { image_price: 0.0003, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
         { id: "klein", name: "FLUX.2 Klein 4B", confirmed: true, category: "flux", description: "Advanced Flux 2 model", max_size: 2048, pricing: { image_price: 0.0003, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
-        { id: "nanobanana-pro", name: "NanoBanana Pro 🍌", confirmed: true, category: "flux", description: "Nano Pro 專用高品質模型", max_size: 2048, pricing: { image_price: 0.00012, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] }
+        { id: "klein-large", name: "FLUX.2 Klein 9B 🌟", confirmed: true, category: "flux", description: "Advanced Flux 2 Large model - 9B parameters", max_size: 2048, pricing: { image_price: 0.0004, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
+        { id: "nanobanana-pro", name: "NanoBanana Pro 🍌", confirmed: true, category: "flux", description: "Nano Pro 專用高品質模型", max_size: 2048, pricing: { image_price: 0.00012, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] },
+        { id: "flux-pro", name: "Flux Pro 🚀", confirmed: true, category: "flux", description: "Flux Pro 高品質模型", max_size: 2048, pricing: { image_price: 0.00012, currency: "pollen" }, input_modalities: ["text"], output_modalities: ["image"] }
       ],
       rate_limit: null,
       max_size: { width: 2048, height: 2048 }
@@ -97,14 +99,15 @@ const CONFIG = {
   STYLE_CATEGORIES: mergedStyles.categories,
   
   OPTIMIZATION_RULES: {
-    MODEL_STEPS: { 
+    MODEL_STEPS: {
       "nanobanana-pro": { min: 20, optimal: 25, max: 40 },
       "gptimage": { min: 15, optimal: 25, max: 35 },
       "gptimage-large": { min: 20, optimal: 30, max: 45 },
-      "zimage": { min: 10, optimal: 20, max: 30 }, 
-      "flux": { min: 20, optimal: 28, max: 40 }, 
-      "klein": { min: 25, optimal: 30, max: 50 }, 
-      "kontext": { min: 20, optimal: 28, max: 40 } 
+      "zimage": { min: 10, optimal: 20, max: 30 },
+      "flux": { min: 20, optimal: 28, max: 40 },
+      "klein": { min: 25, optimal: 30, max: 50 },
+      "klein-large": { min: 30, optimal: 35, max: 55 },
+      "kontext": { min: 20, optimal: 28, max: 40 }
     },
     SIZE_MULTIPLIER: { small: { threshold: 512 * 512, multiplier: 0.8 }, medium: { threshold: 1024 * 1024, multiplier: 1.0 }, large: { threshold: 1536 * 1536, multiplier: 1.15 }, xlarge: { threshold: 2048 * 2048, multiplier: 1.3 } },
     STYLE_ADJUSTMENT: { "photorealistic": 1.1, "oil-painting": 1.05, "watercolor": 0.95, "sketch": 0.9, "manga": 1.0, "pixel-art": 0.85, "3d-render": 1.15, "default": 1.0 }
@@ -130,6 +133,7 @@ const CONFIG = {
       "zimage": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.0, guidance_boost: 1.0, recommended_quality: "economy" },
       "flux": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.1, guidance_boost: 1.0, recommended_quality: "standard" },
       "klein": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "ultra" },
+      "klein-large": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.2, guidance_boost: 1.15, recommended_quality: "ultra" },
       "turbo": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 0.9, guidance_boost: 0.95, recommended_quality: "economy" },
       "kontext": { min_resolution: 1280, max_resolution: 2048, optimal_steps_boost: 1.2, guidance_boost: 1.1, recommended_quality: "ultra" }
     }
@@ -354,8 +358,15 @@ class PollinationsProvider {
 
     console.log("🍌 [PollinationsProvider] 開始生成:", { model, prompt: prompt.substring(0, 30) + "..." });
 
-    // 🔥 直連模式: 直接使用模型 ID，不進行映射
-    let apiModel = model;
+    // 🔥 模型映射: 將自定義模型名稱映射到實際的 Pollinations API 模型
+    const MODEL_MAPPING = {
+      'nanobanana-pro': 'flux',
+      'flux-pro': 'flux',
+      'klein-large': 'klein-large'
+    };
+    let apiModel = MODEL_MAPPING[model] || model;
+    
+    console.log("🍌 [PollinationsProvider] 模型映射:", { original: model, mapped: apiModel });
     
     const modelConfig = this.config.models.find(m => m.id === model);
     console.log("🍌 [PollinationsProvider] 模型配置:", modelConfig ? "找到" : "未找到", modelConfig);
@@ -821,19 +832,11 @@ async function handleInternalGenerate(request, env, ctx) {
       source: request.headers.get('X-Source')
     });
 
-    // ====== NanoBanana Pro 來源與限流檢查 ======
-    // 直接檢查 nanobanana-pro
-    if (body.model === 'nanobanana-pro') {
-        console.log("🍌 [Server] 檢測到 nanobanana-pro 模型請求");
-        const source = request.headers.get('X-Source');
-        console.log("🍌 [Server] 請求來源:", source);
-        
-        if (source !== 'nano-page') {
-             console.log("🍌 [Server] 拒絕未授權的 nanobanana-pro 請求");
-             return new Response(JSON.stringify({
-                error: { message: "🍌 Nano Banana Pro 模型僅限於獨立頁面使用！", type: 'access_denied' }
-            }), { status: 403, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-        }
+    // ====== Nano Pro 頁面限流檢查 ======
+    // 檢查來自 Nano Pro 頁面的請求
+    const source = request.headers.get('X-Source');
+    if (source === 'nano-page') {
+        console.log("🍌 [Server] 檢測到 Nano Pro 頁面請求");
         
         if (body.n && body.n > 1) { body.n = 1; }
 
@@ -1480,23 +1483,31 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                 seed: els.seed.value
             });
 
+            const requestBody = {
+                prompt: p,
+                negative_prompt: els.negative.value,
+                model: 'nanobanana-pro',
+                width: parseInt(els.width.value),
+                height: parseInt(els.height.value),
+                style: els.style.value,
+                seed: parseInt(els.seed.value),
+                n: 1,
+                nologo: true,
+                auto_optimize: true,
+                auto_hd: true,
+                quality_mode: 'standard'
+            };
+            
+            console.log("🍌 Nano Pro: 請求體", requestBody);
+
             const res = await fetch('/_internal/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-Source': 'nano-page' },
-                body: JSON.stringify({
-                    prompt: p,
-                    negative_prompt: els.negative.value,
-                    model: 'nanobanana-pro',
-                    width: parseInt(els.width.value),
-                    height: parseInt(els.height.value),
-                    style: els.style.value,
-                    seed: parseInt(els.seed.value),
-                    n: 1,
-                    nologo: true
-                })
+                body: JSON.stringify(requestBody)
             });
 
             console.log("🍌 Nano Pro: API 響應狀態", res.status, res.statusText);
+            console.log("🍌 Nano Pro: 響應頭", Object.fromEntries(res.headers.entries()));
 
             if(res.status === 429) {
                 const err = await res.json();
@@ -1517,6 +1528,12 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 
             const blob = await res.blob();
             console.log("🍌 Nano Pro: 圖片生成成功", blob.size, "bytes");
+            
+            // 檢查是否為有效的圖片數據
+            if (blob.size === 0) {
+                throw new Error("生成的圖片為空，請稍後再試");
+            }
+            
             const url = URL.createObjectURL(blob);
             
             els.img.src = url;
@@ -1525,7 +1542,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             document.querySelector('.placeholder-text').style.display = 'none';
             
             const realSeed = res.headers.get('X-Seed');
-            if(!isSeedRandom) els.seed.value = realSeed;
+            if(!isSeedRandom && realSeed) els.seed.value = realSeed;
 
             addHistory(url);
             consumeQuota();
@@ -1815,6 +1832,176 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
     <div class="modal-close" id="modalCloseBtn">×</div>
 </div>
 <script>
+// ====== 性能優化模塊 ======
+const PerformanceOptimizer = {
+    // 請求控制器 - 用於取消進行中的請求
+    abortController: null,
+    
+    // 請求隊列管理
+    requestQueue: [],
+    isProcessing: false,
+    maxConcurrent: 2,
+    
+    // 圖片懶加載觀察器
+    lazyObserver: null,
+    
+    // 緩存管理
+    cache: {
+        images: new Map(),
+        requests: new Map(),
+        
+        set(key, value, ttl = 3600000) {
+            this.images.set(key, { value, expiry: Date.now() + ttl });
+        },
+        
+        get(key) {
+            const item = this.images.get(key);
+            if (!item) return null;
+            if (Date.now() > item.expiry) {
+                this.images.delete(key);
+                return null;
+            }
+            return item.value;
+        },
+        
+        clear() {
+            this.images.clear();
+        },
+        
+        // 清理過期緩存
+        cleanup() {
+            const now = Date.now();
+            for (const [key, item] of this.images.entries()) {
+                if (now > item.expiry) {
+                    this.images.delete(key);
+                }
+            }
+        }
+    },
+    
+    // 初始化懶加載
+    initLazyLoad() {
+        if ('IntersectionObserver' in window) {
+            this.lazyObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        if (img.dataset.src) {
+                            img.src = img.dataset.src;
+                            img.removeAttribute('data-src');
+                            this.lazyObserver.unobserve(img);
+                        }
+                    }
+                });
+            }, { rootMargin: '100px' });
+        }
+    },
+    
+    // 懶加載圖片
+    lazyLoad(img) {
+        if (this.lazyObserver) {
+            this.lazyObserver.observe(img);
+        } else {
+            // 後備方案：直接加載
+            if (img.dataset.src) {
+                img.src = img.dataset.src;
+            }
+        }
+    },
+    
+    // 取消當前請求
+    cancelRequest() {
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+    },
+    
+    // 創建新的請求控制器
+    createRequestController() {
+        this.cancelRequest();
+        this.abortController = new AbortController();
+        return this.abortController;
+    },
+    
+    // 添加請求到隊列
+    async addToQueue(requestFn) {
+        return new Promise((resolve, reject) => {
+            this.requestQueue.push({ fn: requestFn, resolve, reject });
+            this.processQueue();
+        });
+    },
+    
+    // 處理請求隊列
+    async processQueue() {
+        if (this.isProcessing || this.requestQueue.length === 0) return;
+        
+        this.isProcessing = true;
+        const concurrent = Math.min(this.maxConcurrent, this.requestQueue.length);
+        const promises = [];
+        
+        for (let i = 0; i < concurrent; i++) {
+            const item = this.requestQueue.shift();
+            if (item) {
+                promises.push(this.executeRequest(item));
+            }
+        }
+        
+        await Promise.allSettled(promises);
+        this.isProcessing = false;
+        
+        // 繼續處理隊列
+        if (this.requestQueue.length > 0) {
+            this.processQueue();
+        }
+    },
+    
+    // 執行單個請求
+    async executeRequest(item) {
+        try {
+            const result = await item.fn();
+            item.resolve(result);
+        } catch (error) {
+            item.reject(error);
+        }
+    },
+    
+    // 生成緩存鍵
+    generateCacheKey(prompt, model, width, height, style, seed) {
+        return `${prompt}-${model}-${width}x${height}-${style}-${seed}`;
+    },
+    
+    // 防抖函數
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    },
+    
+    // 節流函數
+    throttle(func, limit) {
+        let inThrottle;
+        return function(...args) {
+            if (!inThrottle) {
+                func.apply(this, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    }
+};
+
+// 初始化性能優化
+PerformanceOptimizer.initLazyLoad();
+// 定期清理過期緩存
+setInterval(() => PerformanceOptimizer.cache.cleanup(), 300000); // 每5分鐘清理一次
+
 // ====== IndexedDB 管理核心 (解決死圖) ======
 const DB_NAME='FluxAI_DB',STORE_NAME='images',DB_VERSION=2;
 const dbPromise=new Promise((resolve,reject)=>{
