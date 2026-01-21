@@ -1,7 +1,7 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 11.5.0 (Style System Enhancement)
-//  更新: 深空紫主題、FLUX.2 Klein 8B 模型、自動 Ultra 畫質、頁腳優化、風格系統擴展
+//  版本: 11.6.0 (Prompt Generator Enhancement)
+//  更新: Gemini 3 Flash 提示詞生成器、Prompt Generator 模型、混合調用模式
 // =================================================================================
 
 // 導入風格適配器（僅在服務器端使用）
@@ -13,7 +13,7 @@ const mergedStyles = styleManager.merge();
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "11.5.0",
+  PROJECT_VERSION: "11.6.0",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -814,6 +814,116 @@ async function handleUpload(request) {
   }
 }
 
+// ====== Gemini Prompt Generator Handler ======
+async function handlePromptGeneration(request, env) {
+  if (request.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405, headers: corsHeaders() });
+  }
+  
+  try {
+    const body = await request.json();
+    const { input, apiKey, style, referenceImage } = body;
+    
+    if (!input || !input.trim()) {
+      return new Response(JSON.stringify({ error: 'Input prompt is required' }), {
+        status: 400,
+        headers: corsHeaders({ 'Content-Type': 'application/json' })
+      });
+    }
+    
+    // 使用環境變量中的 API Key 或用戶提供的 Key
+    const geminiApiKey = env.GEMINI_API_KEY || apiKey;
+    
+    if (!geminiApiKey) {
+      return new Response(JSON.stringify({ error: 'Gemini API Key is required (Set GEMINI_API_KEY env var or provide via request)' }), {
+        status: 400,
+        headers: corsHeaders({ 'Content-Type': 'application/json' })
+      });
+    }
+    
+    // 構建 Gemini API 請求
+    const systemPrompt = `你是一個專業的 AI 圖像生成提示詞優化專家。你的任務是將用戶簡單的描述轉換為詳細、專業的圖像生成提示詞。
+
+請遵循以下規則：
+1. 使用英文輸出
+2. 添加詳細的視覺描述（光線、色彩、構圖、質感）
+3. 包含藝術風格和技術參數
+4. 保持提示詞簡潔但豐富
+5. 如果提供了風格，請融入該風格的特點
+6. 如果提供了參考圖像描述，請考慮其影響
+
+輸出格式：直接輸出優化後的提示詞，不要包含任何解釋或額外文字。`;
+    
+    let userPrompt = `請優化以下圖像生成提示詞：${input}`;
+    
+    if (style && style !== 'none') {
+      userPrompt += `\n\n目標風格：${style}`;
+    }
+    
+    if (referenceImage) {
+      userPrompt += `\n\n參考圖像描述：${referenceImage}`;
+    }
+    
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`;
+    
+    const geminiResponse = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: systemPrompt },
+            { text: userPrompt }
+          ]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        }
+      })
+    });
+    
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      throw new Error(`Gemini API Error (${geminiResponse.status}): ${errorText}`);
+    }
+    
+    const geminiData = await geminiResponse.json();
+    
+    // 提取生成的提示詞
+    let generatedPrompt = '';
+    if (geminiData.candidates && geminiData.candidates[0] && geminiData.candidates[0].content) {
+      const parts = geminiData.candidates[0].content.parts;
+      generatedPrompt = parts.map(p => p.text).join('').trim();
+    }
+    
+    if (!generatedPrompt) {
+      throw new Error('Failed to generate prompt from Gemini API');
+    }
+    
+    return new Response(JSON.stringify({
+      success: true,
+      prompt: generatedPrompt,
+      original: input,
+      model: 'gemini-2.0-flash-exp'
+    }), {
+      status: 200,
+      headers: corsHeaders({ 'Content-Type': 'application/json' })
+    });
+    
+  } catch (error) {
+    console.error('Prompt Generation Error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: corsHeaders({ 'Content-Type': 'application/json' })
+    });
+  }
+}
+
 async function handleInternalGenerate(request, env, ctx) {
   const logger = new Logger();
   const startTime = Date.now();
@@ -1059,8 +1169,8 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             <div class="logo-area">
                 <div class="logo-icon">🍌</div>
                 <div class="logo-text">
-                    <h1>Nano Pro <span class="badge">V10.6</span></h1>
-                    <p style="color:#666; font-size:12px">Flux Engine • Pro Model</p>
+                    <h1>Nano Pro <span class="badge">V11.6</span></h1>
+                    <p style="color:#666; font-size:12px">Flux Engine • Pro Model • Gemini AI</p>
                     <div style="font-size:11px; color:#22c55e; margin-top:4px; display:flex; align-items:center; gap:4px">
                         <script id="_waudw4">var _wau = _wau || []; _wau.push(["small", "yuynsazz1f", "dw4"]);</script><script async src="//waust.at/s.js"></script>
                     </div>
@@ -1122,6 +1232,41 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             <div class="control-group">
                 <label>排除 (Negative)</label>
                 <input type="text" id="negative" value="nsfw, ugly, text, watermark, low quality, bad anatomy" style="font-size:12px; color:#aaa">
+            </div>
+
+            <!-- ====== 專業提示詞生成器 (Nano Pro 版) ====== -->
+            <div class="control-group" style="background: linear-gradient(135deg, rgba(250, 204, 21, 0.1), rgba(139, 92, 246, 0.1)); border: 1px solid rgba(250, 204, 21, 0.3); border-radius: 12px; padding: 16px; margin-top: 16px;">
+                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: var(--primary);">
+                    <span style="font-size: 16px;">🤖</span>
+                    <span style="font-weight: 700;">AI 提示詞生成器</span>
+                    <span style="font-size: 9px; background: rgba(250, 204, 21, 0.3); padding: 2px 6px; border-radius: 8px; margin-left: auto;">Gemini</span>
+                </label>
+                
+                <input type="password" id="nanoGeminiApiKey" placeholder="Gemini API Key (可選)"
+                       style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(250, 204, 21, 0.3); border-radius: 8px; padding: 10px; color: #fff; font-size: 12px; margin-bottom: 8px;">
+                
+                <textarea id="nanoPromptInput" placeholder="描述你想要的畫面..."
+                          rows="2" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(250, 204, 21, 0.3); border-radius: 8px; padding: 10px; color: #fff; font-size: 12px; resize: none; margin-bottom: 8px;"></textarea>
+                
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" id="nanoGeneratePromptBtn"
+                            style="flex: 1; background: var(--primary); color: #000; border: none; padding: 10px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <span>✨</span>
+                        <span>生成</span>
+                    </button>
+                    <button type="button" id="nanoApplyPromptBtn"
+                            style="flex: 1; background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.4); padding: 10px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: none;">
+                        <span>✓</span>
+                        <span>應用</span>
+                    </button>
+                </div>
+                
+                <div id="nanoGeneratedPromptContainer" style="display: none; margin-top: 8px;">
+                    <div id="nanoGeneratedPrompt"
+                         style="background: rgba(250, 204, 21, 0.1); border: 1px solid rgba(250, 204, 21, 0.3); border-radius: 8px; padding: 10px; color: #fef3c7; font-size: 11px; line-height: 1.5; max-height: 100px; overflow-y: auto; white-space: pre-wrap;"></div>
+                </div>
+                
+                <div id="nanoPromptGeneratorStatus" style="font-size: 10px; color: #9ca3af; margin-top: 6px; display: none;"></div>
             </div>
 
             <button id="genBtn" class="gen-btn">
@@ -1441,6 +1586,102 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     }
     els.lbClose.onclick = () => els.lightbox.classList.remove('show');
     els.img.onclick = () => { if(els.img.src) openLightbox(els.img.src); };
+
+    // ====== Nano Pro 專業提示詞生成器 ======
+    const NanoPromptGenerator = {
+        generatedPrompt: null,
+        
+        async generate() {
+            const input = document.getElementById('nanoPromptInput').value.trim();
+            const apiKey = document.getElementById('nanoGeminiApiKey').value.trim();
+            const style = document.getElementById('style')?.value || 'none';
+            
+            if (!input) {
+                this.showStatus('請輸入畫面描述', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('nanoGeneratePromptBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span>⏳</span><span>生成中...</span>';
+            this.showStatus('正在生成...', 'loading');
+            
+            try {
+                const response = await fetch('/api/generate-prompt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        input: input,
+                        apiKey: apiKey,
+                        style: style
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.generatedPrompt = data.prompt;
+                    document.getElementById('nanoGeneratedPrompt').textContent = data.prompt;
+                    document.getElementById('nanoGeneratedPromptContainer').style.display = 'block';
+                    document.getElementById('nanoApplyPromptBtn').style.display = 'flex';
+                    this.showStatus('✅ 生成成功！', 'success');
+                } else {
+                    throw new Error(data.error || '生成失敗');
+                }
+            } catch (error) {
+                console.error('Nano Prompt Generation Error:', error);
+                this.showStatus('❌ 失敗: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        },
+        
+        applyToPrompt() {
+            if (!this.generatedPrompt) return;
+            
+            const promptTextarea = document.getElementById('prompt');
+            if (promptTextarea) {
+                promptTextarea.value = this.generatedPrompt;
+                this.showStatus('✓ 已應用', 'success');
+                document.getElementById('nanoPromptInput').value = '';
+            }
+        },
+        
+        showStatus(message, type) {
+            const statusEl = document.getElementById('nanoPromptGeneratorStatus');
+            statusEl.textContent = message;
+            statusEl.style.display = 'block';
+            
+            if (type === 'error') {
+                statusEl.style.color = '#ef4444';
+            } else if (type === 'success') {
+                statusEl.style.color = '#22c55e';
+            } else {
+                statusEl.style.color = '#9ca3af';
+            }
+            
+            setTimeout(() => {
+                if (statusEl.textContent === message) {
+                    statusEl.style.display = 'none';
+                }
+            }, 3000);
+        }
+    };
+    
+    // 綁定 Nano Pro 提示詞生成器事件
+    document.getElementById('nanoGeneratePromptBtn').addEventListener('click', () => NanoPromptGenerator.generate());
+    document.getElementById('nanoApplyPromptBtn').addEventListener('click', () => NanoPromptGenerator.applyToPrompt());
+    
+    // Ctrl + Enter 快捷鍵
+    document.getElementById('nanoPromptInput').addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'Enter') {
+            NanoPromptGenerator.generate();
+        }
+    });
 
     function toast(msg) {
         const t = document.getElementById('toast');
@@ -1807,6 +2048,48 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
     </div>
     <textarea id="referenceImages" placeholder="Image URL (or upload above)" rows="3"></textarea>
     <div style="font-size:11px; color:#9ca3af; margin-top:4px;">* 支援模型: Kontext, Flux, Klein</div>
+</div>
+
+<!-- ====== 專業提示詞生成器 (Gemini 3 Flash) ====== -->
+<div class="form-group" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1)); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 16px; margin-top: 20px;">
+    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <span style="font-size: 18px;">🤖</span>
+        <span style="font-weight: 700; color: #a78bfa;">專業提示詞生成器</span>
+        <span style="font-size: 10px; background: rgba(139, 92, 246, 0.3); padding: 2px 8px; border-radius: 10px; margin-left: auto;">Gemini 3 Flash</span>
+    </label>
+    
+    <div style="margin-bottom: 12px;">
+        <label style="font-size: 11px; color: #9ca3af; margin-bottom: 6px; display: block;">Gemini API Key (可選 - 服務端代理)</label>
+        <input type="password" id="geminiApiKey" placeholder="輸入 Gemini API Key 或留空使用服務端代理"
+               style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 13px;">
+    </div>
+    
+    <div style="margin-bottom: 12px;">
+        <label style="font-size: 11px; color: #9ca3af; margin-bottom: 6px; display: block;">簡單描述你想要的畫面</label>
+        <textarea id="promptInput" placeholder="例如：一隻可愛的貓咪在陽光下睡覺..."
+                  rows="3" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 13px; resize: none;"></textarea>
+    </div>
+    
+    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+        <button type="button" id="generatePromptBtn"
+                style="flex: 1; background: linear-gradient(135deg, #8b5cf6, #3b82f6); color: #fff; border: none; padding: 12px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>✨</span>
+            <span>生成專業提示詞</span>
+        </button>
+        <button type="button" id="applyPromptBtn"
+                style="flex: 1; background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.4); padding: 12px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s; display: none;">
+            <span>✓</span>
+            <span>應用到提示詞</span>
+        </button>
+    </div>
+    
+    <div id="generatedPromptContainer" style="display: none;">
+        <label style="font-size: 11px; color: #a78bfa; margin-bottom: 6px; display: block;">生成的專業提示詞</label>
+        <div id="generatedPrompt"
+             style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 12px; color: #e0e7ff; font-size: 13px; line-height: 1.6; max-height: 150px; overflow-y: auto; white-space: pre-wrap;"></div>
+    </div>
+    
+    <div id="promptGeneratorStatus" style="font-size: 11px; color: #9ca3af; margin-top: 8px; display: none;"></div>
 </div>
 </div></div></div>
 <div id="historyPage" class="page">
@@ -2500,6 +2783,121 @@ window.onload=()=>{
     updateHistoryDisplay();
     updateModelOptions();
 };
+
+// ====== 專業提示詞生成器 (Gemini 3 Flash) ======
+const PromptGenerator = {
+    generatedPrompt: null,
+    
+    async generate() {
+        const input = document.getElementById('promptInput').value.trim();
+        const apiKey = document.getElementById('geminiApiKey').value.trim();
+        const style = document.getElementById('style')?.value || 'none';
+        const referenceImage = document.getElementById('referenceImages')?.value.trim() || '';
+        
+        if (!input) {
+            this.showStatus('請輸入你想要的畫面描述', 'error');
+            return;
+        }
+        
+        const btn = document.getElementById('generatePromptBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span><span>生成中...</span>';
+        this.showStatus('正在使用 Gemini 3 Flash 生成專業提示詞...', 'loading');
+        
+        try {
+            const response = await fetch('/api/generate-prompt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    input: input,
+                    apiKey: apiKey,
+                    style: style,
+                    referenceImage: referenceImage
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.generatedPrompt = data.prompt;
+                document.getElementById('generatedPrompt').textContent = data.prompt;
+                document.getElementById('generatedPromptContainer').style.display = 'block';
+                document.getElementById('applyPromptBtn').style.display = 'flex';
+                this.showStatus('✅ 提示詞生成成功！', 'success');
+            } else {
+                throw new Error(data.error || '生成失敗');
+            }
+        } catch (error) {
+            console.error('Prompt Generation Error:', error);
+            this.showStatus('❌ 生成失敗: ' + error.message, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    },
+    
+    applyToPrompt() {
+        if (!this.generatedPrompt) return;
+        
+        const promptTextarea = document.getElementById('prompt');
+        if (promptTextarea) {
+            promptTextarea.value = this.generatedPrompt;
+            this.showStatus('✓ 已應用到提示詞框', 'success');
+            
+            // 可選：清空輸入框
+            document.getElementById('promptInput').value = '';
+        }
+    },
+    
+    showStatus(message, type) {
+        const statusEl = document.getElementById('promptGeneratorStatus');
+        statusEl.textContent = message;
+        statusEl.style.display = 'block';
+        
+        // 設置顏色
+        if (type === 'error') {
+            statusEl.style.color = '#ef4444';
+        } else if (type === 'success') {
+            statusEl.style.color = '#22c55e';
+        } else {
+            statusEl.style.color = '#9ca3af';
+        }
+        
+        // 3秒後隱藏
+        setTimeout(() => {
+            if (statusEl.textContent === message) {
+                statusEl.style.display = 'none';
+            }
+        }, 3000);
+    }
+};
+
+// 綁定事件監聽器
+document.addEventListener('DOMContentLoaded', () => {
+    const generateBtn = document.getElementById('generatePromptBtn');
+    const applyBtn = document.getElementById('applyPromptBtn');
+    
+    if (generateBtn) {
+        generateBtn.addEventListener('click', () => PromptGenerator.generate());
+    }
+    
+    if (applyBtn) {
+        applyBtn.addEventListener('click', () => PromptGenerator.applyToPrompt());
+    }
+    
+    // 支持按 Enter 生成（Ctrl + Enter）
+    const promptInput = document.getElementById('promptInput');
+    if (promptInput) {
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                PromptGenerator.generate();
+            }
+        });
+    }
+});
 </script>
 <div class="footer" style="position:relative; z-index:10; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; gap:15px; flex-wrap:wrap;">
     <span>Powered by Flux AI Pro • <a href="https://github.com/pollinations/pollinations" target="_blank">Engine</a> • <a href="/nano" target="_blank">Nano Version</a></span>
