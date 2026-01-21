@@ -1968,7 +1968,7 @@ const PerformanceOptimizer = {
     
     // 生成緩存鍵
     generateCacheKey(prompt, model, width, height, style, seed) {
-        return `${prompt}-${model}-${width}x${height}-${style}-${seed}`;
+        return prompt + '-' + model + '-' + width + 'x' + height + '-' + style + '-' + seed;
     },
     
     // 防抖函數
