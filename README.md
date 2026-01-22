@@ -1,6 +1,6 @@
 # 🎨 Flux AI Pro - NanoBanana Edition
 
-![Version](https://img.shields.io/badge/Version-11.5.0-8B5CF6?style=flat-square)
+![Version](https://img.shields.io/badge/Version-11.6.0-8B5CF6?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Cloudflare%20Workers-orange?style=flat-square)
 ![Engine](https://img.shields.io/badge/Engine-Multi%20Provider-blue?style=flat-square)
 
@@ -10,10 +10,13 @@
 
 ---
 
-## 🔥 v11.5.0 更新亮點
+## 🔥 v11.6.0 更新亮點
 
+- **🌐 完整英文介面**：新增完整的英文介面支持，支援繁體中文與英文雙語切換，點擊右上角按鈕即可切換語言。
+- **🤖 專業提示詞生成器**：新增 Google Gemini 3 Flash 驅動的 AI 提示詞生成器，自動將簡單描述轉換為專業圖像生成提示詞。
+- **🎯 Prompt Generator 模型**：新增專業提示詞生成模型，支援混合調用模式（客戶端/服務端）。
 - **🌌 深空紫主題**：主介面升級為「深空紫」主題，採用玻璃擬態 (Glassmorphism) 設計，視覺更具現代感與科技感。
-- **🤖 FLUX.2 Klein 9B 模型**：新增強大的 Klein 模型 (9B 參數)，提供更細膩的畫質與細節表現。
+- **🤖 FLUX.2 Klein 4B 模型**：新增強大的 Klein 模型 (4B 參數)，提供更細膩的畫質與細節表現。
 - **✨ 自動 Ultra 畫質**：全域實裝「最佳品質策略」，所有生成請求自動強制使用 **Ultra (超高清)** 畫質模式。
 - **🔗 頁腳優化**：主頁新增包含友情鏈接與 ShowMeBestAI 推薦徽章的單行頁腳。
 - **🎨 風格系統擴展**：擴展風格預設系統，支援更多藝術風格與分類管理。
@@ -48,7 +51,35 @@
 - 隨機靈感骰子
 - 180 秒冷卻時間
 
-### 2. 多模型與供應商支援
+### 2. 多語言支援
+
+本專案支援完整的雙語介面，用戶可以隨時切換語言：
+
+#### 支援的語言
+- **繁體中文 (zh)**：預設語言
+- **英文 (en)**：完整英文介面
+
+#### 語言切換方式
+- 點擊介面右上角的 **「EN / 繁中」** 按鈕即可切換語言
+- 切換後所有 UI 元素會即時更新為選擇的語言
+
+#### 已翻譯的 UI 元素
+
+**主頁面：**
+- 導航選項：生成圖像、歷史記錄、Nano版
+- 設定標籤：生成參數、API 供應商、模型選擇、尺寸預設、藝術風格、質量模式
+- 進階設定：自動優化、進階參數、批量生成
+- 提示詞相關：正面提示詞、負面提示詞、參考圖像
+- 專業提示詞生成器：上傳參考圖片、選擇圖片、生成專業提示詞、應用到提示詞
+- 按鈕與狀態：生成圖像、清除歷史、導出歷史、加載中、生成中
+
+**Nano 頁面：**
+- 標題：NanoBanana Pro - Console
+- 控制項：Prompt、畫布比例、風格與設定、排除
+- 能量系統：每小時能量、消耗 1 香蕉能量、能量回充中
+- 狀態訊息：正在注入 AI 能量、生成中、上傳圖片
+
+### 3. 多模型與供應商支援
 
 #### Pollinations.ai (免費)
 | 模型 ID | 名稱 | 說明 |
@@ -77,7 +108,7 @@
 - 批量生成 (Batch Size: 1-4)
 - 30 秒冷卻時間
 
-### 3. 進階圖像處理
+### 4. 進階圖像處理
 
 - **風格預設**：內建 40+ 種風格（動漫、寫實、油畫、賽博龐克、浮世繪等）
 - **參考圖 (Img2Img)**：支援輸入圖片 URL 或上傳圖片進行參考生成
@@ -89,7 +120,7 @@
 - **自動優化**：內建提示詞增強與自動翻譯功能
 - **畫質模式**：Economy / Standard / Ultra HD
 
-### 4. 性能優化
+### 5. 性能優化
 
 - **懶加載**：使用 IntersectionObserver 實現圖片懶加載
 - **請求隊列**：支援並發請求管理，最多同時處理 2 個請求
@@ -142,6 +173,11 @@ wrangler secret put POLLINATIONS_API_KEY
 **Infip API Key (可選)：**
 ```bash
 wrangler secret put INFIP_API_KEY
+```
+
+**Gemini API Key (用於提示詞生成器，可選)：**
+```bash
+wrangler secret put GEMINI_API_KEY
 ```
 
 ### 4. 部署
@@ -210,6 +246,55 @@ wrangler deploy
   }
 }
 ```
+
+---
+
+## 🤖 專業提示詞生成器
+
+### 功能說明
+
+專業提示詞生成器使用 **Google Gemini 3 Flash** 模型，將用戶的簡單描述轉換為專業的圖像生成提示詞。
+
+### 使用方式
+
+#### 混合調用模式（推薦）
+
+**選項 1：使用服務端代理**
+- 不需要提供 API Key
+- 使用環境變量 `GEMINI_API_KEY`
+- 安全性更高
+
+**選項 2：使用客戶端直接調用**
+- 在界面中輸入自己的 Gemini API Key
+- 適合個人使用
+
+### API 端點
+
+**Endpoint:** `POST /api/generate-prompt`
+
+**Request Body:**
+```json
+{
+  "input": "一隻可愛的貓咪在陽光下睡覺",
+  "apiKey": "your-gemini-api-key",  // 可選，留空則使用服務端代理
+  "style": "anime",  // 可選，目標風格
+  "referenceImage": "參考圖像描述"  // 可選
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "prompt": "A cute fluffy cat sleeping peacefully on a soft cushion, warm golden sunlight streaming through a window, anime style, vibrant colors, detailed fur texture, cozy atmosphere, soft shadows, high quality, 4k, masterpiece",
+  "original": "一隻可愛的貓咪在陽光下睡覺",
+  "model": "gemini-2.0-flash-exp"
+}
+```
+
+### 快捷鍵
+
+- **Ctrl + Enter**：快速生成提示詞
 
 ---
 
