@@ -1136,10 +1136,6 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 }
 .banana-loader { font-size: 60px; animation: spin-bounce 1.5s infinite; margin-bottom: 20px; }
 .loading-text { color: var(--primary); font-weight: bold; letter-spacing: 2px; text-transform: uppercase; font-size: 14px; }
-.lang-switch {
-    position: absolute; top: 20px; right: 20px; padding: 8px 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); cursor: pointer; font-size: 12px; font-weight: 600; transition: 0.2s; z-index: 100;
-}
-.lang-switch:hover { background: rgba(255,255,255,0.2); color: var(--primary); }
 @media (max-width: 900px) {
     body { flex-direction: column; overflow-y: auto; height: auto; }
     .sidebar { width: 100%; height: auto; padding-bottom: 100px; border-right: none; }
@@ -1155,7 +1151,6 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 </style>
 </head>
 <body>
-    <button class="lang-switch" id="langSwitch">EN / 繁中</button>
     <div id="toast" class="toast"></div>
 
     <div class="app-container">
@@ -1164,8 +1159,8 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             <div class="logo-area">
                 <div class="logo-icon">🍌</div>
                 <div class="logo-text">
-                    <h1 data-t="nano_title">Nano Pro <span class="badge">V11.6</span></h1>
-                    <p style="color:#666; font-size:12px" data-t="nano_subtitle">Flux Engine • Pro Model • Pollinations AI</p>
+                    <h1>Nano Pro <span class="badge">V11.6</span></h1>
+                    <p style="color:#666; font-size:12px">Flux Engine • Pro Model • Pollinations AI</p>
                     <div style="font-size:11px; color:#22c55e; margin-top:4px; display:flex; align-items:center; gap:4px">
                         <script id="_waudw4">var _wau = _wau || []; _wau.push(["small", "yuynsazz1f", "dw4"]);</script><script async src="//waust.at/s.js"></script>
                     </div>
@@ -1174,14 +1169,14 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 
             <div class="control-group">
                 <div class="label-row">
-                    <label data-t="nano_prompt_label">Prompt</label>
-                    <button class="tool-btn" id="randomBtn" data-t="nano_random_btn">🎲 靈感骰子</button>
+                    <label>Prompt</label>
+                    <button class="tool-btn" id="randomBtn" title="隨機靈感">🎲 靈感骰子</button>
                 </div>
-                <textarea id="prompt" rows="4" data-t="nano_prompt_placeholder" placeholder="描述你想像中的畫面... (支援中文)"></textarea>
+                <textarea id="prompt" rows="4" placeholder="描述你想像中的畫面... (支援中文)"></textarea>
             </div>
 
             <div class="control-group">
-                <label style="margin-bottom:10px; display:block" data-t="nano_ratio_label">畫布比例</label>
+                <label style="margin-bottom:10px; display:block">畫布比例</label>
                 <div class="ratio-grid">
                     <div class="ratio-item active" data-w="1024" data-h="1024" title="1:1 方形">
                         <div class="ratio-shape" style="width:14px; height:14px;"></div>
@@ -1205,7 +1200,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 
             <div class="control-group">
                 <div class="label-row">
-                    <label data-t="nano_style_label">風格 & 設定</label>
+                    <label>風格 & 設定</label>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                     <select id="style">
@@ -1225,7 +1220,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             </div>
 
             <div class="control-group">
-                <label data-t="nano_negative_label">排除 (Negative)</label>
+                <label>排除 (Negative)</label>
                 <input type="text" id="negative" value="nsfw, ugly, text, watermark, low quality, bad anatomy" style="font-size:12px; color:#aaa">
             </div>
 
@@ -1233,18 +1228,18 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             <div class="control-group" style="background: linear-gradient(135deg, rgba(250, 204, 21, 0.1), rgba(139, 92, 246, 0.1)); border: 1px solid rgba(250, 204, 21, 0.3); border-radius: 12px; padding: 16px; margin-top: 16px;">
                 <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: var(--primary);">
                     <span style="font-size: 16px;">🤖</span>
-                    <span style="font-weight: 700;" data-t="nano_prompt_gen_title">AI 提示詞生成器</span>
+                    <span style="font-weight: 700;">AI 提示詞生成器</span>
                     <span style="font-size: 9px; background: rgba(250, 204, 21, 0.3); padding: 2px 6px; border-radius: 8px; margin-left: auto;">Pollinations</span>
                 </label>
                 
                 <div style="margin-bottom: 8px;">
-                    <label style="font-size: 10px; color: #9ca3af; margin-bottom: 4px; display: block;" data-t="nano_upload_ref_label">上傳參考圖片 (可選)</label>
+                    <label style="font-size: 10px; color: #9ca3af; margin-bottom: 4px; display: block;">上傳參考圖片 (可選)</label>
                     <div style="display: flex; gap: 6px;">
                         <input type="file" id="nanoPromptImageUpload" accept="image/*" style="display:none">
                         <button type="button" id="nanoPromptImageUploadBtn"
                                 style="flex: 1; background: rgba(250, 204, 21, 0.2); color: var(--primary); border: 1px solid rgba(250, 204, 21, 0.4); padding: 6px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
                             <span>📷</span>
-                            <span data-t="nano_select_img_btn">選擇圖片</span>
+                            <span>選擇圖片</span>
                         </button>
                         <button type="button" id="nanoPromptImageClearBtn"
                                 style="flex: 0 0 auto; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); padding: 6px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; display: none;">
@@ -1256,19 +1251,19 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                     </div>
                 </div>
                 
-                <textarea id="nanoPromptInput" data-t="nano_prompt_input_placeholder" placeholder="描述你想要的畫面..."
+                <textarea id="nanoPromptInput" placeholder="描述你想要的畫面..."
                           rows="2" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(250, 204, 21, 0.3); border-radius: 8px; padding: 10px; color: #fff; font-size: 12px; resize: none; margin-bottom: 8px;"></textarea>
                 
                 <div style="display: flex; gap: 8px;">
                     <button type="button" id="nanoGeneratePromptBtn"
                             style="flex: 1; background: var(--primary); color: #000; border: none; padding: 10px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
                         <span>✨</span>
-                        <span data-t="nano_gen_prompt_btn">生成</span>
+                        <span>生成</span>
                     </button>
                     <button type="button" id="nanoApplyPromptBtn"
                             style="flex: 1; background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.4); padding: 10px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; display: none;">
                         <span>✓</span>
-                        <span data-t="nano_apply_prompt_btn">應用</span>
+                        <span>應用</span>
                     </button>
                 </div>
                 
@@ -1281,13 +1276,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             </div>
 
             <button id="genBtn" class="gen-btn">
-                <span data-t="nano_gen_btn">生成圖像</span>
-                <span style="font-size:12px; opacity:0.6; font-weight:400; display:block; margin-top:4px" data-t="nano_gen_sub">消耗 1 香蕉能量 🍌</span>
+                <span>生成圖像</span>
+                <span style="font-size:12px; opacity:0.6; font-weight:400; display:block; margin-top:4px">消耗 1 香蕉能量 🍌</span>
             </button>
             
             <div class="quota-box">
                 <div class="quota-info">
-                    <span data-t="nano_quota_label">每小時能量</span>
+                    <span>每小時能量</span>
                     <span id="quotaText" class="quota-text">5 / 5</span>
                 </div>
                 <div class="quota-bar">
@@ -1302,7 +1297,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             
             <div class="loading-overlay">
                 <div class="banana-loader">🍌</div>
-                <div class="loading-text" data-t="nano_loading">正在注入 AI 能量...</div>
+                <div class="loading-text">正在注入 AI 能量...</div>
             </div>
 
             <div class="history-dock" id="historyStrip">
@@ -1316,10 +1311,10 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         <img id="lbImg" src="">
         <div class="lightbox-actions">
             <a id="lbDownload" class="action-btn" download="nano-banana-art.png" href="#">
-                <span data-t="nano_save_img">📥 保存圖片</span>
+                📥 保存圖片
             </a>
             <button class="action-btn" onclick="document.getElementById('lbClose').click()">
-                <span data-t="nano_close">❌ 關閉</span>
+                ❌ 關閉
             </button>
         </div>
     </div>
@@ -1328,130 +1323,6 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     </div>
 </div>
 <script>
-    // ====== I18N 配置 ======
-    const I18N = {
-        zh: {
-            nano_title: "Nano Pro <span class='badge'>V11.6</span>",
-            nano_subtitle: "Flux Engine • Pro Model • Pollinations AI",
-            nano_prompt_label: "Prompt",
-            nano_random_btn: "🎲 靈感骰子",
-            nano_prompt_placeholder: "描述你想像中的畫面... (支援中文)",
-            nano_ratio_label: "畫布比例",
-            nano_style_label: "風格 & 設定",
-            nano_negative_label: "排除 (Negative)",
-            nano_prompt_gen_title: "AI 提示詞生成器",
-            nano_upload_ref_label: "上傳參考圖片 (可選)",
-            nano_select_img_btn: "選擇圖片",
-            nano_prompt_input_placeholder: "描述你想要的畫面...",
-            nano_gen_prompt_btn: "生成",
-            nano_apply_prompt_btn: "應用",
-            nano_gen_btn: "生成圖像",
-            nano_gen_sub: "消耗 1 香蕉能量 🍌",
-            nano_quota_label: "每小時能量",
-            nano_loading: "正在注入 AI 能量...",
-            nano_save_img: "📥 保存圖片",
-            nano_close: "❌ 關閉",
-            nano_cooldown: "⚡ 能量回充中... ({0}s)",
-            nano_quota_empty: "本小時能量已耗盡",
-            nano_quota_empty_sub: "請稍後再來",
-            nano_error_prompt: "⚠️ 請輸入提示詞",
-            nano_error_quota: "🚫 本小時能量已耗盡，請稍後再來！",
-            nano_gen_error: "❌ 生成失敗: {0}",
-            nano_uploading: "正在上傳圖片...",
-            nano_upload_success: "圖片上傳成功，正在生成提示詞...",
-            nano_upload_error: "❌ 圖片上傳失敗: {0}",
-            nano_gen_prompt_loading: "正在使用 Pollinations 生成專業提示詞...",
-            nano_gen_prompt_success: "✅ 生成成功！",
-            nano_gen_prompt_error: "❌ 失敗: {0}",
-            nano_applied: "✓ 已應用",
-            nano_img_uploaded: "✓ 圖片已上傳",
-            nano_img_read_error: "圖片讀取失敗",
-            nano_img_too_large: "圖片太大！最大 5MB",
-            nano_img_invalid_type: "請選擇圖片文件",
-            nano_img_cleared: "✓ 圖片已清除"
-        },
-        en: {
-            nano_title: "Nano Pro <span class='badge'>V11.6</span>",
-            nano_subtitle: "Flux Engine • Pro Model • Pollinations AI",
-            nano_prompt_label: "Prompt",
-            nano_random_btn: "🎲 Random",
-            nano_prompt_placeholder: "Describe your imagination... (Chinese supported)",
-            nano_ratio_label: "Canvas Ratio",
-            nano_style_label: "Style & Settings",
-            nano_negative_label: "Negative",
-            nano_prompt_gen_title: "AI Prompt Generator",
-            nano_upload_ref_label: "Upload Reference (Optional)",
-            nano_select_img_btn: "Select Image",
-            nano_prompt_input_placeholder: "Describe what you want...",
-            nano_gen_prompt_btn: "Generate",
-            nano_apply_prompt_btn: "Apply",
-            nano_gen_btn: "Generate Image",
-            nano_gen_sub: "Consume 1 Banana Energy 🍌",
-            nano_quota_label: "Hourly Energy",
-            nano_loading: "Injecting AI Energy...",
-            nano_save_img: "📥 Save Image",
-            nano_close: "❌ Close",
-            nano_cooldown: "⚡ Recharging... ({0}s)",
-            nano_quota_empty: "Hourly Energy Depleted",
-            nano_quota_empty_sub: "Please try again later",
-            nano_error_prompt: "⚠️ Please enter a prompt",
-            nano_error_quota: "🚫 Hourly energy depleted, please try again later!",
-            nano_gen_error: "❌ Generation failed: {0}",
-            nano_uploading: "Uploading image...",
-            nano_upload_success: "Image uploaded, generating prompt...",
-            nano_upload_error: "❌ Upload failed: {0}",
-            nano_gen_prompt_loading: "Generating professional prompt with Pollinations...",
-            nano_gen_prompt_success: "✅ Success!",
-            nano_gen_prompt_error: "❌ Failed: {0}",
-            nano_applied: "✓ Applied",
-            nano_img_uploaded: "✓ Image uploaded",
-            nano_img_read_error: "Image read failed",
-            nano_img_too_large: "Image too large! Max 5MB",
-            nano_img_invalid_type: "Please select an image file",
-            nano_img_cleared: "✓ Image cleared"
-        }
-    };
-    
-    let curLang = 'zh';
-    
-    function toggleLang() {
-        curLang = curLang === 'zh' ? 'en' : 'zh';
-        updateLang();
-    }
-    
-    function updateLang() {
-        document.querySelectorAll('[data-t]').forEach(el => {
-            const key = el.getAttribute('data-t');
-            if (I18N[curLang][key]) {
-                el.textContent = I18N[curLang][key];
-            }
-        });
-        
-        // Update placeholders
-        const promptInput = document.getElementById('prompt');
-        if (promptInput) {
-            promptInput.placeholder = I18N[curLang].nano_prompt_placeholder;
-        }
-        
-        const nanoPromptInput = document.getElementById('nanoPromptInput');
-        if (nanoPromptInput) {
-            nanoPromptInput.placeholder = I18N[curLang].nano_prompt_input_placeholder;
-        }
-        
-        // Update button text dynamically
-        updateGenButtonText();
-    }
-    
-    function t(key, ...args) {
-        let text = I18N[curLang][key] || key;
-        args.forEach((arg, i) => {
-            text = text.replace('{' + i + '}', arg);
-        });
-        return text;
-    }
-    
-    document.getElementById('langSwitch').onclick = toggleLang;
-    
     // ====== 性能優化模塊 ======
     const PerformanceOptimizer = {
         // 請求控制器 - 用於取消進行中的請求
@@ -1621,7 +1492,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                 localStorage.removeItem(COOLDOWN_KEY);
                 if(currentQuota > 0) {
                     els.genBtn.disabled = false;
-                    updateGenButtonText();
+                    els.genBtn.innerHTML = '<span>生成圖像</span><span style="font-size:12px; opacity:0.6; font-weight:400; display:block; margin-top:4px">消耗 1 香蕉能量 🍌</span>';
                 } else {
                     updateQuotaUI();
                 }
@@ -1632,13 +1503,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     }
 
     function updateCooldownText(sec) {
-        els.genBtn.innerHTML = \`<span>\${t('nano_cooldown', sec)}</span>\`;
-    }
-    
-    function updateGenButtonText() {
-        if (!els.genBtn.disabled) {
-            els.genBtn.innerHTML = \`<span>\${I18N[curLang].nano_gen_btn}</span><span style="font-size:12px; opacity:0.6; font-weight:400; display:block; margin-top:4px">\${I18N[curLang].nano_gen_sub}</span>\`;
-        }
+        els.genBtn.innerHTML = \`<span>⚡ 能量回充中... (\${sec}s)</span>\`;
     }
     
     const now = new Date();
@@ -1668,7 +1533,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         if(currentQuota <= 0) {
             els.quotaFill.style.background = '#ef4444';
             els.genBtn.disabled = true;
-            els.genBtn.innerHTML = \`<span>\${I18N[curLang].nano_quota_empty}</span><span style="display:block;font-size:12px;font-weight:400;margin-top:4px">\${I18N[curLang].nano_quota_empty_sub}</span>\`;
+            els.genBtn.innerHTML = '<span>本小時能量已耗盡</span><span style="display:block;font-size:12px;font-weight:400;margin-top:4px">請稍後再來</span>';
         }
     }
     
@@ -1739,31 +1604,31 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             const style = document.getElementById('style')?.value || 'none';
             
             if (!input && !this.uploadedImage) {
-                this.showStatus(t('nano_error_prompt'), 'error');
+                this.showStatus('請輸入畫面描述或上傳圖片', 'error');
                 return;
             }
             
             const btn = document.getElementById('nanoGeneratePromptBtn');
             const originalText = btn.innerHTML;
             btn.disabled = true;
-            btn.innerHTML = '<span>⏳</span><span>' + I18N[curLang].nano_gen_prompt_btn + '...</span>';
+            btn.innerHTML = '<span>⏳</span><span>生成中...</span>';
             
             // 如果有上傳圖片但還沒有 URL，先上傳獲取 URL
             if (this.uploadedImage && !this.uploadedImageUrl) {
-                this.showStatus(I18N[curLang].nano_uploading, 'loading');
+                this.showStatus('正在上傳圖片...', 'loading');
                 try {
                     this.uploadedImageUrl = await this.uploadImageAndGetUrl(this.uploadedImage);
-                    this.showStatus(I18N[curLang].nano_upload_success, 'loading');
+                    this.showStatus('圖片上傳成功，正在生成提示詞...', 'loading');
                 } catch (error) {
                     console.error('Image upload error:', error);
-                    this.showStatus(t('nano_upload_error', error.message), 'error');
+                    this.showStatus('❌ 圖片上傳失敗: ' + error.message, 'error');
                     btn.disabled = false;
                     btn.innerHTML = originalText;
                     return;
                 }
             }
             
-            this.showStatus(I18N[curLang].nano_gen_prompt_loading, 'loading');
+            this.showStatus('正在使用 Pollinations 生成專業提示詞...', 'loading');
             
             try {
                 const response = await fetch('/api/generate-prompt', {
@@ -1785,13 +1650,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                     document.getElementById('nanoGeneratedPrompt').textContent = data.prompt;
                     document.getElementById('nanoGeneratedPromptContainer').style.display = 'block';
                     document.getElementById('nanoApplyPromptBtn').style.display = 'flex';
-                    this.showStatus(I18N[curLang].nano_gen_prompt_success, 'success');
+                    this.showStatus('✅ 生成成功！', 'success');
                 } else {
-                    throw new Error(data.error || I18N[curLang].nano_gen_prompt_error);
+                    throw new Error(data.error || '生成失敗');
                 }
             } catch (error) {
                 console.error('Nano Prompt Generation Error:', error);
-                this.showStatus(t('nano_gen_prompt_error', error.message), 'error');
+                this.showStatus('❌ 失敗: ' + error.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
@@ -1816,7 +1681,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             
             if (!uploadResponse.ok) {
                 const errorData = await uploadResponse.json().catch(() => ({}));
-                throw new Error(errorData.error || I18N[curLang].nano_upload_error);
+                throw new Error(errorData.error || '上傳失敗');
             }
             
             const data = await uploadResponse.json();
@@ -1833,7 +1698,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             const promptTextarea = document.getElementById('prompt');
             if (promptTextarea) {
                 promptTextarea.value = this.generatedPrompt;
-                this.showStatus(I18N[curLang].nano_applied, 'success');
+                this.showStatus('✓ 已應用', 'success');
                 document.getElementById('nanoPromptInput').value = '';
             }
         },
@@ -1843,13 +1708,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             
             // 驗證文件大小 (最大 5MB)
             if (file.size > 5 * 1024 * 1024) {
-                this.showStatus(I18N[curLang].nano_img_too_large, 'error');
+                this.showStatus('圖片太大！最大 5MB', 'error');
                 return;
             }
             
             // 驗證文件類型
             if (!file.type.startsWith('image/')) {
-                this.showStatus(I18N[curLang].nano_img_invalid_type, 'error');
+                this.showStatus('請選擇圖片文件', 'error');
                 return;
             }
             
@@ -1866,10 +1731,10 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                 previewDiv.style.display = 'block';
                 clearBtn.style.display = 'block';
                 
-                this.showStatus(I18N[curLang].nano_img_uploaded, 'success');
+                this.showStatus('✓ 圖片已上傳', 'success');
             };
             reader.onerror = () => {
-                this.showStatus(I18N[curLang].nano_img_read_error, 'error');
+                this.showStatus('圖片讀取失敗', 'error');
             };
             reader.readAsDataURL(file);
         },
@@ -1881,7 +1746,6 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             document.getElementById('nanoPromptImagePreviewImg').src = '';
             document.getElementById('nanoPromptImageClearBtn').style.display = 'none';
             document.getElementById('nanoPromptImageUpload').value = '';
-            this.showStatus(I18N[curLang].nano_img_cleared, 'success');
         },
         
         showStatus(message, type) {
@@ -1958,8 +1822,8 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 
     els.genBtn.onclick = async () => {
         const p = els.prompt.value.trim();
-        if(!p) return toast(t('nano_error_prompt'));
-        if(currentQuota <= 0) return toast(t('nano_error_quota'));
+        if(!p) return toast("⚠️ 請輸入提示詞");
+        if(currentQuota <= 0) return toast("🚫 本小時能量已耗盡，請稍後再來！");
 
         els.genBtn.disabled = true;
         els.loader.style.display = 'flex';
@@ -2045,17 +1909,12 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 
         } catch(e) {
             console.error("🍌 Nano Pro: 生成錯誤", e);
-            toast(t('nano_gen_error', e.message));
+            toast("❌ " + e.message);
             // On error, re-enable button if quota exists (unless rate limited)
             if(currentQuota > 0 && !e.message.includes('限額')) els.genBtn.disabled = false;
         } finally {
             els.loader.style.display = 'none';
         }
-    };
-    
-    // Initialize language on load
-    window.onload = () => {
-        updateLang();
     };
 </script>
 </body>
@@ -2096,7 +1955,7 @@ function handleUI(request, env) {
   const now = Math.floor(Date.now() / 1000);
   const key = `ratelimit:${ip}`;
     const hasInfipServerKey = !!(env && env.INFIP_API_KEY);
-    const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 Authenticated</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ API Key Required</span>';
+    const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 已認證</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ 需要 API Key</span>';
     
     // 生成樣式選單 HTML
   const styleCategories = CONFIG.STYLE_CATEGORIES;
@@ -2123,7 +1982,7 @@ function handleUI(request, env) {
   }
   
   const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Flux AI Pro v${CONFIG.PROJECT_VERSION}</title>
@@ -2198,20 +2057,20 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
     </div>
     <div class="nav-menu">
         <a href="/nano" target="_blank" class="nav-btn nano-btn" style="border-color:rgba(250,204,21,0.5);color:#FACC15;margin-right:5px">
-            🍌 Nano
+            🍌 Nano版
         </a>
-        <button class="nav-btn active" data-page="generate"><span data-t="nav_gen">🎨 Generate Image</span></button>
-        <button class="nav-btn" data-page="history"><span data-t="nav_his">📚 History</span> <span id="historyCount" style="background:rgba(245,158,11,0.2);padding:2px 8px;border-radius:10px;font-size:11px">0</span></button>
+        <button class="nav-btn active" data-page="generate"><span data-t="nav_gen">🎨 生成圖像</span></button>
+        <button class="nav-btn" data-page="history"><span data-t="nav_his">📚 歷史記錄</span> <span id="historyCount" style="background:rgba(245,158,11,0.2);padding:2px 8px;border-radius:10px;font-size:11px">0</span></button>
         <button class="lang-btn" id="langSwitch">EN / 繁中</button>
     </div>
 </div>
 <div id="generatePage" class="page active">
 <div class="main-content">
 <div class="left-panel">
-<div class="section-title" data-t="settings_title">⚙️ Generation Settings</div>
+<div class="section-title" data-t="settings_title">⚙️ 生成參數</div>
 <form id="generateForm">
 <div class="form-group">
-    <label data-t="provider_label">API Provider</label>
+    <label data-t="provider_label">API Provider (供應商)</label>
     <select id="provider">
         <option value="pollinations" selected>Pollinations.ai (Free)</option>
         <option value="infip">Ghostbot (Infip) 🌟</option>
@@ -2227,24 +2086,24 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
 
 <div class="form-group" id="nsfwGroup" style="display:none; align-items:center; justify-content:space-between; background:rgba(239, 68, 68, 0.1); padding:10px; border-radius:8px; border:1px solid rgba(239, 68, 68, 0.3);">
     <div>
-        <label for="nsfwToggle" style="margin:0; cursor:pointer; color:#f87171;">🔞 NSFW Mode</label>
-        <div style="font-size:11px; color:#fca5a5; margin-top:2px;">Allow adult content generation (Infip only)</div>
+        <label for="nsfwToggle" style="margin:0; cursor:pointer; color:#f87171;">🔞 解除成人內容限制 (NSFW)</label>
+        <div style="font-size:11px; color:#fca5a5; margin-top:2px;">啟用此選項將允許生成成人內容 (僅 Infip)</div>
     </div>
     <input type="checkbox" id="nsfwToggle" style="width:20px; height:20px; cursor:pointer;">
 </div>
 
 <div class="form-group">
-    <label data-t="model_label">Model Selection</label>
+    <label data-t="model_label">模型選擇</label>
     <select id="model">
         <!-- JS will populate this -->
     </select>
 </div>
-<div class="form-group"><label data-t="size_label">Image Size</label><select id="size">${sizeOptionsHTML}</select></div>
-<div class="form-group"><label data-t="style_label">Art Style 🎨</label><select id="style">${styleOptionsHTML}</select></div>
-<div class="form-group"><label data-t="quality_label">Quality Mode</label><select id="qualityMode"><option value="economy">Economy</option><option value="standard" selected>Standard</option><option value="ultra">Ultra HD</option></select></div>
+<div class="form-group"><label data-t="size_label">尺寸預設</label><select id="size">${sizeOptionsHTML}</select></div>
+<div class="form-group"><label data-t="style_label">藝術風格 🎨</label><select id="style">${styleOptionsHTML}</select></div>
+<div class="form-group"><label data-t="quality_label">質量模式</label><select id="qualityMode"><option value="economy">Economy</option><option value="standard" selected>Standard</option><option value="ultra">Ultra HD</option></select></div>
 
 <div class="form-group">
-    <label data-t="seed_label">Seed Value</label>
+    <label data-t="seed_label">Seed (種子碼)</label>
     <div style="display:flex; gap:10px;">
         <input type="number" id="seed" value="-1" placeholder="Random (-1)" disabled style="flex:1; opacity: 0.7; cursor: not-allowed; font-family: monospace;">
         <button type="button" id="seedToggleBtn" class="btn" style="width:auto; padding:0 15px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);">🎲</button>
@@ -2254,74 +2113,74 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
 <div class="form-group" style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin-top:15px;">
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <div>
-            <label for="autoOptimize" style="margin:0; cursor:pointer;" data-t="auto_opt_label">✨ Auto Optimize</label>
-            <div style="font-size:11px; color:#9ca3af; margin-top:2px;" data-t="auto_opt_desc">Automatically adjust Steps & Guidance</div>
+            <label for="autoOptimize" style="margin:0; cursor:pointer;" data-t="auto_opt_label">✨ 自動優化</label>
+            <div style="font-size:11px; color:#9ca3af; margin-top:2px;" data-t="auto_opt_desc">自動調整 Steps 與 Guidance</div>
         </div>
         <input type="checkbox" id="autoOptimize" checked style="width:auto; width:20px; height:20px; cursor:pointer;">
     </div>
     
     <div id="batchGroup" style="display:none; margin-top:15px; border-top:1px solid rgba(255,255,255,0.1); padding-top:15px;">
-        <div style="font-size:12px; color:#f59e0b; margin-bottom:10px; font-weight:bold;">🖼️ Batch Generation</div>
+        <div style="font-size:12px; color:#f59e0b; margin-bottom:10px; font-weight:bold;">🖼️ 批量生成</div>
         <div class="form-group">
-            <label>Batch Size</label>
+            <label>生成數量 (Batch Size)</label>
             <select id="batchSize">
-                <option value="1">1 image</option>
-                <option value="2">2 images</option>
-                <option value="3">3 images</option>
-                <option value="4">4 images</option>
+                <option value="1">1 張</option>
+                <option value="2">2 張</option>
+                <option value="3">3 張</option>
+                <option value="4">4 張</option>
             </select>
         </div>
     </div>
 
     <div id="advancedParams" style="display:none; margin-top:15px; border-top:1px solid rgba(255,255,255,0.1); padding-top:15px;">
-        <div style="font-size:12px; color:#f59e0b; margin-bottom:10px; font-weight:bold;" data-t="adv_settings">🛠️ Advanced Settings</div>
+        <div style="font-size:12px; color:#f59e0b; margin-bottom:10px; font-weight:bold;" data-t="adv_settings">🛠️ 進階參數</div>
         
         <div class="form-group">
-            <label data-t="steps_label">Generation Steps</label>
+            <label data-t="steps_label">生成步數 (Steps)</label>
             <input type="number" id="steps" value="25" min="1" max="50">
         </div>
         
         <div class="form-group">
-            <label data-t="guidance_label">Guidance Scale</label>
+            <label data-t="guidance_label">引導係數 (Guidance)</label>
             <input type="number" id="guidanceScale" value="7.5" step="0.1" min="1" max="20">
         </div>
     </div>
 </div>
 
-<button type="submit" class="btn btn-primary" id="generateBtn" data-t="gen_btn" style="margin-top:10px;">🎨 Start Generation</button>
+<button type="submit" class="btn btn-primary" id="generateBtn" data-t="gen_btn" style="margin-top:10px;">🎨 開始生成</button>
 </form>
 </div>
 <div class="center-panel">
-<div id="results"><div class="empty-state"><p data-t="empty_title">No images generated yet</p></div></div>
+<div id="results"><div class="empty-state"><p data-t="empty_title">尚未生成任何圖像</p></div></div>
 </div>
 <div class="right-panel">
-<div class="form-group"><label data-t="pos_prompt">Positive Prompt</label><textarea id="prompt" placeholder="Describe your image..." required></textarea></div>
-<div class="form-group"><label data-t="neg_prompt">Negative Prompt (Optional)</label><textarea id="negativePrompt" placeholder="What to avoid..." rows="4">nsfw, ugly, text, watermark, low quality, bad anatomy, distortion, blurry</textarea></div>
-<div class="form-group"><label data-t="ref_img">Reference Image (Img2Img) 📸</label>
+<div class="form-group"><label data-t="pos_prompt">正面提示詞</label><textarea id="prompt" placeholder="Describe your image..." required></textarea></div>
+<div class="form-group"><label data-t="neg_prompt">負面提示詞 (可選)</label><textarea id="negativePrompt" placeholder="What to avoid..." rows="4">nsfw, ugly, text, watermark, low quality, bad anatomy, distortion, blurry</textarea></div>
+<div class="form-group"><label data-t="ref_img">參考圖像 (Img2Img) 📸</label>
     <div style="margin-bottom:10px;">
         <input type="file" id="imageUpload" accept="image/*" style="display:none">
-        <button type="button" class="btn" onclick="document.getElementById('imageUpload').click()" style="background:rgba(255,255,255,0.1); width:100%;">📤 Upload Reference Image</button>
+        <button type="button" class="btn" onclick="document.getElementById('imageUpload').click()" style="background:rgba(255,255,255,0.1); width:100%;">📤 上傳參考圖</button>
     </div>
     <textarea id="referenceImages" placeholder="Image URL (or upload above)" rows="3"></textarea>
-    <div style="font-size:11px; color:#9ca3af; margin-top:4px;">* Supported models: Kontext, Flux, Klein</div>
+    <div style="font-size:11px; color:#9ca3af; margin-top:4px;">* 支援模型: Kontext, Flux, Klein</div>
 </div>
 
 <!-- ====== 專業提示詞生成器 (Pollinations) ====== -->
 <div class="form-group" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1)); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 16px; margin-top: 20px;">
     <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
         <span style="font-size: 18px;">🤖</span>
-        <span style="font-weight: 700; color: #a78bfa;">Professional Prompt Generator</span>
+        <span style="font-weight: 700; color: #a78bfa;">專業提示詞生成器</span>
         <span style="font-size: 10px; background: rgba(139, 92, 246, 0.3); padding: 2px 8px; border-radius: 10px; margin-left: auto;">Pollinations</span>
     </label>
     
     <div style="margin-bottom: 12px;">
-        <label style="font-size: 11px; color: #9ca3af; margin-bottom: 6px; display: block;">Upload Reference Image (Optional - for image analysis)</label>
+        <label style="font-size: 11px; color: #9ca3af; margin-bottom: 6px; display: block;">上傳參考圖片 (可選 - 用於圖片分析)</label>
         <div style="display: flex; gap: 8px;">
             <input type="file" id="promptImageUpload" accept="image/*" style="display:none">
             <button type="button" id="promptImageUploadBtn"
                     style="flex: 1; background: rgba(139, 92, 246, 0.2); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.4); padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
                 <span>📷</span>
-                <span>Select Image</span>
+                <span>選擇圖片</span>
             </button>
             <button type="button" id="promptImageClearBtn"
                     style="flex: 0 0 auto; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; display: none;">
@@ -2329,35 +2188,35 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
             </button>
         </div>
         <div id="promptImagePreview" style="display: none; margin-top: 8px;">
-            <img id="promptImagePreviewImg" src="" alt="Preview" style="max-width: 100%; max-height: 120px; border-radius: 6px; border: 1px solid rgba(139, 92, 246, 0.3);">
+            <img id="promptImagePreviewImg" src="" alt="預覽" style="max-width: 100%; max-height: 120px; border-radius: 6px; border: 1px solid rgba(139, 92, 246, 0.3);">
         </div>
     </div>
     
     <div style="margin-bottom: 12px;">
-        <label style="font-size: 11px; color: #9ca3af; margin-bottom: 6px; display: block;">Describe the scene you want</label>
-        <textarea id="promptInput" placeholder="e.g., A cute cat sleeping in the sunlight..."
+        <label style="font-size: 11px; color: #9ca3af; margin-bottom: 6px; display: block;">簡單描述你想要的畫面</label>
+        <textarea id="promptInput" placeholder="例如：一隻可愛的貓咪在陽光下睡覺..."
                   rows="3" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 13px; resize: none;"></textarea>
     </div>
     
     <div style="font-size: 11px; color: #f59e0b; margin-bottom: 12px; background: rgba(245, 158, 11, 0.1); padding: 8px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.2);" data-t="prompt_magic_tip">
-        💡 <strong>Tip:</strong> Select an "Art Style" from the left panel, and the generator will automatically incorporate that style (e.g., Cyberpunk, Ink Painting) into your prompt for more artistic results!
+        💡 <strong>小提示：</strong> 選擇左側的「藝術風格」後，生成器會自動融合該風格（如：賽博龐克、水墨畫等）到提示詞中，讓畫面更具藝術感！
     </div>
 
     <div style="display: flex; gap: 10px; margin-bottom: 12px;">
         <button type="button" id="generatePromptBtn"
                 style="flex: 1; background: linear-gradient(135deg, #8b5cf6, #3b82f6); color: #fff; border: none; padding: 12px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center; gap: 6px;">
             <span>✨</span>
-            <span>Generate Professional Prompt</span>
+            <span>生成專業提示詞</span>
         </button>
         <button type="button" id="applyPromptBtn"
                 style="flex: 1; background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.4); padding: 12px 16px; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; transition: all 0.3s; display: none;">
             <span>✓</span>
-            <span>Apply to Prompt</span>
+            <span>應用到提示詞</span>
         </button>
     </div>
     
     <div id="generatedPromptContainer" style="display: none;">
-        <label style="font-size: 11px; color: #a78bfa; margin-bottom: 6px; display: block;">Generated Professional Prompt</label>
+        <label style="font-size: 11px; color: #a78bfa; margin-bottom: 6px; display: block;">生成的專業提示詞</label>
         <div id="generatedPrompt"
              style="background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 8px; padding: 12px; color: #e0e7ff; font-size: 13px; line-height: 1.6; max-height: 150px; overflow-y: auto; white-space: pre-wrap;"></div>
     </div>
@@ -2368,8 +2227,8 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
 <div id="historyPage" class="page">
 <div class="main-content" style="flex-direction:column;padding:20px">
 <div class="history-header">
-<div class="history-stats"><div class="stat-item"><div class="label" data-t="stat_total">📊 Total Records</div><div class="value" id="historyTotal">0</div></div><div class="stat-item"><div class="label" data-t="stat_storage">💾 Storage Space (Permanent)</div><div class="value" id="storageSize">0 KB</div></div></div>
-<div class="history-actions"><button class="btn btn-secondary" id="exportBtn" style="width:auto;padding:10px 20px" data-t="btn_export">📥 Export</button><button class="btn btn-danger" id="clearBtn" style="width:auto;padding:10px 20px" data-t="btn_clear">🗑️ Clear All</button></div>
+<div class="history-stats"><div class="stat-item"><div class="label" data-t="stat_total">📊 總記錄數</div><div class="value" id="historyTotal">0</div></div><div class="stat-item"><div class="label" data-t="stat_storage">💾 存儲空間 (永久)</div><div class="value" id="storageSize">0 KB</div></div></div>
+<div class="history-actions"><button class="btn btn-secondary" id="exportBtn" style="width:auto;padding:10px 20px" data-t="btn_export">📥 導出</button><button class="btn btn-danger" id="clearBtn" style="width:auto;padding:10px 20px" data-t="btn_clear">🗑️ 清空</button></div>
 </div>
 <div id="historyList" style="padding:0 20px"><p>Loading history...</p></div>
 </div></div>
@@ -2378,10 +2237,10 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
         <img id="modalImage" src="" style="max-height:85vh; margin-bottom:15px;">
         <div style="display:flex; gap:15px;">
             <a id="modalDownload" href="#" class="btn btn-primary" download="image.png" style="text-decoration:none; width:auto; padding:10px 25px;">
-                📥 Save Image
+                📥 保存圖片
             </a>
             <button class="btn" onclick="document.getElementById('imageModal').classList.remove('show')" style="width:auto; background:rgba(255,255,255,0.1);">
-                ❌ Close
+                ❌ 關閉
             </button>
         </div>
     </div>
@@ -2606,16 +2465,14 @@ async function clearDB(){
 const I18N={
     zh:{
         nav_gen:"🎨 生成圖像", nav_his:"📚 歷史記錄", settings_title:"⚙️ 生成參數", provider_label:"API 供應商", model_label:"模型選擇", size_label:"尺寸預設", style_label:"藝術風格 🎨", quality_label:"質量模式", seed_label:"Seed (種子碼)", seed_random:"🎲 隨機", seed_lock:"🔒 鎖定", auto_opt_label:"✨ 自動優化", auto_opt_desc:"自動調整 Steps 與 Guidance", adv_settings:"🛠️ 進階參數", steps_label:"生成步數 (Steps)", guidance_label:"引導係數 (Guidance)", gen_btn:"🎨 開始生成", empty_title:"尚未生成任何圖像", pos_prompt:"正面提示詞", neg_prompt:"負面提示詞 (可選)", ref_img:"參考圖像 URL (Kontext 專用)", stat_total:"📊 總記錄數", stat_storage:"💾 存儲空間 (永久)", btn_export:"📥 導出", btn_clear:"🗑️ 清空", no_history:"暫無歷史記錄", btn_reuse:"🔄 重用", btn_dl:"💾 下載",
-        cooldown_msg: "⏳ 請等待冷卻時間...",
-        prompt_magic_tip: "💡 <strong>小提示：</strong> 選擇左側的「藝術風格」後，生成器會自動融合該風格（如：賽博龐克、水墨畫等）到提示詞中，讓畫面更具藝術感！"
+        cooldown_msg: "⏳ 請等待冷卻時間..."
     },
     en:{
         nav_gen:"🎨 Generate Image", nav_his:"📚 History", settings_title:"⚙️ Generation Settings", provider_label:"API Provider", model_label:"Model Selection", size_label:"Image Size", style_label:"Art Style 🎨", quality_label:"Quality Mode", seed_label:"Seed Value", seed_random:"🎲 Random", seed_lock:"🔒 Lock", auto_opt_label:"✨ Auto Optimize", auto_opt_desc:"Automatically adjust Steps & Guidance", adv_settings:"🛠️ Advanced Settings", steps_label:"Generation Steps", guidance_label:"Guidance Scale", gen_btn:"🎨 Start Generation", empty_title:"No images generated yet", pos_prompt:"Positive Prompt", neg_prompt:"Negative Prompt (Optional)", ref_img:"Reference Image URL (Kontext Only)", stat_total:"📊 Total Records", stat_storage:"💾 Storage Space (Permanent)", btn_export:"📥 Export", btn_clear:"🗑️ Clear All", no_history:"No history records found", btn_reuse:"🔄 Reuse Settings", btn_dl:"💾 Download",
-        cooldown_msg: "⏳ Please wait for cooldown...",
-        prompt_magic_tip: "💡 <strong>Tip:</strong> Select an \"Art Style\" from the left panel, and the generator will automatically incorporate that style (e.g., Cyberpunk, Ink Painting) into your prompt for more artistic results!"
+        cooldown_msg: "⏳ Please wait for cooldown..."
     }
 };
-let curLang='en';
+let curLang='zh';
 function toggleLang(){curLang=curLang==='zh'?'en':'zh';updateLang();}
 function updateLang(){
     document.querySelectorAll('[data-t]').forEach(el=>{const k=el.getAttribute('data-t');if(I18N[curLang][k])el.textContent=I18N[curLang][k];});
@@ -3071,31 +2928,31 @@ const PromptGenerator = {
         const referenceImage = document.getElementById('referenceImages')?.value.trim() || '';
         
         if (!input && !referenceImage && !this.uploadedImage) {
-            this.showStatus('Please enter a description or upload an image', 'error');
+            this.showStatus('請輸入畫面描述或上傳圖片', 'error');
             return;
         }
         
         const btn = document.getElementById('generatePromptBtn');
         const originalText = btn.innerHTML;
         btn.disabled = true;
-        btn.innerHTML = '<span>⏳</span><span>Generating...</span>';
+        btn.innerHTML = '<span>⏳</span><span>生成中...</span>';
         
         // 如果有上傳圖片但還沒有 URL，先上傳獲取 URL
         if (this.uploadedImage && !this.uploadedImageUrl) {
-            this.showStatus('Uploading image...', 'loading');
+            this.showStatus('正在上傳圖片...', 'loading');
             try {
                 this.uploadedImageUrl = await this.uploadImageAndGetUrl(this.uploadedImage);
-                this.showStatus('Image uploaded, generating prompt...', 'loading');
+                this.showStatus('圖片上傳成功，正在生成提示詞...', 'loading');
             } catch (error) {
                 console.error('Image upload error:', error);
-                this.showStatus('❌ Upload failed: ' + error.message, 'error');
+                this.showStatus('❌ 圖片上傳失敗: ' + error.message, 'error');
                 btn.disabled = false;
                 btn.innerHTML = originalText;
                 return;
             }
         }
         
-        const statusText = style !== 'none' ? 'Generating professional prompt with Pollinations (Gemini)... [Style: ' + style + ']' : 'Generating professional prompt with Pollinations (Gemini)...';
+        const statusText = style !== 'none' ? '正在使用 Pollinations (Gemini) 生成專業提示詞... [風格: ' + style + ']' : '正在使用 Pollinations (Gemini) 生成專業提示詞...';
         this.showStatus(statusText, 'loading');
         
         try {
@@ -3119,13 +2976,13 @@ const PromptGenerator = {
                 document.getElementById('generatedPrompt').textContent = data.prompt;
                 document.getElementById('generatedPromptContainer').style.display = 'block';
                 document.getElementById('applyPromptBtn').style.display = 'flex';
-                this.showStatus('✅ Prompt generated successfully!', 'success');
+                this.showStatus('✅ 提示詞生成成功！', 'success');
             } else {
-                throw new Error(data.error || 'Generation failed');
+                throw new Error(data.error || '生成失敗');
             }
         } catch (error) {
             console.error('Prompt Generation Error:', error);
-            this.showStatus('❌ Generation failed: ' + error.message, 'error');
+            this.showStatus('❌ 生成失敗: ' + error.message, 'error');
         } finally {
             btn.disabled = false;
             btn.innerHTML = originalText;
@@ -3150,12 +3007,12 @@ const PromptGenerator = {
         
         if (!uploadResponse.ok) {
             const errorData = await uploadResponse.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Upload failed');
+            throw new Error(errorData.error || '上傳失敗');
         }
         
         const data = await uploadResponse.json();
         if (!data.url) {
-            throw new Error('Failed to get image URL');
+            throw new Error('未獲取到圖片 URL');
         }
         
         return data.url;
@@ -3167,7 +3024,7 @@ const PromptGenerator = {
         const promptTextarea = document.getElementById('prompt');
         if (promptTextarea) {
             promptTextarea.value = this.generatedPrompt;
-            this.showStatus('✓ Applied to prompt field', 'success');
+            this.showStatus('✓ 已應用到提示詞框', 'success');
             
             // 可選：清空輸入框
             document.getElementById('promptInput').value = '';
@@ -3179,13 +3036,13 @@ const PromptGenerator = {
         
         // 驗證文件大小 (最大 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            this.showStatus('Image too large! Max 5MB', 'error');
+            this.showStatus('圖片太大！最大 5MB', 'error');
             return;
         }
         
         // 驗證文件類型
         if (!file.type.startsWith('image/')) {
-            this.showStatus('Please select an image file', 'error');
+            this.showStatus('請選擇圖片文件', 'error');
             return;
         }
         
@@ -3202,10 +3059,10 @@ const PromptGenerator = {
             previewDiv.style.display = 'block';
             clearBtn.style.display = 'block';
             
-            this.showStatus('✓ Image uploaded', 'success');
+            this.showStatus('✓ 圖片已上傳', 'success');
         };
         reader.onerror = () => {
-            this.showStatus('Image read failed', 'error');
+            this.showStatus('圖片讀取失敗', 'error');
         };
         reader.readAsDataURL(file);
     },
@@ -3296,7 +3153,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <div class="footer" style="position:relative; z-index:10; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; gap:15px; flex-wrap:wrap;">
     <span>Powered by Flux AI Pro • <a href="https://github.com/pollinations/pollinations" target="_blank">Engine</a> • <a href="/nano" target="_blank">Nano Version</a></span>
     <span style="opacity:0.5">|</span>
-    <span style="opacity:0.9">Friendly Links: <a href="https://pollinations.ai" target="_blank">Pollinations.ai</a> • <a href="https://infip.pro" target="_blank">Infip</a> • <a href="https://github.com" target="_blank">GitHub</a></span>
+    <span style="opacity:0.9">友情鏈接: <a href="https://pollinations.ai" target="_blank">Pollinations.ai</a> • <a href="https://infip.pro" target="_blank">Infip</a> • <a href="https://github.com" target="_blank">GitHub</a></span>
     <span style="opacity:0.5">|</span>
     <a href="https://showmebest.ai" target="_blank" style="display:flex; align-items:center;"><img src="https://showmebest.ai/badge/feature-badge-dark.webp" alt="Featured on ShowMeBestAI" width="165" height="45"></a>
 </div>
