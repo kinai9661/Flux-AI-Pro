@@ -868,21 +868,35 @@ Output format: Output only the optimized prompt, do not include any explanation 
         { role: "user", content: userContent }
     ];
     
-    // Select model: Always use 'gemini' as requested
-    const aiModel = 'gemini';
+    // Select model: Use 'openai' for better compatibility with anonymous requests
+    const aiModel = 'openai';
+    
+    // 構建請求 URL - 使用新端點並添加匿名參數
+    const apiUrl = new URL('https://text.pollinations.ai/');
+    apiUrl.searchParams.append('model', aiModel);
+    apiUrl.searchParams.append('seed', Math.floor(Math.random() * 1000000).toString());
+    
+    // 構建請求體
+    const requestBody = {
+        messages: messages,
+        jsonMode: false
+    };
+    
+    // 構建請求頭
+    const headers = {
+        'Content-Type': 'application/json'
+    };
+    
+    // 如果有 API Key，添加認證
+    if (env.POLLINATIONS_API_KEY) {
+        headers['Authorization'] = `Bearer ${env.POLLINATIONS_API_KEY}`;
+    }
     
     // Call Pollinations API
-    const response = await fetch('https://text.pollinations.ai/', {
+    const response = await fetch(apiUrl.toString(), {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            messages: messages,
-            model: aiModel,
-            seed: Math.floor(Math.random() * 1000000),
-            jsonMode: false
-        })
+        headers: headers,
+        body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
