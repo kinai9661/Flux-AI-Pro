@@ -837,16 +837,36 @@ async function handlePromptGeneration(request, env) {
     }
     
     // 構建 Pollinations 文本生成請求
-    const systemPrompt = `You are a professional AI image generation prompt optimization expert. Your task is to convert simple user descriptions or analyze images into detailed, professional image generation prompts.
+    const systemPrompt = `You are a professional AI image analysis and prompt generation expert.
 
-Rules:
-1. Output in English
-2. Add detailed visual descriptions (lighting, colors, composition, texture)
-3. Include artistic style and technical parameters
-4. Keep prompts concise but rich
-5. If a style is provided, incorporate its characteristics
-6. If a reference image URL is provided, analyze the image content and generate a prompt that captures its style, subject, and visual elements
-7. If only an image is provided (no text description), generate a comprehensive prompt describing the image in detail
+CRITICAL IMAGE ANALYSIS INSTRUCTIONS:
+1. When an image is provided, you MUST carefully analyze ALL visual elements:
+   - Main subject and objects (what is the primary focus?)
+   - Colors and lighting (color palette, lighting type, mood)
+   - Composition and perspective (camera angle, framing, depth)
+   - Texture and material (surface quality, material type)
+   - Style and artistic elements (artistic style, visual techniques)
+   - Background details (environment, context)
+   - Mood and atmosphere (emotional tone, atmosphere)
+
+2. Generate a detailed prompt that ACCURATELY describes the image content in English.
+
+3. Include specific visual descriptors:
+   - Subject description (person, object, scene)
+   - Color scheme and lighting conditions
+   - Artistic style and visual techniques
+   - Composition and framing
+   - Mood and emotional tone
+
+4. If a style is provided, incorporate its characteristics into the prompt.
+
+5. Output ONLY the optimized prompt in English, no explanations or additional text.
+
+TEXT-ONLY PROMPT OPTIMIZATION:
+1. Add detailed visual descriptions (lighting, colors, composition, texture)
+2. Include artistic style and technical parameters
+3. Keep prompts concise but rich in detail
+4. If a style is provided, incorporate its characteristics
 
 Output format: Output only the optimized prompt, do not include any explanation or additional text.`;
     
@@ -860,7 +880,29 @@ Output format: Output only the optimized prompt, do not include any explanation 
     userContent.push({ type: "text", text: textPrompt });
     
     if (finalImageUrl) {
-        userContent.push({ type: "image_url", image_url: { url: finalImageUrl } });
+        // 驗證圖片 URL 是否可訪問
+        try {
+            const imageTestResponse = await fetch(finalImageUrl, {
+                method: 'HEAD',
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+            });
+            if (!imageTestResponse.ok) {
+                console.warn('⚠️ Image URL validation failed:', finalImageUrl, imageTestResponse.status);
+                // 繼續處理，但記錄警告
+            }
+        } catch (error) {
+            console.error('❌ Image URL validation error:', error);
+            // 繼續處理，但記錄錯誤
+        }
+        
+        // 使用高質量圖片分析格式
+        userContent.push({
+            type: "image_url",
+            image_url: {
+                url: finalImageUrl,
+                detail: "high"  // 請求高質量圖片分析
+            }
+        });
     }
     
     const messages = [
