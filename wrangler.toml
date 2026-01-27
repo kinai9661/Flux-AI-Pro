@@ -2,7 +2,7 @@
 # Cloudflare Workers 配置文件
 # 項目: Flux AI Pro - NanoBanana Edition
 # 版本: 11.7.0 (多語言擴展 & 自動偵測)
-# 更新: 2026-01-26
+# 更新: 2026-01-27
 # ============================================
 
 name = "flux-ai-pro"

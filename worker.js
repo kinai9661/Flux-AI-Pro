@@ -1,7 +1,7 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 11.6.0 (Prompt Generator Enhancement)
-//  更新: Pollinations 提示詞生成器、Prompt Generator 模型、混合調用模式
+//  版本: 11.7.0 (多語言擴展 & 自動偵測)
+//  更新: 多語言支援 (zh, en, ja, ko, ar)、自動語言偵測、RTL 支援、UI 翻譯修復
 // =================================================================================
 
 // 導入風格適配器（僅在服務器端使用）
@@ -13,7 +13,7 @@ const mergedStyles = styleManager.merge();
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "11.6.0",
+  PROJECT_VERSION: "11.7.0",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -1223,7 +1223,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             <div class="logo-area">
                 <div class="logo-icon">🍌</div>
                 <div class="logo-text">
-                    <h1>Nano Pro <span class="badge">V11.6</span></h1>
+                    <h1>Nano Pro <span class="badge">V11.7</span></h1>
                     <p style="color:#666; font-size:12px">Flux Engine • Pro Model • Pollinations AI</p>
                     <div style="font-size:11px; color:#22c55e; margin-top:4px; display:flex; align-items:center; gap:4px">
                         <script id="_waudw4">var _wau = _wau || []; _wau.push(["small", "yuynsazz1f", "dw4"]);</script><script async src="//waust.at/s.js"></script>
@@ -1300,14 +1300,8 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                     <label id="styleLabel">風格 & 設定</label>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <select id="style">
-                        <option value="none">✨ 智能無風格</option>
-                        <option value="photorealistic">📷 寫實照片</option>
-                        <option value="anime">🌸 日系動漫</option>
-                        <option value="3d-render">🧊 3D 渲染</option>
-                        <option value="cyberpunk">🌃 賽博龐克</option>
-                        <option value="manga">📖 黑白漫畫</option>
-                        <option value="oil-painting">🎨 古典油畫</option>
+                    <select id="style" id="nanoStyleSelect">
+                        <!-- 風格選項將由 JavaScript 動態生成 -->
                     </select>
                     <div style="position:relative">
                          <input type="number" id="seed" placeholder="Seed" value="-1" disabled style="padding-right:30px">
@@ -1770,6 +1764,34 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         return NANO_I18N[nanoCurLang][key] || key;
     }
 
+    // 動態生成風格選單
+    function nanoPopulateStyleOptions() {
+        const styleSelect = document.getElementById('style');
+        if (!styleSelect) return;
+        
+        // 清空現有選項
+        styleSelect.innerHTML = '';
+        
+        // 定義風格列表（與主頁面保持一致）
+        const styles = [
+            { key: 'none', icon: '✨', nameKey: 'style_none' },
+            { key: 'photorealistic', icon: '📷', nameKey: 'style_photorealistic' },
+            { key: 'anime', icon: '🌸', nameKey: 'style_anime' },
+            { key: '3d-render', icon: '🧊', nameKey: 'style_3d_render' },
+            { key: 'cyberpunk', icon: '🌃', nameKey: 'style_cyberpunk' },
+            { key: 'manga', icon: '📖', nameKey: 'style_manga' },
+            { key: 'oil-painting', icon: '🎨', nameKey: 'style_oil_painting' }
+        ];
+        
+        // 生成選項
+        styles.forEach(style => {
+            const option = document.createElement('option');
+            option.value = style.key;
+            option.textContent = nanoT(style.nameKey);
+            styleSelect.appendChild(option);
+        });
+    }
+
     // 更新所有翻譯
     function nanoUpdateLang() {
         // 更新標籤
@@ -1794,18 +1816,8 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         const styleLabel = document.getElementById('styleLabel');
         if (styleLabel) styleLabel.textContent = nanoT('style_label');
         
-        // 更新風格選項
-        const styleSelect = document.getElementById('style');
-        if (styleSelect) {
-            const options = styleSelect.options;
-            if (options[0]) options[0].textContent = nanoT('style_none');
-            if (options[1]) options[1].textContent = nanoT('style_photorealistic');
-            if (options[2]) options[2].textContent = nanoT('style_anime');
-            if (options[3]) options[3].textContent = nanoT('style_3d_render');
-            if (options[4]) options[4].textContent = nanoT('style_cyberpunk');
-            if (options[5]) options[5].textContent = nanoT('style_manga');
-            if (options[6]) options[6].textContent = nanoT('style_oil_painting');
-        }
+        // 更新風格選項（動態重新生成）
+        nanoPopulateStyleOptions();
         
         // 更新 Seed 輸入框
         const seedInput = document.getElementById('seed');
@@ -1893,6 +1905,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 
     // 初始化語言按鈕
     nanoUpdateLangButton();
+    nanoPopulateStyleOptions();  // 初始化風格選單
     nanoUpdateLang();
 
     // ====== 性能優化模塊 ======
@@ -2543,6 +2556,8 @@ function handleUI(request, env) {
     const authStatus = CONFIG.POLLINATIONS_AUTH.enabled ? '<span style="color:#22c55e;font-weight:600;font-size:12px">🔐 已認證</span>' : '<span style="color:#f59e0b;font-weight:600;font-size:12px">⚠️ 需要 API Key</span>';
     
     // 生成樣式選單 HTML
+  const url = new URL(request.url);
+  const currentLang = url.searchParams.get('lang') || 'zh';
   const styleCategories = CONFIG.STYLE_CATEGORIES;
   const stylePresets = CONFIG.STYLE_PRESETS;
   let styleOptionsHTML = '';
@@ -4002,4 +4017,3 @@ document.addEventListener('DOMContentLoaded', () => {
   
   return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders() } });
 }
-
