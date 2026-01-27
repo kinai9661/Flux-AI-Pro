@@ -861,14 +861,11 @@ Output ONLY the final prompt. No explanations, no "Here is the prompt:", no addi
 EXAMPLE OUTPUT:
 A serene Japanese garden at sunset, featuring a traditional wooden bridge over a koi pond, cherry blossoms in full bloom, soft golden light filtering through the trees, photorealistic style, warm color palette, peaceful atmosphere, high detail, 8k quality.`;
     
-    const userContent = [];
-    
+    // 構建文本提示詞
     let textPrompt = input ? `Optimize this prompt: ${input}` : `Generate a prompt based on the image.`;
     if (style && style !== 'none') {
         textPrompt += `\n\nCRITICAL INSTRUCTION: The generated prompt MUST strictly adhere to the "${style}" art style. You must include specific artistic keywords, lighting techniques, color palettes, and composition styles associated with ${style}. Make the style the dominant visual characteristic of the image.`;
     }
-    
-    userContent.push({ type: "text", text: textPrompt });
     
     if (finalImageUrl) {
         // 驗證圖片 URL 是否可訪問
@@ -934,10 +931,22 @@ A serene Japanese garden at sunset, featuring a traditional wooden bridge over a
         });
     }
     
+    // 構建 messages - 確保格式正確
     const messages = [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent }
+        { role: "system", content: systemPrompt }
     ];
+    
+    // 如果有圖片，將文本和圖片合併到同一個 user message
+    if (finalImageUrl) {
+        const userContent = [
+            { type: "text", text: textPrompt },
+            { type: "image_url", image_url: { url: finalImageUrl, detail: "high" } }
+        ];
+        messages.push({ role: "user", content: userContent });
+    } else {
+        // 如果沒有圖片，只發送文本
+        messages.push({ role: "user", content: textPrompt });
+    }
     
     // Select model: Use 'gemini-search' (Google Gemini 3 Flash) for better image analysis
     const aiModel = 'gemini-search';
