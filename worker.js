@@ -861,17 +861,21 @@ Output ONLY the final prompt. No explanations, no "Here is the prompt:", no addi
 EXAMPLE OUTPUT:
 A serene Japanese garden at sunset, featuring a traditional wooden bridge over a koi pond, cherry blossoms in full bloom, soft golden light filtering through the trees, photorealistic style, warm color palette, peaceful atmosphere, high detail, 8k quality.`;
     
-    // 構建文本提示詞
+    // 構建用戶內容數組
+    const userContent = [];
+    
+    // 添加文本內容
     let textPrompt = input ? `Optimize this prompt: ${input}` : `Generate a prompt based on the image.`;
     if (style && style !== 'none') {
         textPrompt += `\n\nCRITICAL INSTRUCTION: The generated prompt MUST strictly adhere to the "${style}" art style. You must include specific artistic keywords, lighting techniques, color palettes, and composition styles associated with ${style}. Make the style the dominant visual characteristic of the image.`;
     }
     
-    // 如果有圖片，將圖片 URL 添加到提示詞中
-    if (finalImageUrl) {
-        textPrompt += `\n\nImage URL for analysis: ${finalImageUrl}`;
-    }
+    userContent.push({
+        type: "text",
+        text: textPrompt
+    });
     
+    // 如果有圖片，添加圖片內容
     if (finalImageUrl) {
         // 驗證圖片 URL 是否可訪問
         try {
@@ -915,6 +919,15 @@ A serene Japanese garden at sunset, featuring a traditional wooden bridge over a
             
             console.log('✅ Image URL validated successfully');
             
+            // 添加圖片到用戶內容
+            userContent.push({
+                type: "image_url",
+                image_url: {
+                    url: finalImageUrl,
+                    detail: "high"
+                }
+            });
+            
         } catch (error) {
             console.error('❌ Image URL validation error:', error);
             return new Response(JSON.stringify({
@@ -925,48 +938,53 @@ A serene Japanese garden at sunset, featuring a traditional wooden bridge over a
                 headers: corsHeaders({ 'Content-Type': 'application/json' })
             });
         }
-        
-        // 使用高質量圖片分析格式
-        userContent.push({
-            type: "image_url",
-            image_url: {
-                url: finalImageUrl,
-                detail: "high"
-            }
-        });
     }
     
-    // Select model: Use 'gemini-search' (Google Gemini 3 Flash) for better image analysis
-    const aiModel = 'gemini-search';
+    // 使用 Pollinations Vision API (v1/chat/completions)
+    const apiUrl = 'https://gen.pollinations.ai/v1/chat/completions';
     
-    // 構建請求 URL - 使用簡單文本端點
-    const apiUrl = new URL(`https://gen.pollinations.ai/text/${encodeURIComponent(textPrompt)}`);
-    apiUrl.searchParams.append('model', aiModel);
-    apiUrl.searchParams.append('seed', Math.floor(Math.random() * 1000000).toString());
+    // 構建請求體
+    const requestBody = {
+        model: "openai",
+        messages: [
+            {
+                role: "system",
+                content: systemPrompt
+            },
+            {
+                role: "user",
+                content: userContent
+            }
+        ],
+        seed: Math.floor(Math.random() * 1000000)
+    };
     
     // 構建請求頭
     const headers = {
+        'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     };
     
     // 如果有 API Key，添加認證
     if (env.POLLINATIONS_API_KEY) {
-        apiUrl.searchParams.append('key', env.POLLINATIONS_API_KEY);
+        headers['Authorization'] = `Bearer ${env.POLLINATIONS_API_KEY}`;
     }
     
-    // Call Pollinations API
-    console.log('📤 Sending request to Pollinations API:', {
-        endpoint: apiUrl.toString(),
-        model: aiModel,
+    // Call Pollinations Vision API
+    console.log('📤 Sending request to Pollinations Vision API:', {
+        endpoint: apiUrl,
+        model: requestBody.model,
         hasImage: !!finalImageUrl,
         imageUrl: finalImageUrl?.substring(0, 60) + '...',
         hasTextInput: !!input,
-        style: style
+        style: style,
+        contentItems: userContent.length
     });
     
-    const response = await fetch(apiUrl.toString(), {
-        method: 'GET',
-        headers: headers
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestBody)
     });
 
     console.log('📥 Received response from Pollinations:', {
@@ -980,12 +998,20 @@ A serene Japanese garden at sunset, featuring a traditional wooden bridge over a
         console.error('❌ Pollinations API Error Details:', {
             status: response.status,
             error: errText,
-            endpoint: apiUrl.toString()
+            endpoint: apiUrl
         });
         throw new Error(`Pollinations API Error (${response.status}): ${errText}`);
     }
     
-    const generatedPrompt = await response.text();
+    const data = await response.json();
+    
+    // 解析回應
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        console.error('❌ Invalid response format:', data);
+        throw new Error('Invalid response format from API');
+    }
+    
+    const generatedPrompt = data.choices[0].message.content;
     console.log('✅ Generated prompt:', {
         length: generatedPrompt.length,
         preview: generatedPrompt.substring(0, 100) + '...'
@@ -993,7 +1019,7 @@ A serene Japanese garden at sunset, featuring a traditional wooden bridge over a
     
     if (!generatedPrompt || !generatedPrompt.trim()) {
       console.error('❌ Empty prompt received from API');
-      throw new Error('Empty response from AI - the model may not support image analysis');
+      throw new Error('Empty response from AI');
     }
 
     // 驗證生成的提示詞是否合理
@@ -1008,8 +1034,8 @@ A serene Japanese garden at sunset, featuring a traditional wooden bridge over a
     
     return new Response(JSON.stringify({
       success: true,
-      prompt: generatedPrompt.trim(),
-      model: aiModel
+      prompt: trimmedPrompt,
+      model: requestBody.model
     }), {
       status: 200,
       headers: corsHeaders({ 'Content-Type': 'application/json' })
