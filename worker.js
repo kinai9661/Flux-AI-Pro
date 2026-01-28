@@ -4206,7 +4206,7 @@ function openModal(src){
     // Auto set download filename
     downloadBtn.href = src;
     const timestamp = formatFilenameTimestampFrontend(new Date());
-    downloadBtn.download = `flux-pro-${timestamp}.png`;
+    downloadBtn.download = 'flux-pro-' + timestamp + '.png';
     
     // 放大功能：切換 CSS class
     modalImg.style.cursor = 'zoom-in';
