@@ -1,15 +1,10 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 11.8.0 (後台管理系統)
-//  更新: 完整的後台管理系統、D1 數據庫支持、JWT 認證
+//  版本: 11.8.0
 // =================================================================================
 
 // 導入風格適配器（僅在服務器端使用）
 import { ServerStyleManager } from './utils/style-adapter.js';
-
-// 導入管理後台系統
-import AdminSystem from './admin/admin.js';
-import { verifyToken, extractTokenFromRequest, checkIpBlacklist, isWhitelistMode, checkIpWhitelist } from './admin/auth-utils.js';
 
 // 初始化風格管理器
 const styleManager = new ServerStyleManager();
@@ -17,7 +12,7 @@ const mergedStyles = styleManager.merge();
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "11.7.0",
+  PROJECT_VERSION: "11.8.0 (Lite)",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -713,234 +708,6 @@ class MultiProviderRouter {
     return results;
   }
 }
-// ==================== 後台管理系統 API 路由 ====================
-
-/**
- * 處理後台 API 路由
- */
-async function handleAdminAPI(request, env, ctx) {
-  const url = new URL(request.url);
-  const path = url.pathname;
-
-  // 檢查是否為登入請求（不需要認證）
-  if (path === '/api/admin/login' && request.method === 'POST') {
-    return await handleAdminLogin(request, env);
-  }
-
-  // 驗證 JWT token
-  const token = extractTokenFromRequest(request);
-  if (!token) {
-    return corsJsonResponse({ success: false, error: '未提供認證令牌' }, 401);
-  }
-
-  const tokenResult = await verifyToken(token, env.JWT_SECRET || 'default-secret-change-in-production');
-  if (!tokenResult.valid) {
-    return corsJsonResponse({ success: false, error: tokenResult.error || '認證失敗' }, 401);
-  }
-
-  const adminUser = tokenResult.user;
-  const adminSystem = new AdminSystem(env);
-  const ipAddress = getClientIP(request);
-
-  // 路由處理
-  try {
-    // 儀表板
-    if (path === '/api/admin/dashboard' && request.method === 'GET') {
-      const stats = await adminSystem.getDashboardStats();
-      return corsJsonResponse({ success: true, data: stats });
-    }
-
-    // 操作日誌
-    if (path === '/api/admin/logs' && request.method === 'GET') {
-      const limit = parseInt(url.searchParams.get('limit') || '50');
-      const offset = parseInt(url.searchParams.get('offset') || '0');
-      const logs = await adminSystem.getOperationLogs(limit, offset);
-      return corsJsonResponse({ success: true, data: logs });
-    }
-
-    // 用戶請求日誌
-    if (path === '/api/admin/requests' && request.method === 'GET') {
-      const filters = {
-        ip: url.searchParams.get('ip') || null,
-        status: url.searchParams.get('status') || null,
-        provider: url.searchParams.get('provider') || null,
-        model: url.searchParams.get('model') || null,
-        startDate: url.searchParams.get('start_date') || null,
-        endDate: url.searchParams.get('end_date') || null
-      };
-      const requests = await adminSystem.getUserRequests(50, 0, filters);
-      return corsJsonResponse({ success: true, data: requests });
-    }
-
-    // IP 黑白名單
-    if (path === '/api/admin/ip-list') {
-      if (request.method === 'GET') {
-        const type = url.searchParams.get('type') || null;
-        const list = await adminSystem.getIpList(type);
-        return corsJsonResponse({ success: true, data: list });
-      } else if (request.method === 'POST') {
-        const body = await request.json();
-        const result = await adminSystem.addIpToAdminList(
-          body.ip_address,
-          body.type,
-          body.reason || '',
-          adminUser.userId,
-          body.expires_at || null,
-          body.notes || ''
-        );
-        await adminSystem.logOperation(adminUser.userId, adminUser.username, 'add_ip', 'ip_list',
-          body.ip_address, { type: body.type, reason: body.reason }, ipAddress);
-        
-        if (result.success) {
-          return corsJsonResponse({ success: true, data: { id: result.id } });
-        } else {
-          return corsJsonResponse({ success: false, error: result.error }, 400);
-        }
-      }
-    }
-
-    // 刪除 IP 條目
-    if (path.match(/^\/api\/admin\/ip-list\/\d+$/) && request.method === 'DELETE') {
-      const ipId = path.split('/').pop();
-      const result = await adminSystem.removeIpFromAdminList(parseInt(ipId), adminUser.userId);
-      await adminSystem.logOperation(adminUser.userId, adminUser.username, 'remove_ip', 'ip_list',
-        ipId, null, ipAddress);
-      return corsJsonResponse(result);
-    }
-
-    // 系統配置
-    if (path === '/api/admin/config') {
-      if (request.method === 'GET') {
-        const config = await adminSystem.getSystemConfig();
-        return corsJsonResponse({ success: true, data: config });
-      } else if (request.method === 'PATCH') {
-        const body = await request.json();
-        const result = await adminSystem.updateSystemConfig(body.config_key, body.config_value, adminUser.userId);
-        await adminSystem.logOperation(adminUser.userId, adminUser.username, 'update_config', 'system_config',
-          body.config_key, { new_value: body.config_value }, ipAddress);
-        return corsJsonResponse(result);
-      }
-    }
-
-    // 管理員管理
-    if (path === '/api/admin/admins') {
-      if (request.method === 'GET') {
-        const admins = await adminSystem.getAdmins();
-        return corsJsonResponse({ success: true, data: admins });
-      } else if (request.method === 'POST') {
-        const body = await request.json();
-        const result = await adminSystem.createAdmin(
-          body.username,
-          body.password,
-          body.email,
-          body.role || 'admin',
-          adminUser.userId
-        );
-        await adminSystem.logOperation(adminUser.userId, adminUser.username, 'create_admin', 'admin_user',
-          body.username, { role: body.role }, ipAddress);
-        
-        if (result.success) {
-          return corsJsonResponse({ success: true, data: { id: result.id } });
-        } else {
-          return corsJsonResponse({ success: false, error: result.error }, 400);
-        }
-      }
-    }
-
-    // 修改管理員密碼
-    if (path.match(/^\/api\/admin\/admins\/\d+\/password$/) && request.method === 'PATCH') {
-      const adminId = path.split('/')[4];
-      const body = await request.json();
-      const result = await adminSystem.updateAdminPassword(parseInt(adminId), body.password, adminUser.userId);
-      await adminSystem.logOperation(adminUser.userId, adminUser.username, 'change_password', 'admin_user',
-        adminId, null, ipAddress);
-      return corsJsonResponse(result);
-    }
-
-    // 刪除管理員
-    if (path.match(/^\/api\/admin\/admins\/\d+$/) && request.method === 'DELETE') {
-      const adminId = path.split('/')[4];
-      const result = await adminSystem.deleteAdmin(parseInt(adminId), adminUser.userId);
-      await adminSystem.logOperation(adminUser.userId, adminUser.username, 'delete_admin', 'admin_user',
-        adminId, null, ipAddress);
-      return corsJsonResponse(result);
-    }
-
-    return corsJsonResponse({ success: false, error: '路由不存在' }, 404);
-  } catch (error) {
-    console.error('Admin API error:', error);
-    return corsJsonResponse({ success: false, error: '內部服務器錯誤' }, 500);
-  }
-}
-
-/**
- * 處理管理員登入
- */
-async function handleAdminLogin(request, env) {
-  try {
-    const body = await request.json();
-    const { username, password } = body;
-    
-    if (!username || !password) {
-      return corsJsonResponse({ success: false, error: '用戶名和密碼必填' }, 400);
-    }
-
-    const adminSystem = new AdminSystem(env);
-    const ipAddress = getClientIP(request);
-    const result = await adminSystem.login(username, password, ipAddress);
-
-    if (result.success) {
-      return corsJsonResponse(result);
-    } else {
-      return corsJsonResponse(result, 401);
-    }
-  } catch (error) {
-    console.error('Login error:', error);
-    return corsJsonResponse({ success: false, error: '登入失敗' }, 500);
-  }
-}
-
-/**
- * CORS JSON 響應
- */
-function corsJsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: corsHeaders({ 'Content-Type': 'application/json' })
-  });
-}
-
-/**
- * 記錄用戶請求到 D1
- */
-async function logUserRequest(env, requestData, result, duration, ipAddress) {
-  if (!env || !env.FLUX_DB) return;
-
-  try {
-    await env.FLUX_DB.prepare(`
-      INSERT INTO user_requests (
-        ip_address, user_agent, provider, model, prompt, width, height, style,
-        seed, status, error_message, response_time_ms, created_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `).bind(
-      ipAddress,
-      '',
-      requestData.provider || 'pollinations',
-      requestData.model || 'gptimage',
-      requestData.prompt?.substring(0, 500) || '',
-      requestData.width || 1024,
-      requestData.height || 1024,
-      requestData.style || 'none',
-      requestData.seed || -1,
-      result.success ? 'success' : 'failed',
-      result.error?.message || '',
-      duration
-    ).run();
-  } catch (error) {
-    console.error('Failed to log user request:', error);
-  }
-}
 
 // Global Cache for Online Count (To save KV List operations)
 export default {
@@ -949,7 +716,7 @@ export default {
     const startTime = Date.now();
 
     const clientIP = getClientIP(request);
-    if (env.POLLINATIONS_API_KEY) { CONFIG.POLLINATIONS_AUTH.enabled = true; CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; } 
+    if (env.POLLINATIONS_API_KEY) { CONFIG.POLLINATIONS_AUTH.enabled = true; CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; }
     else { console.warn("⚠️ POLLINATIONS_API_KEY not set - requests may fail on new API endpoint"); CONFIG.POLLINATIONS_AUTH.enabled = false; CONFIG.POLLINATIONS_AUTH.token = ""; }
     
     console.log("=== Request Info ===");
@@ -963,17 +730,7 @@ export default {
     
     try {
       let response;
-      // 後台管理頁面
-      if (url.pathname === '/admin' || url.pathname === '/admin/') {
-        // 返回管理後台 HTML
-        const adminHtml = await Bun.file('./admin/index.html').text();
-        return new Response(adminHtml, { headers: corsHeaders({ 'Content-Type': 'text/html;charset=UTF-8' }) });
-      }
-      // 後台 API 路由
-      else if (url.pathname.startsWith('/api/admin')) {
-        response = await handleAdminAPI(request, env, ctx);
-      }
-      else if (url.pathname === '/nano') {
+      if (url.pathname === '/nano') {
         response = handleNanoPage(request);
       }
       else if (url.pathname === '/' || url.pathname === '') {
@@ -1346,27 +1103,6 @@ async function handleInternalGenerate(request, env, ctx) {
   const logger = new Logger();
   const startTime = Date.now();
   const clientIP = getClientIP(request);
-  
-  // 檢查 IP 黑名單
-  if (env && env.FLUX_DB) {
-    const isBlacklisted = await checkIpBlacklist(clientIP, env.FLUX_DB);
-    if (isBlacklisted) {
-      return new Response(JSON.stringify({
-        error: { message: '您的 IP 位址已被封禁', type: 'ip_blocked' }
-      }), { status: 403, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-    }
-
-    // 檢查白名單模式
-    const whitelistMode = await isWhitelistMode(env.FLUX_DB);
-    if (whitelistMode) {
-      const isWhitelisted = await checkIpWhitelist(clientIP, env.FLUX_DB);
-      if (!isWhitelisted) {
-        return new Response(JSON.stringify({
-          error: { message: '您的 IP 位址不在白名單中', type: 'ip_not_whitelisted' }
-        }), { status: 403, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-      }
-    }
-  }
 
   try {
     const body = await request.json();

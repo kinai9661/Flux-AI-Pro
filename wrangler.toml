@@ -1,7 +1,7 @@
 # =================================================================================
 #  Cloudflare Workers 配置文件
 #  項目: Flux AI Pro - NanoBanana Edition
-#  版本: 11.7.0
+#  版本: 11.8.0
 # =================================================================================
 
 name = "flux-ai-pro"
@@ -9,24 +9,13 @@ main = "worker.js"
 compatibility_date = "2024-01-01"
 
 # KV 綁定
+# 使用 wrangler kv:namespace create FLUX_KV 創建後，將返回的 ID 填入下方
 [[kv_namespaces]]
 binding = "FLUX_KV"
-id = "your-kv-namespace-id"
-preview_id = "65c2232e78044e749adb797599cb6ac8"
-
-# D1 數據庫綁定
-[[d1_databases]]
-binding = "FLUX_DB"
-database_name = "flux_ai_pro_db"
-database_id = "4c291b20-04b7-4b1c-be0f-2eb06de22ca9"
+# id = "創建後填入實際的 KV namespace ID"
+# preview_id = "創建後填入實際的 preview KV namespace ID"
 
 # 環境變量
 [vars]
 PROJECT_NAME = "Flux-AI-Pro"
-PROJECT_VERSION = "11.7.0"
-# JWT 密鑰（請在生產環境中修改為安全的隨機字符串）
-JWT_SECRET = "change-this-to-a-secure-random-secret-key-in-production"
-
-# 定時任務 - 每小時清理過期的 IP 列表
-[[triggers]]
-crons = ["0 * * * *"]
+PROJECT_VERSION = "11.8.0"
