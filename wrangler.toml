@@ -1,21 +1,46 @@
-# =================================================================================
-#  Cloudflare Workers 配置文件
-#  項目: Flux AI Pro - NanoBanana Edition
-#  版本: 11.8.0
-# =================================================================================
+# ============================================
+# Cloudflare Workers 配置文件
+# 項目: Flux AI Pro - NanoBanana Edition
+# 版本: 11.7.0 (多語言擴展 & 自動偵測)
+# 更新: 2026-01-27
+# ============================================
 
 name = "flux-ai-pro"
 main = "worker.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-12-01"
 
-# KV 綁定
-# 使用 wrangler kv:namespace create FLUX_KV 創建後，將返回的 ID 填入下方
+# ============================================
+# KV 存儲綁定 (NanoBanana 限流必需)
+# ⚠️ 請執行: npx wrangler kv:namespace create "FLUX_KV"
+# 然後將生成的 id 填入下方
+# ============================================
 [[kv_namespaces]]
 binding = "FLUX_KV"
-# id = "創建後填入實際的 KV namespace ID"
-# preview_id = "創建後填入實際的 preview KV namespace ID"
+id = "65c2232e78044e749adb797599cb6ac8"
 
-# 環境變量
+# ============================================
+# Workers AI 綁定（用於中文自動翻譯）
+# ============================================
+[ai]
+binding = "AI"
+
+# ============================================
+# 環境變量（非敏感）
+# ============================================
 [vars]
-PROJECT_NAME = "Flux-AI-Pro"
-PROJECT_VERSION = "11.8.0"
+WORKER_VERSION = "11.7.0"
+DEFAULT_MODEL = "flux"
+MAX_WIDTH = 2048
+MAX_HEIGHT = 2048
+MAX_TIMEOUT = 120000
+ENVIRONMENT = "production"
+
+# ============================================
+# Secrets 通過 wrangler secret 命令設置
+# 🔐 推薦設置:
+# 1. POLLINATIONS_API_KEY (Pollinations)
+# 2. INFIP_API_KEY (Ghostbot/Infip)
+# ============================================
+# 設置命令範例：
+# npx wrangler secret put POLLINATIONS_API_KEY
+# npx wrangler secret put INFIP_API_KEY
