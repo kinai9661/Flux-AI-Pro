@@ -679,6 +679,92 @@ class InfipProvider {
   }
 }
 
+class AquaProvider {
+  constructor(config, env) { this.config = config; this.name = config.name; this.env = env; }
+  
+  async generate(prompt, options, logger) {
+    const { model = "flux-2", width = 1024, height = 1024, apiKey = "", style = "none", negativePrompt = "" } = options;
+    
+    // Prefer environment variable if available
+    const finalApiKey = this.env.AQUA_API_KEY || apiKey;
+
+    if (!finalApiKey) throw new Error("Aqua API Key is required (Set AQUA_API_KEY env var or provide via UI)");
+
+    let basePrompt = prompt;
+    let translationLog = { translated: false };
+    if (/[\u4e00-\u9fa5]/.test(prompt)) {
+      logger.add("🌐 Pre-translation", { message: "Detecting Chinese, translating first..." });
+      const translation = await translateToEnglish(prompt, this.env);
+      if (translation.translated) {
+        basePrompt = translation.text;
+        translationLog = translation;
+        logger.add("✅ Translation Success", { original: prompt, translated: basePrompt });
+      }
+    }
+
+    // Apply Style
+    const { enhancedPrompt } = StyleProcessor.applyStyle(basePrompt, style, negativePrompt);
+    logger.add("🎨 Style Processing", { selected_style: style, style_applied: style !== 'none', original: basePrompt, enhanced: enhancedPrompt });
+
+    const url = `${this.config.endpoint}/v1/images/generations`;
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${finalApiKey}`,
+      'User-Agent': 'Flux-AI-Pro-Worker'
+    };
+    
+    const body = {
+      model: model,
+      prompt: enhancedPrompt,
+      n: 1,
+      size: `${width}x${height}`,
+      response_format: "url"
+    };
+
+    logger.add("📡 Aqua Request", { endpoint: url, model: model, size: body.size });
+
+    try {
+      const response = await fetchWithTimeout(url, { method: 'POST', headers: headers, body: JSON.stringify(body) }, 60000);
+      
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Aqua API Error (${response.status}): ${errText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.data && data.data.length > 0) {
+        const imgUrl = data.data[0].url;
+        logger.add("⬇️ Downloading Image", { url: imgUrl });
+        
+        // Download image to return binary
+        const imgResp = await fetch(imgUrl);
+        const imageBuffer = await imgResp.arrayBuffer();
+        const contentType = imgResp.headers.get('content-type') || 'image/png';
+        
+        return { 
+            imageData: imageBuffer, 
+            contentType: contentType, 
+            url: imgUrl, 
+            provider: this.name, 
+            model: model, 
+            seed: -1,
+            width: width, 
+            height: height, 
+            auto_translated: translationLog.translated,
+            authenticated: true,
+            cost: "QUOTA"
+        };
+      } else {
+        throw new Error("Invalid response format from Aqua API");
+      }
+    } catch (e) {
+      logger.add("❌ Aqua Failed", { error: e.message });
+      throw e;
+    }
+  }
+}
+
 class MultiProviderRouter {
   constructor(apiKeys = {}, env = null) {
     this.providers = {};
@@ -688,6 +774,7 @@ class MultiProviderRouter {
       if (config.enabled) {
         if (key === 'pollinations') this.providers[key] = new PollinationsProvider(config, env);
         else if (key === 'infip') this.providers[key] = new InfipProvider(config, env);
+        else if (key === 'aqua') this.providers[key] = new AquaProvider(config, env);
       }
     }
   }
