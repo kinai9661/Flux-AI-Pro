@@ -3714,13 +3714,13 @@ function updateStyleOptions() {
         if (stylesInCategory.length > 0) {
             const categoryName = typeof categoryInfo.name === 'object' ? (categoryInfo.name[curLang] || categoryInfo.name.zh || categoryInfo.name) : categoryInfo.name;
             const optgroup = document.createElement('optgroup');
-            optgroup.label = `${categoryInfo.icon} ${categoryName}`;
+            optgroup.label = categoryInfo.icon + ' ' + categoryName;
             
             for (const [styleKey, styleConfig] of stylesInCategory) {
                 const styleName = typeof styleConfig.name === 'object' ? (styleConfig.name[curLang] || styleConfig.name.zh || styleConfig.name) : styleConfig.name;
                 const option = document.createElement('option');
                 option.value = styleKey;
-                option.textContent = `${styleConfig.icon} ${styleName}`;
+                option.textContent = styleConfig.icon + ' ' + styleName;
                 if (styleKey === currentVal) option.selected = true;
                 optgroup.appendChild(option);
             }
