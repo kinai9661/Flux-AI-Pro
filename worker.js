@@ -563,10 +563,9 @@ class InfipProvider {
       'User-Agent': 'Flux-AI-Pro-Worker'
     };
     
-    // Infip supports 1024x1024, 1792x1024, 1024x1792
+    // Infip supports 1024x1024, 1792x1024 (limited to 1:1 and 16:9)
     let sizeStr = "1024x1024";
     if (width > height && width >= 1500) sizeStr = "1792x1024";
-    else if (height > width && height >= 1500) sizeStr = "1024x1792";
     
     // Infip supports up to 4 images per request
     const batchSize = Math.min(Math.max(options.numOutputs || 1, 1), 4);
