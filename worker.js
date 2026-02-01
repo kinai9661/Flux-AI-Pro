@@ -3109,10 +3109,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                         dropZone.appendChild(preview);
                     }
 
-                    preview.innerHTML = `
-                        <img src="${this.previewUrl}" alt="預覽">
-                        <button class="preview-remove" title="移除圖片">×</button>
-                    `;
+                    preview.innerHTML = '<img src="' + this.previewUrl + '" alt="預覽"><button class="preview-remove" title="移除圖片">×</button>';
 
                     // 綁定移除按鈕事件
                     const removeBtn = preview.querySelector('.preview-remove');
@@ -3167,10 +3164,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             const fileName = file.name;
             const fileSize = this.formatFileSize(file.size);
 
-            fileInfo.innerHTML = `
-                <span class="drag-drop-file-name">${fileName}</span>
-                <span class="drag-drop-file-size">${fileSize}</span>
-            `;
+            fileInfo.innerHTML = '<span class="drag-drop-file-name">' + fileName + '</span><span class="drag-drop-file-size">' + fileSize + '</span>';
 
             fileInfo.classList.add('show');
         },
@@ -3193,12 +3187,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                 dropZone.appendChild(progressContainer);
             }
 
-            progressContainer.innerHTML = `
-                <div class="upload-progress-bar">
-                    <div class="upload-progress-fill" style="width: ${progress}%"></div>
-                </div>
-                <div class="upload-progress-text">上傳中... ${progress}%</div>
-            `;
+            progressContainer.innerHTML = '<div class="upload-progress-bar"><div class="upload-progress-fill" style="width: ' + progress + '%"></div></div><div class="upload-progress-text">上傳中... ' + progress + '%</div>';
 
             progressContainer.classList.add('show');
         },
@@ -3232,9 +3221,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                 dropZone.appendChild(fileInfo);
             }
 
-            fileInfo.innerHTML = `
-                <span class="drag-drop-file-name" style="color: var(--danger)">${message}</span>
-            `;
+            fileInfo.innerHTML = '<span class="drag-drop-file-name" style="color: var(--danger)">' + message + '</span>';
 
             fileInfo.classList.add('show');
 
@@ -6254,12 +6241,9 @@ const StyleSelector = {
             return;
         }
         
-        container.innerHTML = this.recentStyles.map(style => `
-            <div class="recent-style-item" data-style="${style.key}">
-                <span class="recent-style-icon">${style.icon}</span>
-                <span class="recent-style-name">${style.name}</span>
-            </div>
-        `).join('');
+        container.innerHTML = this.recentStyles.map(function(style) {
+            return '<div class="recent-style-item" data-style="' + style.key + '"><span class="recent-style-icon">' + style.icon + '</span><span class="recent-style-name">' + style.name + '</span></div>';
+        }).join('');
         
         // 綁定點擊事件
         container.querySelectorAll('.recent-style-item').forEach(item => {
@@ -6656,10 +6640,7 @@ const DragDropHandler = {
                     dropZone.appendChild(preview);
                 }
 
-                preview.innerHTML = `
-                    <img src="${this.previewUrl}" alt="預覽">
-                    <button class="preview-remove" title="移除圖片">×</button>
-                `;
+                preview.innerHTML = '<img src="' + this.previewUrl + '" alt="預覽"><button class="preview-remove" title="移除圖片">×</button>';
 
                 // 綁定移除按鈕事件
                 const removeBtn = preview.querySelector('.preview-remove');
@@ -6714,10 +6695,7 @@ const DragDropHandler = {
         const fileName = file.name;
         const fileSize = this.formatFileSize(file.size);
 
-        fileInfo.innerHTML = `
-            <span class="drag-drop-file-name">${fileName}</span>
-            <span class="drag-drop-file-size">${fileSize}</span>
-        `;
+        fileInfo.innerHTML = '<span class="drag-drop-file-name">' + fileName + '</span><span class="drag-drop-file-size">' + fileSize + '</span>';
 
         fileInfo.classList.add('show');
     },
@@ -6740,12 +6718,7 @@ const DragDropHandler = {
             dropZone.appendChild(progressContainer);
         }
 
-        progressContainer.innerHTML = `
-            <div class="upload-progress-bar">
-                <div class="upload-progress-fill" style="width: ${progress}%"></div>
-            </div>
-            <div class="upload-progress-text">上傳中... ${progress}%</div>
-        `;
+        progressContainer.innerHTML = '<div class="upload-progress-bar"><div class="upload-progress-fill" style="width: ' + progress + '%"></div></div><div class="upload-progress-text">上傳中... ' + progress + '%</div>';
 
         progressContainer.classList.add('show');
     },
@@ -6779,9 +6752,7 @@ const DragDropHandler = {
             dropZone.appendChild(fileInfo);
         }
 
-        fileInfo.innerHTML = `
-            <span class="drag-drop-file-name" style="color: var(--danger)">${message}</span>
-        `;
+        fileInfo.innerHTML = '<span class="drag-drop-file-name" style="color: var(--danger)">' + message + '</span>';
 
         fileInfo.classList.add('show');
 
@@ -7497,15 +7468,7 @@ const KeyboardShortcuts = {
         const modal = document.createElement('div');
         modal.id = 'keyboardShortcutsHelp';
         modal.className = 'modal';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <button class="modal-close">&times;</button>
-                <h2>⌨️ 鍵盤快捷鍵</h2>
-                <div class="shortcuts-list">
-                    ${this.generateShortcutsList()}
-                </div>
-            </div>
-        `;
+        modal.innerHTML = '<div class="modal-content"><button class="modal-close">&times;</button><h2>⌨️ 鍵盤快捷鍵</h2><div class="shortcuts-list">' + this.generateShortcutsList() + '</div></div>';
         
         document.body.appendChild(modal);
         
@@ -7537,16 +7500,9 @@ const KeyboardShortcuts = {
         // 生成 HTML
         let html = '';
         Object.entries(groupedShortcuts).forEach(([action, shortcuts]) => {
-            html += `
-                <div class="shortcut-group">
-                    <div class="shortcut-group-title">${shortcuts[0].description}</div>
-                    <div class="shortcut-keys">
-                        ${shortcuts.map(s => `
-                            <kbd class="shortcut-key">${this.formatShortcutKey(s.key)}</kbd>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
+            html += '<div class="shortcut-group"><div class="shortcut-group-title">' + shortcuts[0].description + '</div><div class="shortcut-keys">' + shortcuts.map(function(s) {
+                return '<kbd class="shortcut-key">' + this.formatShortcutKey(s.key) + '</kbd>';
+            }.bind(this)).join('') + '</div></div>';
         });
         
         return html;
@@ -8128,7 +8084,7 @@ const AccessibilityManager = {
         navBtns.forEach(btn => {
             const page = btn.dataset.page;
             if (page) {
-                btn.setAttribute('aria-label', `切換到${btn.textContent.trim()}頁面`);
+                btn.setAttribute('aria-label', '切換到' + btn.textContent.trim() + '頁面');
                 btn.setAttribute('role', 'tab');
             }
         });
@@ -8163,7 +8119,7 @@ const AccessibilityManager = {
         const quickStylePresets = document.querySelectorAll('.quick-style-preset');
         quickStylePresets.forEach(btn => {
             const style = btn.dataset.style;
-            btn.setAttribute('aria-label', `快速選擇${btn.textContent.trim()}風格`);
+            btn.setAttribute('aria-label', '快速選擇' + btn.textContent.trim() + '風格');
         });
         
         // 為快捷尺寸預設按鈕添加 ARIA 標籤
@@ -8171,7 +8127,7 @@ const AccessibilityManager = {
         quickSizePresets.forEach(btn => {
             const width = btn.dataset.width;
             const height = btn.dataset.height;
-            btn.setAttribute('aria-label', `快速選擇 ${width}x${height} 尺寸`);
+            btn.setAttribute('aria-label', '快速選擇 ' + width + 'x' + height + ' 尺寸');
         });
         
         // 為歷史記錄按鈕添加 ARIA 標籤
@@ -8179,7 +8135,7 @@ const AccessibilityManager = {
         if (historyBtn) {
             const historyCount = document.getElementById('historyCount');
             if (historyCount) {
-                historyBtn.setAttribute('aria-label', `查看歷史記錄，共 ${historyCount.textContent} 張圖片`);
+                historyBtn.setAttribute('aria-label', '查看歷史記錄，共 ' + historyCount.textContent + ' 張圖片');
             }
         }
     },
@@ -8273,7 +8229,7 @@ const AccessibilityManager = {
         progressRegion.setAttribute('aria-valuemin', '0');
         progressRegion.setAttribute('aria-valuemax', total.toString());
         progressRegion.setAttribute('aria-label', label);
-        progressRegion.textContent = `${label}: ${percentage}%`;
+        progressRegion.textContent = label + ': ' + percentage + '%';
     },
     
     // 檢測並應用高對比度模式
