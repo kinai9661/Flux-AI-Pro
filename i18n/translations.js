@@ -205,54 +205,7 @@ export const TRANSLATIONS = {
     video_error_disabled: "影片生成功能尚未啟用",
     video_model_svd: "SVD",
     video_model_svd_xt: "SVD-XT",
-    video_provider_pollinations: "Pollinations.ai",
-    
-    // 快捷操作面板
-    quick_actions_title: "⚡ 快捷操作",
-    quick_actions_toggle: "展開/收起",
-    quick_style_presets: "風格預設",
-    quick_size_presets: "尺寸預設",
-    quick_quality_modes: "質量模式",
-    quick_random_prompt: "🎲 隨機提示詞",
-    quick_clear_all: "🗑️ 清空全部",
-    quick_reset_settings: "🔄 重置設置",
-    
-    // 鍵盤快捷鍵
-    shortcuts_title: "⌨️ 鍵盤快捷鍵",
-    shortcuts_help: "快捷鍵幫助",
-    shortcuts_close: "關閉",
-    shortcut_generate: "生成圖片",
-    shortcut_clear: "清空輸入",
-    shortcut_random: "隨機提示詞",
-    shortcut_page: "切換頁面",
-    shortcut_save: "保存設置",
-    shortcut_help: "顯示幫助",
-    shortcut_ctrl: "Ctrl",
-    shortcut_cmd: "Cmd",
-    
-    // 無障礙優化
-    skip_to_main: "跳過導航，直接前往主要內容",
-    skip_to_form: "跳過導航，直接前往生成表單",
-    accessibility_enabled: "無障礙功能已啟用",
-    high_contrast_enabled: "已啟用高對比度模式",
-    reduced_motion_enabled: "已啟用減少動畫模式",
-    
-    // 風格選擇器優化
-    style_search_placeholder: "搜索風格...",
-    style_search_clear: "清除搜索",
-    style_recent: "最近使用",
-    style_recent_clear: "清除最近使用",
-    style_preview: "預覽",
-    style_preview_close: "關閉預覽",
-    
-    // 拖放上傳優化
-    drop_zone_text: "拖放圖片到這裡上傳",
-    drop_zone_drag_over: "釋放以上傳",
-    drop_zone_uploading: "上傳中...",
-    drop_zone_progress: "上傳進度",
-    drop_zone_preview: "預覽",
-    drop_zone_clear: "清除",
-    drop_zone_error: "上傳失敗"
+    video_provider_pollinations: "Pollinations.ai"
   },
   
   // ====== 英文 (en) ======
@@ -456,54 +409,7 @@ export const TRANSLATIONS = {
     video_error_disabled: "Video generation is not enabled",
     video_model_svd: "SVD",
     video_model_svd_xt: "SVD-XT",
-    video_provider_pollinations: "Pollinations.ai",
-    
-    // Quick Actions Panel
-    quick_actions_title: "⚡ Quick Actions",
-    quick_actions_toggle: "Expand/Collapse",
-    quick_style_presets: "Style Presets",
-    quick_size_presets: "Size Presets",
-    quick_quality_modes: "Quality Modes",
-    quick_random_prompt: "🎲 Random Prompt",
-    quick_clear_all: "🗑️ Clear All",
-    quick_reset_settings: "🔄 Reset Settings",
-    
-    // Keyboard Shortcuts
-    shortcuts_title: "⌨️ Keyboard Shortcuts",
-    shortcuts_help: "Shortcuts Help",
-    shortcuts_close: "Close",
-    shortcut_generate: "Generate Image",
-    shortcut_clear: "Clear Input",
-    shortcut_random: "Random Prompt",
-    shortcut_page: "Switch Page",
-    shortcut_save: "Save Settings",
-    shortcut_help: "Show Help",
-    shortcut_ctrl: "Ctrl",
-    shortcut_cmd: "Cmd",
-    
-    // Accessibility
-    skip_to_main: "Skip to main content",
-    skip_to_form: "Skip to form",
-    accessibility_enabled: "Accessibility features enabled",
-    high_contrast_enabled: "High contrast mode enabled",
-    reduced_motion_enabled: "Reduced motion mode enabled",
-    
-    // Style Selector
-    style_search_placeholder: "Search styles...",
-    style_search_clear: "Clear search",
-    style_recent: "Recent",
-    style_recent_clear: "Clear recent",
-    style_preview: "Preview",
-    style_preview_close: "Close preview",
-    
-    // Drag & Drop Upload
-    drop_zone_text: "Drag & drop image here to upload",
-    drop_zone_drag_over: "Release to upload",
-    drop_zone_uploading: "Uploading...",
-    drop_zone_progress: "Upload progress",
-    drop_zone_preview: "Preview",
-    drop_zone_clear: "Clear",
-    drop_zone_error: "Upload failed"
+    video_provider_pollinations: "Pollinations.ai"
   },
   
   // ====== 日文 (ja) ======
@@ -707,54 +613,7 @@ export const TRANSLATIONS = {
     video_error_disabled: "動画生成機能は有効になっていません",
     video_model_svd: "SVD",
     video_model_svd_xt: "SVD-XT",
-    video_provider_pollinations: "Pollinations.ai",
-    
-    // クイックアクションパネル
-    quick_actions_title: "⚡ クイックアクション",
-    quick_actions_toggle: "展開/折りたたみ",
-    quick_style_presets: "スタイルプリセット",
-    quick_size_presets: "サイズプリセット",
-    quick_quality_modes: "品質モード",
-    quick_random_prompt: "🎲 ランダムプロンプト",
-    quick_clear_all: "🗑️ すべてクリア",
-    quick_reset_settings: "🔄 設定リセット",
-    
-    // キーボードショートカット
-    shortcuts_title: "⌨️ キーボードショートカット",
-    shortcuts_help: "ショートカットヘルプ",
-    shortcuts_close: "閉じる",
-    shortcut_generate: "画像生成",
-    shortcut_clear: "入力クリア",
-    shortcut_random: "ランダムプロンプト",
-    shortcut_page: "ページ切り替え",
-    shortcut_save: "設定保存",
-    shortcut_help: "ヘルプ表示",
-    shortcut_ctrl: "Ctrl",
-    shortcut_cmd: "Cmd",
-    
-    // アクセシビリティ
-    skip_to_main: "ナビゲーションをスキップしてメインコンテンツへ",
-    skip_to_form: "ナビゲーションをスキップしてフォームへ",
-    accessibility_enabled: "アクセシビリティ機能が有効になりました",
-    high_contrast_enabled: "ハイコントラストモードが有効になりました",
-    reduced_motion_enabled: "アニメーション削減モードが有効になりました",
-    
-    // スタイルセレクター
-    style_search_placeholder: "スタイルを検索...",
-    style_search_clear: "検索をクリア",
-    style_recent: "最近使用",
-    style_recent_clear: "最近使用をクリア",
-    style_preview: "プレビュー",
-    style_preview_close: "プレビューを閉じる",
-    
-    // ドラッグ＆ドロップアップロード
-    drop_zone_text: "画像をここにドラッグ＆ドロップしてアップロード",
-    drop_zone_drag_over: "リリースしてアップロード",
-    drop_zone_uploading: "アップロード中...",
-    drop_zone_progress: "アップロード進捗",
-    drop_zone_preview: "プレビュー",
-    drop_zone_clear: "クリア",
-    drop_zone_error: "アップロード失敗"
+    video_provider_pollinations: "Pollinations.ai"
   },
   
   // ====== 韓文 (ko) ======
@@ -958,54 +817,7 @@ export const TRANSLATIONS = {
     video_error_disabled: "동영상 생성 기능이 활성화되지 않았습니다",
     video_model_svd: "SVD",
     video_model_svd_xt: "SVD-XT",
-    video_provider_pollinations: "Pollinations.ai",
-    
-    // 빠른 작업 패널
-    quick_actions_title: "⚡ 빠른 작업",
-    quick_actions_toggle: "확장/축소",
-    quick_style_presets: "스타일 프리셋",
-    quick_size_presets: "크기 프리셋",
-    quick_quality_modes: "품질 모드",
-    quick_random_prompt: "🎲 랜덤 프롬프트",
-    quick_clear_all: "🗑️ 모두 지우기",
-    quick_reset_settings: "🔄 설정 초기화",
-    
-    // 키보드 단축키
-    shortcuts_title: "⌨️ 키보드 단축키",
-    shortcuts_help: "단축키 도움말",
-    shortcuts_close: "닫기",
-    shortcut_generate: "이미지 생성",
-    shortcut_clear: "입력 지우기",
-    shortcut_random: "랜덤 프롬프트",
-    shortcut_page: "페이지 전환",
-    shortcut_save: "설정 저장",
-    shortcut_help: "도움말 표시",
-    shortcut_ctrl: "Ctrl",
-    shortcut_cmd: "Cmd",
-    
-    // 접근성
-    skip_to_main: "탐색 건너뛰고 메인 콘텐츠로 이동",
-    skip_to_form: "탐색 건너뛰고 폼으로 이동",
-    accessibility_enabled: "접근성 기능이 활성화되었습니다",
-    high_contrast_enabled: "고대비 모드가 활성화되었습니다",
-    reduced_motion_enabled: "애니메이션 감소 모드가 활성화되었습니다",
-    
-    // 스타일 선택기
-    style_search_placeholder: "스타일 검색...",
-    style_search_clear: "검색 지우기",
-    style_recent: "최근 사용",
-    style_recent_clear: "최근 사용 지우기",
-    style_preview: "미리보기",
-    style_preview_close: "미리보기 닫기",
-    
-    // 드래그 앤 드롭 업로드
-    drop_zone_text: "이미지를 여기에 드래그 앤 드롭하여 업로드",
-    drop_zone_drag_over: "놓으면 업로드",
-    drop_zone_uploading: "업로드 중...",
-    drop_zone_progress: "업로드 진행률",
-    drop_zone_preview: "미리보기",
-    drop_zone_clear: "지우기",
-    drop_zone_error: "업로드 실패"
+    video_provider_pollinations: "Pollinations.ai"
   },
   
   // ====== 阿拉伯語 (ar) - RTL ======
@@ -1209,54 +1021,7 @@ export const TRANSLATIONS = {
     video_error_disabled: "إنشاء الفيديو غير مفعّل",
     video_model_svd: "SVD",
     video_model_svd_xt: "SVD-XT",
-    video_provider_pollinations: "Pollinations.ai",
-    
-    // لوحة الإجراءات السريعة
-    quick_actions_title: "⚡ الإجراءات السريعة",
-    quick_actions_toggle: "توسيع/طي",
-    quick_style_presets: "إعدادات النمط المسبقة",
-    quick_size_presets: "إعدادات الحجم المسبقة",
-    quick_quality_modes: "أوضاع الجودة",
-    quick_random_prompt: "🎲 موجه عشوائي",
-    quick_clear_all: "🗑️ مسح الكل",
-    quick_reset_settings: "🔄 إعادة تعيين الإعدادات",
-    
-    // اختصارات لوحة المفاتيح
-    shortcuts_title: "⌨️ اختصارات لوحة المفاتيح",
-    shortcuts_help: "مساعدة الاختصارات",
-    shortcuts_close: "إغلاق",
-    shortcut_generate: "إنشاء صورة",
-    shortcut_clear: "مسح الإدخال",
-    shortcut_random: "موجه عشوائي",
-    shortcut_page: "تبديل الصفحة",
-    shortcut_save: "حفظ الإعدادات",
-    shortcut_help: "عرض المساعدة",
-    shortcut_ctrl: "Ctrl",
-    shortcut_cmd: "Cmd",
-    
-    // إمكانية الوصول
-    skip_to_main: "تخطي التنقل والانتقال إلى المحتوى الرئيسي",
-    skip_to_form: "تخطي التنقل والانتقال إلى النموذج",
-    accessibility_enabled: "تم تفعيل ميزات إمكانية الوصول",
-    high_contrast_enabled: "تم تفعيل وضع التباين العالي",
-    reduced_motion_enabled: "تم تفعيل وضع تقليل الحركة",
-    
-    // محدد النمط
-    style_search_placeholder: "البحث عن الأنماط...",
-    style_search_clear: "مسح البحث",
-    style_recent: "الأخيرة",
-    style_recent_clear: "مسح الأخيرة",
-    style_preview: "معاينة",
-    style_preview_close: "إغلاق المعاينة",
-    
-    // السحب والإفلات للرفع
-    drop_zone_text: "اسحب وأفلت الصورة هنا للرفع",
-    drop_zone_drag_over: "أفلت للرفع",
-    drop_zone_uploading: "جاري الرفع...",
-    drop_zone_progress: "تقدم الرفع",
-    drop_zone_preview: "معاينة",
-    drop_zone_clear: "مسح",
-    drop_zone_error: "فشل الرفع"
+    video_provider_pollinations: "Pollinations.ai"
   }
 };
 

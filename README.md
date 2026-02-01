@@ -1,10 +1,9 @@
 # 🎨 Flux AI Pro - NanoBanana Edition
 
-![Version](https://img.shields.io/badge/Version-12.0.0-8B5CF6?style=flat-square)
+![Version](https://img.shields.io/badge/Version-11.8.0-8B5CF6?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Cloudflare%20Workers-orange?style=flat-square)
 ![Engine](https://img.shields.io/badge/Engine-Multi%20Provider-blue?style=flat-square)
 ![I18N](https://img.shields.io/badge/I18N-5%20Languages-green?style=flat-square)
-![UI](https://img.shields.io/badge/UI-Optimized-success?style=flat-square)
 
 **Flux AI Pro - NanoBanana Edition** is a high-performance, single-file AI image generation solution built on Cloudflare Workers. It integrates top-tier AI providers like Pollinations.ai, Infip/Ghostbot, and Aqua Server to deliver a serverless, lightning-fast, and feature-rich creative experience.
 
@@ -15,7 +14,7 @@
 **Flux AI Pro** is designed for creators who demand speed, quality, and flexibility. By leveraging the power of Cloudflare's edge network, it provides a seamless interface for generating high-quality AI art without the need for complex server setups.
 
 ### 🚀 Key Features
-- **Dual Interface Design**:
+- **Dual Interface Design**: 
   - **Professional UI**: Full control over parameters like Steps, Guidance, and Seed.
   - **NanoBanana Pro**: A streamlined, mobile-friendly "one-click" generation experience.
 - **Multi-Provider Architecture**: Seamlessly switch between Pollinations.ai (Free) and Infip/Ghostbot (Pro).
@@ -25,23 +24,11 @@
 - **AI Prompt Generator**: Powered by Google Gemini 3 Flash to turn simple ideas into professional prompts.
 - **Ultra HD by Default**: Built-in optimization strategies to ensure every image is generated at maximum quality.
 - **Permanent Local History**: Uses IndexedDB to store your creations locally with export/import capabilities.
-- **Enhanced UI/UX**: Unified color system, responsive design, keyboard shortcuts, accessibility features, and quick action panel.
 
 ---
 
-## 🔥 v12.0.0 更新亮點 (Release Highlights)
+## 🔥 v11.8.0 更新亮點 (Release Highlights)
 
-### 🎨 UI 全面優化
-- **🎨 統一色彩系統**：為 Nano Pro 和 Professional 介面實施統一的 CSS 變量色彩系統，支持深色模式和高對比度模式。
-- **📱 響應式設計改進**：添加多個斷點的媒體查詢，優化移動設備的觸控體驗，改善平板和桌面端的佈局適配。
-- **⏳ 加載狀態優化**：增強加載動畫效果，添加進度指示器，改善用戶反饋視覺效果。
-- **🎭 風格選擇器優化**：添加風格搜索功能，實施最近使用風格追蹤（localStorage），添加風格預覽模態框。
-- **📤 拖放上傳優化**：增強拖放區域的視覺反饋，添加圖片預覽功能，實施上傳進度追蹤。
-- **⚡ 快捷操作面板**：添加風格預設按鈕、尺寸預設按鈕、質量模式切換、隨機提示詞生成、清空全部和重置設置功能。
-- **⌨️ 鍵盤快捷鍵**：支持 Ctrl/Cmd + Enter 生成、Ctrl/Cmd + Shift + C 清空、Ctrl/Cmd + R 隨機提示詞、Ctrl/Cmd + P 切換頁面、Ctrl/Cmd + S 保存設置、Ctrl/Cmd + K 顯示幫助。
-- **♿ 無障礙優化**：添加跳過導航鏈接、焦點可見性增強、ARIA 標籤、高對比度模式、減少動畫偏好、屏幕閱讀器支持、焦點陷阱、完整鍵盤導航。
-
-### 📊 供應商使用統計追蹤
 - **📊 供應商使用統計追蹤**：新增 API 供應商使用比例追蹤功能，自動記錄各供應商的使用次數與比例。
 - **🔄 實時統計數據**：透過 `/api/provider-stats` 端點獲取詳細的供應商使用統計，包含總生成次數與各供應商使用比例。
 - **💾 KV 持久化存儲**：統計數據自動存儲在 KV 中，30天後自動過期，確保數據持久性。
