@@ -4262,6 +4262,51 @@ function updateModelOptions() {
     
     // Update reference images visibility after model list is updated
     updateReferenceImagesVisibility();
+    
+    // Update size options based on selected model
+    updateSizeOptions();
+}
+
+// Update size options based on provider's max_size
+function updateSizeOptions() {
+    const p = providerSelect.value;
+    const config = PROVIDERS[p];
+    if (!config) return;
+    
+    // Use provider's max_size for filtering
+    const providerMaxSize = config.max_size;
+    if (!providerMaxSize) return;
+    
+    const maxSize = Math.min(providerMaxSize.width, providerMaxSize.height);
+    const sizeSelect = document.getElementById('size');
+    const currentSizeValue = sizeSelect.value;
+    
+    // Filter sizes based on provider's max_size
+    const filteredSizes = {};
+    for (const [key, size] of Object.entries(CONFIG.PRESET_SIZES)) {
+        // Check if both width and height are within max_size
+        if (size.width <= maxSize && size.height <= maxSize) {
+            filteredSizes[key] = size;
+        }
+    }
+    
+    // Generate size options HTML
+    let sizeOptionsHTML = '';
+    let hasValidSize = false;
+    
+    for (const [key, size] of Object.entries(filteredSizes)) {
+        const selected = key === currentSizeValue ? ' selected' : '';
+        if (key === currentSizeValue) hasValidSize = true;
+        sizeOptionsHTML += `<option value="${key}"${selected}>${size.name} (${size.width}x${size.height})</option>`;
+    }
+    
+    // If current size is not valid, select the first available size
+    if (!hasValidSize && Object.keys(filteredSizes).length > 0) {
+        const firstKey = Object.keys(filteredSizes)[0];
+        sizeOptionsHTML = sizeOptionsHTML.replace(`value="${firstKey}"`, `value="${firstKey}" selected`);
+    }
+    
+    sizeSelect.innerHTML = sizeOptionsHTML;
 }
 
 // ====== 拖放功能模塊 ======
@@ -4474,7 +4519,10 @@ function updateReferenceImagesVisibility() {
     }
 }
 
-modelSelect.addEventListener('change', updateReferenceImagesVisibility);
+modelSelect.addEventListener('change', () => {
+    updateReferenceImagesVisibility();
+    updateSizeOptions();
+});
 
 const PRESET_SIZES=${JSON.stringify(CONFIG.PRESET_SIZES)};
 const STYLE_PRESETS=${JSON.stringify(CONFIG.STYLE_PRESETS)};
