@@ -367,7 +367,8 @@ class PollinationsProvider {
     const {
       model = "zimage", width = 1024, height = 1024, seed = -1, negativePrompt = "", guidance = null, steps = null,
       enhance = false, nologo = true, privateMode = true, style = "none", autoOptimize = true, autoHD = true,
-      qualityMode = 'standard', referenceImages = []
+      qualityMode = 'standard', referenceImages = [],
+      detail = 'medium', sampler = 'euler', cfgScale = null, clipSkip = null, denoisingStrength = null
     } = options;
 
     console.log("🍌 [PollinationsProvider] 開始生成:", { model, prompt: prompt.substring(0, 30) + "..." });
@@ -403,6 +404,22 @@ class PollinationsProvider {
         validReferenceImages = referenceImages;
         logger.add("🖼️ Reference Images", { model: model, count: validReferenceImages.length, max_allowed: maxRefImages, mode: "圖生圖" });
       }
+      
+      // 🔍 參考圖片 URL 驗證
+      const validUrls = [];
+      for (const imgUrl of validReferenceImages) {
+        try {
+          const urlObj = new URL(imgUrl);
+          if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:') {
+            validUrls.push(imgUrl);
+          } else {
+            logger.add("⚠️ Invalid Reference Image URL", { url: imgUrl, reason: "Invalid protocol" });
+          }
+        } catch (e) {
+          logger.add("⚠️ Invalid Reference Image URL", { url: imgUrl, error: e.message });
+        }
+      }
+      validReferenceImages = validUrls;
     }
     
     let basePrompt = prompt;
@@ -464,7 +481,14 @@ class PollinationsProvider {
     let fullPrompt = finalFullPrompt;
     if (enhancedNegative && enhancedNegative.trim()) fullPrompt = finalFullPrompt + " [negative: " + enhancedNegative + "]";
     
-    const encodedPrompt = encodeURIComponent(fullPrompt);
+    // 🔍 提示詞長度優化
+    const MAX_PROMPT_LENGTH = 2000;
+    let truncatedPrompt = fullPrompt;
+    if (fullPrompt.length > MAX_PROMPT_LENGTH) {
+      truncatedPrompt = fullPrompt.substring(0, MAX_PROMPT_LENGTH);
+      logger.add("⚠️ Prompt Truncated", { original_length: fullPrompt.length, truncated_length: MAX_PROMPT_LENGTH });
+    }
+    const encodedPrompt = encodeURIComponent(truncatedPrompt);
     const pathPrefix = this.config.pathPrefix || "";
     let baseUrl = this.config.endpoint + pathPrefix + "/" + encodedPrompt;
     
@@ -484,6 +508,15 @@ class PollinationsProvider {
     if (finalGuidance !== 7.5) params.append('guidance', finalGuidance.toString());
     if (finalSteps !== 20) params.append('steps', finalSteps.toString());
     
+    // 🔧 新增額外 API 參數
+    if (detail !== 'medium') params.append('detail', detail);
+    if (sampler !== 'euler') params.append('sampler', sampler);
+    if (cfgScale !== null) params.append('cfg_scale', cfgScale.toString());
+    if (clipSkip !== null) params.append('clip_skip', clipSkip.toString());
+    if (validReferenceImages.length > 0 && denoisingStrength !== null) {
+      params.append('denoising_strength', denoisingStrength.toString());
+    }
+    
     const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'image/*', 'Referer': 'https://pollinations.ai/' };
     const authConfig = CONFIG.POLLINATIONS_AUTH;
     if (authConfig.enabled && authConfig.token) {
@@ -496,20 +529,111 @@ class PollinationsProvider {
     const url = baseUrl + '?' + params.toString();
     logger.add("📡 API Request", { endpoint: this.config.endpoint, path: pathPrefix + "/" + encodedPrompt.substring(0, 50) + "...", model: apiModel, authenticated: authConfig.enabled && !!authConfig.token, full_url: url.substring(0, 100) + "..." });
     
+    // ⏱️ 請求超時優化 - 根據圖片大小動態調整
+    const pixelCount = finalWidth * finalHeight;
+    const baseTimeout = 30000;
+    const timeoutPerMPixel = 10000;
+    const dynamicTimeout = baseTimeout + (pixelCount / 1000000) * timeoutPerMPixel;
+    const finalTimeout = Math.min(dynamicTimeout, 180000);
+    
     for (let retry = 0; retry < CONFIG.MAX_RETRIES; retry++) {
       try {
-        const response = await fetchWithTimeout(url, { method: 'GET', headers: headers }, 120000);
+        const response = await fetchWithTimeout(url, { method: 'GET', headers: headers }, finalTimeout);
         if (response.ok) {
           const contentType = response.headers.get('content-type');
           if (contentType && contentType.startsWith('image/')) {
-            logger.add("✅ Success", { url: response.url, used_model: apiModel, final_size: finalWidth + "x" + finalHeight, quality_mode: qualityMode, style_used: style, style_name: CONFIG.STYLE_PRESETS[style]?.name || style, hd_optimized: autoHD && hdOptimization?.optimized, auto_translated: translationLog.translated, reference_images_used: validReferenceImages.length, generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖", authenticated: authConfig.enabled && !!authConfig.token, seed: currentSeed });
+            // 📊 速率限制處理
+            const rateLimit = {
+              remaining: response.headers.get('X-RateLimit-Remaining'),
+              reset: response.headers.get('X-RateLimit-Reset'),
+              limit: response.headers.get('X-RateLimit-Limit')
+            };
+            if (rateLimit.remaining) {
+              logger.add("📊 Rate Limit", rateLimit);
+            }
+            
+            // 💰 成本追蹤
+            const cost = response.headers.get('X-Cost') || modelConfig?.pricing?.image_price || "FREE";
+            
             const imageBlob = await response.blob();
             const imageBuffer = await imageBlob.arrayBuffer();
-            return { imageData: imageBuffer, contentType: contentType, url: response.url, provider: this.name, model: model, requested_model: model, seed: currentSeed, style: style, style_name: CONFIG.STYLE_PRESETS[style]?.name || style, style_category: CONFIG.STYLE_PRESETS[style]?.category || 'unknown', steps: finalSteps, guidance: finalGuidance, width: finalWidth, height: finalHeight, quality_mode: qualityMode, prompt_complexity: promptComplexity, hd_optimized: autoHD && hdOptimization?.optimized, hd_details: hdOptimization, auto_translated: translationLog.translated, reference_images: validReferenceImages, reference_images_count: validReferenceImages.length, generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖", authenticated: authConfig.enabled && !!authConfig.token, cost: "FREE", auto_optimized: autoOptimize };
+            
+            // 🔍 圖片品質驗證
+            const MIN_IMAGE_SIZE = 1024;
+            if (imageBuffer.byteLength < MIN_IMAGE_SIZE) {
+              throw new Error(`生成的圖片過小 (${imageBuffer.byteLength} bytes)，可能生成失敗`);
+            }
+            
+            // 📝 日誌優化
+            logger.add("✅ Success", {
+              url: response.url,
+              used_model: apiModel,
+              final_size: finalWidth + "x" + finalHeight,
+              quality_mode: qualityMode,
+              style_used: style,
+              style_name: CONFIG.STYLE_PRESETS[style]?.name || style,
+              hd_optimized: autoHD && hdOptimization?.optimized,
+              auto_translated: translationLog.translated,
+              reference_images_used: validReferenceImages.length,
+              generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖",
+              authenticated: authConfig.enabled && !!authConfig.token,
+              seed: currentSeed,
+              prompt_length: fullPrompt.length,
+              steps: finalSteps,
+              guidance: finalGuidance,
+              detail: detail,
+              sampler: sampler,
+              cost: cost,
+              cost_currency: modelConfig?.pricing?.currency || "pollen"
+            });
+            
+            return {
+              imageData: imageBuffer,
+              contentType: contentType,
+              url: response.url,
+              provider: this.name,
+              model: model,
+              requested_model: model,
+              seed: currentSeed,
+              style: style,
+              style_name: CONFIG.STYLE_PRESETS[style]?.name || style,
+              style_category: CONFIG.STYLE_PRESETS[style]?.category || 'unknown',
+              steps: finalSteps,
+              guidance: finalGuidance,
+              width: finalWidth,
+              height: finalHeight,
+              quality_mode: qualityMode,
+              prompt_complexity: promptComplexity,
+              hd_optimized: autoHD && hdOptimization?.optimized,
+              hd_details: hdOptimization,
+              auto_translated: translationLog.translated,
+              reference_images: validReferenceImages,
+              reference_images_count: validReferenceImages.length,
+              generation_mode: validReferenceImages.length > 0 ? "圖生圖" : "文生圖",
+              authenticated: authConfig.enabled && !!authConfig.token,
+              cost: cost,
+              cost_currency: modelConfig?.pricing?.currency || "pollen",
+              auto_optimized: autoOptimize,
+              detail: detail,
+              sampler: sampler
+            };
           } else { throw new Error("Invalid content type: " + contentType); }
-        } else if (response.status === 401) { throw new Error("Authentication failed: Invalid or missing API key. Please set POLLINATIONS_API_KEY"); } 
-        else if (response.status === 403) { throw new Error("Access forbidden: API key may lack required permissions"); } 
-        else { throw new Error("HTTP " + response.status + ": " + (await response.text()).substring(0, 200)); }
+        } else if (response.status === 401) {
+          throw new Error("認證失敗：無效或缺少 API 金鑰。請設置 POLLINATIONS_API_KEY 環境變量");
+        }
+        else if (response.status === 403) {
+          throw new Error("存取被拒絕：API 金鑰可能缺少所需權限");
+        }
+        else if (response.status === 429) {
+          throw new Error("請求過於頻繁：已達到速率限制，請稍後再試");
+        }
+        else if (response.status === 500) {
+          throw new Error("伺服器錯誤：Pollinations API 伺服器暫時無法使用");
+        }
+        else {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 200)}`);
+        }
       } catch (e) {
         logger.add("❌ Request Failed", { error: e.message, model: apiModel, retry: retry + 1, max_retries: CONFIG.MAX_RETRIES, endpoint: this.config.endpoint });
         if (retry < CONFIG.MAX_RETRIES - 1) await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1)));
