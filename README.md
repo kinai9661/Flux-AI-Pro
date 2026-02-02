@@ -1,6 +1,6 @@
 # 🎨 Flux AI Pro - NanoBanana Edition
 
-![Version](https://img.shields.io/badge/Version-11.8.0-8B5CF6?style=flat-square)
+![Version](https://img.shields.io/badge/Version-11.9.0-8B5CF6?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Cloudflare%20Workers-orange?style=flat-square)
 ![Engine](https://img.shields.io/badge/Engine-Multi%20Provider-blue?style=flat-square)
 ![I18N](https://img.shields.io/badge/I18N-5%20Languages-green?style=flat-square)
@@ -27,8 +27,12 @@
 
 ---
 
-## 🔥 v11.8.0 更新亮點 (Release Highlights)
+## 🔥 v11.9.0 更新亮點 (Release Highlights)
 
+- **🔄 Aqua Polling Models**：新增 Aqua API 輪詢模型支援，包含 `imagen4` (Google Imagen 4) 和 `nanobanana` (Img2Img)。
+- **📸 Img2Img 支援**：nanobanana 模型支援圖片轉圖片功能，可上傳參考圖片進行生成。
+- **🎯 動態 UI 顯示**：參考圖片區塊根據模型能力自動顯示或隱藏，提供更直觀的使用體驗。
+- **⚡ 輪詢機制優化**：實現智能輪詢系統，自動追蹤任務狀態 (pending → processing → completed/failed)。
 - **📊 供應商使用統計追蹤**：新增 API 供應商使用比例追蹤功能，自動記錄各供應商的使用次數與比例。
 - **🔄 實時統計數據**：透過 `/api/provider-stats` 端點獲取詳細的供應商使用統計，包含總生成次數與各供應商使用比例。
 - **💾 KV 持久化存儲**：統計數據自動存儲在 KV 中，30天後自動過期，確保數據持久性。
@@ -51,7 +55,9 @@
 ### 3. 多供應商模型庫 (Multi-Model Library)
 *   **Pollinations.ai**：提供 `Kontext`、`NanoBanana` (Nano Pro 專用)、`SeeDream`、`Flux Schnell`、`Z-Image`、`FLUX.2 Klein`、`FLUX.2 Klein 9B` 等免費高品質模型。
 *   **Infip/Ghostbot**：支援 Google `Imagen 4` 與 `Flux Schnell`，具備更強的併發處理能力。
-*   **Aqua Server**：新增供應商選項，提供額外的生成能力。
+*   **Aqua Server**：提供 `Flux 2`、`Z-Image`、`Imagen 4` (輪詢模式)、`NanoBanana` (Img2Img 輪詢模式) 等高品質模型。
+*   **輪詢模型支援**：imagen4 和 nanobanana 採用輪詢機制，確保大型模型生成的穩定性。
+*   **Img2Img 功能**：nanobanana 模型支援參考圖片上傳，實現圖片轉圖片生成。
 *   **供應商統計追蹤**：自動追蹤各供應商的使用次數與比例，透過 API 端點查詢。
 
 ### 4. 性能與優化 (Performance)

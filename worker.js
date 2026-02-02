@@ -1,7 +1,7 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 11.8.0 (Aqua API 集成)
-//  更新: 新增 Aqua API (Flux-2, Z-Image, NanoBanana, Imagen4)、風格擴展多語言支援
+//  版本: 11.9.0 (Aqua Polling Models)
+//  更新: 新增 Aqua API 輪詢模型 (imagen4, nanobanana)、Img2Img 支援、參考圖片動態顯示
 // =================================================================================
 
 // 導入風格適配器（僅在服務器端使用）
@@ -13,7 +13,7 @@ const mergedStyles = styleManager.merge();
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "11.7.0",
+  PROJECT_VERSION: "11.9.0",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -94,15 +94,15 @@ const CONFIG = {
       requires_key: true,
       enabled: true,
       default: false,
-      description: "AquaDevs Premium API",
+      description: "AquaDevs Premium API (Polling Models: imagen4, nanobanana)",
       features: {
-        private_mode: true, custom_size: true, seed_control: false, negative_prompt: false, enhance: false, nologo: false, style_presets: true, auto_hd: true, quality_modes: false, auto_translate: true, reference_images: false, image_to_image: false, batch_generation: true, api_key_auth: true
+        private_mode: true, custom_size: true, seed_control: false, negative_prompt: false, enhance: false, nologo: false, style_presets: true, auto_hd: true, quality_modes: false, auto_translate: true, reference_images: true, image_to_image: true, batch_generation: true, api_key_auth: true, polling_mode: true
       },
       models: [
-        { id: "flux-2", name: "Flux 2 ⚡", category: "flux", description: "Flux 2 Generation", max_size: 1024 },
-        { id: "zimage", name: "Z-Image", category: "other", description: "Z-Image Model", max_size: 1024 },
-        { id: "nanobanana", name: "NanoBanana 🍌", category: "flux", description: "NanoBanana Model", max_size: 1024 },
-        { id: "imagen4", name: "Imagen 4", category: "google", description: "Google Imagen 4", max_size: 1024 }
+        { id: "flux-2", name: "Flux 2 ⚡", category: "flux", description: "Flux 2 Generation", max_size: 1024, input_modalities: ["text"], output_modalities: ["image"] },
+        { id: "zimage", name: "Z-Image", category: "other", description: "Z-Image Model", max_size: 1024, input_modalities: ["text"], output_modalities: ["image"] },
+        { id: "nanobanana", name: "NanoBanana 🍌", category: "flux", description: "NanoBanana Img2Img Model (Polling)", max_size: 1024, supports_reference_images: true, max_reference_images: 1, input_modalities: ["text", "image"], output_modalities: ["image"], polling: true },
+        { id: "imagen4", name: "Imagen 4", category: "google", description: "Google Imagen 4 (Polling)", max_size: 1024, input_modalities: ["text"], output_modalities: ["image"], polling: true }
       ],
       rate_limit: { requests: 50, interval: 60 },
       max_size: { width: 2048, height: 2048 }
@@ -117,6 +117,7 @@ const CONFIG = {
   OPTIMIZATION_RULES: {
     MODEL_STEPS: {
       "nanobanana": { min: 25, optimal: 30, max: 50 },
+      "imagen4": { min: 25, optimal: 30, max: 50 },
       "seedream": { min: 25, optimal: 30, max: 50 },
       "flux-schnell": { min: 20, optimal: 25, max: 40 },
       "zimage": { min: 25, optimal: 30, max: 50 },
@@ -143,6 +144,7 @@ const CONFIG = {
     HD_NEGATIVE: "blurry, low quality, distorted, ugly, bad anatomy, low resolution, pixelated, artifacts, noise, jpeg artifacts, watermark, text, signature, mutation, deformed, extra limbs, extra fingers, bad hands, bad feet, poor composition, out of frame, worst quality, normal quality, error, missing fingers, extra digit, fewer digits, cropped",
     MODEL_QUALITY_PROFILES: {
       "nanobanana": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "ultra" },
+      "imagen4": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "ultra" },
       "seedream": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "ultra" },
       "flux-schnell": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.0, guidance_boost: 1.0, recommended_quality: "standard" },
       "zimage": { min_resolution: 1024, max_resolution: 2048, optimal_steps_boost: 1.15, guidance_boost: 1.1, recommended_quality: "ultra" },
@@ -672,7 +674,7 @@ class AquaProvider {
   constructor(config, env) { this.config = config; this.name = config.name; this.env = env; }
   
   async generate(prompt, options, logger) {
-    const { model = "flux-2", width = 1024, height = 1024, apiKey = "", style = "none", negativePrompt = "" } = options;
+    const { model = "flux-2", width = 1024, height = 1024, apiKey = "", style = "none", negativePrompt = "", referenceImages = [] } = options;
     const finalApiKey = this.env.AQUA_API_KEY || apiKey;
     if (!finalApiKey) throw new Error("Aqua API Key is required (Set AQUA_API_KEY env var or provide via UI)");
 
@@ -699,76 +701,124 @@ class AquaProvider {
 
     let imgUrl = null;
     
-    // Smart Routing
-    const isChatModel = ["gemini", "grok", "openai", "gpt", "deepseek", "minimax", "glm", "nova", "kimi"].some(k => model.toLowerCase().includes(k));
-
-    if (isChatModel) {
-        // Chat API Logic
-        try {
-            const chatUrl = `${this.config.endpoint}/v1/chat/completions`;
-            const chatBody = {
-              model: model,
-              messages: [{ role: "user", content: "Generate an image of: " + enhancedPrompt + ". Return the image URL." }]
-            };
-            logger.add("📡 Aqua Request (Chat API)", { url: chatUrl, model });
-
-            const chatResp = await fetchWithTimeout(chatUrl, { method: 'POST', headers, body: JSON.stringify(chatBody) }, 60000);
-            if (!chatResp.ok) throw new Error(`Chat API Status ${chatResp.status}: ${await chatResp.text()}`);
-
-            const chatData = await chatResp.json();
-            console.log("🌊 [AquaProvider] Chat Response:", JSON.stringify(chatData));
-            
-            const content = chatData.choices?.[0]?.message?.content || "";
-            const urlMatch = content.match(/https?:\/\/[^\s)"']+/);
-            if (urlMatch) imgUrl = urlMatch[0];
-            else throw new Error("No URL found in chat content: " + content.substring(0, 100));
-        } catch (e) {
-            throw new Error(`Aqua Chat API Failed: ${e.message}`);
-        }
+    // Check for Polling Models (imagen4, nanobanana)
+    const isPollingModel = ["imagen4", "nanobanana"].includes(model.toLowerCase());
+    
+    if (isPollingModel) {
+      // Polling API Logic for imagen4 and nanobanana
+      logger.add("🔄 Using Polling API", { model });
+      
+      // Determine ratio based on width/height
+      let ratio = "square";
+      if (width > height) ratio = "landscape";
+      else if (height > width) ratio = "portrait";
+      
+      // Build request body
+      const requestBody = {
+        model: model,
+        prompt: enhancedPrompt,
+        ratio: ratio
+      };
+      
+      // Add image parameter for nanobanana (Img2Img)
+      if (model.toLowerCase() === "nanobanana" && referenceImages && referenceImages.length > 0) {
+        requestBody.image = referenceImages[0].trim();
+        logger.add("📸 Img2Img Mode", { referenceImage: requestBody.image });
+      }
+      
+      // Create task
+      const createUrl = `${this.config.endpoint}/v1/images/generate`;
+      logger.add("📡 Creating Task", { url: createUrl, model, ratio });
+      
+      const createResp = await fetchWithTimeout(createUrl, { method: 'POST', headers, body: JSON.stringify(requestBody) }, 30000);
+      
+      if (!createResp.ok) {
+        const errText = await createResp.text();
+        throw new Error(`Task creation failed: Status ${createResp.status} - ${errText}`);
+      }
+      
+      const taskData = await createResp.json();
+      logger.add("✅ Task Created", { taskId: taskData.task_id, statusUrl: taskData.url });
+      
+      if (!taskData.success || !taskData.task_id) {
+        throw new Error("Invalid task response: " + JSON.stringify(taskData));
+      }
+      
+      // Poll for result
+      imgUrl = await this.pollTask(taskData.task_id, headers, logger);
+      
     } else {
-        // Image API Logic (No Fallback, but with Retry)
-        const url = `${this.config.endpoint}/v1/images/generations`;
-        const body = { model, prompt: enhancedPrompt, n: 1, size: `${width}x${height}`, response_format: "url" };
-        logger.add("📡 Aqua Request (Image API)", { url, model });
+      // Smart Routing for non-polling models
+      const isChatModel = ["gemini", "grok", "openai", "gpt", "deepseek", "minimax", "glm", "nova", "kimi"].some(k => model.toLowerCase().includes(k));
 
-        let lastError;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-                const response = await fetchWithTimeout(url, { method: 'POST', headers, body: JSON.stringify(body) }, 60000);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log("🌊 [AquaProvider] Image Response:", JSON.stringify(data));
+      if (isChatModel) {
+          // Chat API Logic
+          try {
+              const chatUrl = `${this.config.endpoint}/v1/chat/completions`;
+              const chatBody = {
+                model: model,
+                messages: [{ role: "user", content: "Generate an image of: " + enhancedPrompt + ". Return the image URL." }]
+              };
+              logger.add("📡 Aqua Request (Chat API)", { url: chatUrl, model });
 
-                    if (data.data && data.data.length > 0) imgUrl = data.data[0].url;
-                    else if (data.url) imgUrl = data.url;
-                    else if (data.output) imgUrl = Array.isArray(data.output) ? data.output[0] : data.output;
-                    
-                    if (imgUrl) break; // Success
-                    throw new Error("No URL in response: " + JSON.stringify(data));
-                } else {
-                    const errText = await response.text();
-                    const headersObj = {};
-                    response.headers.forEach((v, k) => headersObj[k] = v);
-                    
-                    logger.add(`⚠️ Attempt ${attempt} Failed`, { status: response.status, headers: headersObj, body: errText });
-                    
-                    if (response.status === 502 && attempt < 3) {
-                        await new Promise(r => setTimeout(r, 1000 * attempt));
-                        continue;
-                    }
-                    throw new Error(`Status ${response.status}: ${errText}`);
-                }
-            } catch (e) {
-                lastError = e;
-                if (!e.message.includes("Status 502") || attempt === 3) break;
-                logger.add(`⚠️ Retry ${attempt}/3`, { error: e.message });
-            }
-        }
+              const chatResp = await fetchWithTimeout(chatUrl, { method: 'POST', headers, body: JSON.stringify(chatBody) }, 60000);
+              if (!chatResp.ok) throw new Error(`Chat API Status ${chatResp.status}: ${await chatResp.text()}`);
 
-        if (!imgUrl) {
-             throw new Error(`Aqua Image API Failed: ${lastError?.message}`);
-        }
+              const chatData = await chatResp.json();
+              console.log("🌊 [AquaProvider] Chat Response:", JSON.stringify(chatData));
+              
+              const content = chatData.choices?.[0]?.message?.content || "";
+              const urlMatch = content.match(/https?:\/\/[^\s)"']+/);
+              if (urlMatch) imgUrl = urlMatch[0];
+              else throw new Error("No URL found in chat content: " + content.substring(0, 100));
+          } catch (e) {
+              throw new Error(`Aqua Chat API Failed: ${e.message}`);
+          }
+      } else {
+          // Image API Logic (No Fallback, but with Retry)
+          const url = `${this.config.endpoint}/v1/images/generations`;
+          const body = { model, prompt: enhancedPrompt, n: 1, size: `${width}x${height}`, response_format: "url" };
+          logger.add("📡 Aqua Request (Image API)", { url, model });
+
+          let lastError;
+          for (let attempt = 1; attempt <= 3; attempt++) {
+              try {
+                  const response = await fetchWithTimeout(url, { method: 'POST', headers, body: JSON.stringify(body) }, 60000);
+                  
+                  if (response.ok) {
+                      const data = await response.json();
+                      console.log("🌊 [AquaProvider] Image Response:", JSON.stringify(data));
+
+                      if (data.data && data.data.length > 0) imgUrl = data.data[0].url;
+                      else if (data.url) imgUrl = data.url;
+                      else if (data.output) imgUrl = Array.isArray(data.output) ? data.output[0] : data.output;
+                      
+                      if (imgUrl) break; // Success
+                      throw new Error("No URL in response: " + JSON.stringify(data));
+                  } else {
+                      const errText = await response.text();
+                      const headersObj = {};
+                      response.headers.forEach((v, k) => headersObj[k] = v);
+                      
+                      logger.add(`⚠️ Attempt ${attempt} Failed`, { status: response.status, headers: headersObj, body: errText });
+                      
+                      if (response.status === 502 && attempt < 3) {
+                          await new Promise(r => setTimeout(r, 1000 * attempt));
+                          continue;
+                      }
+                      throw new Error(`Status ${response.status}: ${errText}`);
+                  }
+              } catch (e) {
+                  lastError = e;
+                  if (!e.message.includes("Status 502") || attempt === 3) break;
+                  logger.add(`⚠️ Retry ${attempt}/3`, { error: e.message });
+              }
+          }
+
+          if (!imgUrl) {
+               throw new Error(`Aqua Image API Failed: ${lastError?.message}`);
+          }
+      }
     }
 
     if (imgUrl) {
@@ -777,13 +827,75 @@ class AquaProvider {
       const imageBuffer = await imgResp.arrayBuffer();
       const contentType = imgResp.headers.get('content-type') || 'image/png';
       
-      return { 
-          imageData: imageBuffer, contentType, url: imgUrl, provider: this.name, model, seed: -1, width, height, 
+      return {
+          imageData: imageBuffer, contentType, url: imgUrl, provider: this.name, model, seed: -1, width, height,
           auto_translated: translationLog.translated, authenticated: true, cost: "QUOTA"
       };
     }
     
     throw new Error("Failed to retrieve image URL from Aqua API");
+  }
+  
+  /**
+   * Poll task status until completion
+   * @param {string} taskId - Task ID from create response
+   * @param {object} headers - Request headers with auth
+   * @param {object} logger - Logger instance
+   * @param {number} maxAttempts - Maximum polling attempts (default: 60)
+   * @param {number} interval - Polling interval in ms (default: 2000)
+   * @returns {Promise<string>} Image URL
+   */
+  async pollTask(taskId, headers, logger, maxAttempts = 60, interval = 2000) {
+    const statusUrl = `${this.config.endpoint}/v1/images/tasks/${taskId}`;
+    logger.add("🔄 Starting Poll", { taskId, maxAttempts, interval });
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await fetchWithTimeout(statusUrl, { method: 'GET', headers }, 10000);
+        
+        if (!response.ok) {
+          const errText = await response.text();
+          logger.add(`⚠️ Poll Attempt ${attempt} Failed`, { status: response.status, error: errText });
+          
+          // Don't throw on transient errors, just continue polling
+          if (response.status >= 500 || response.status === 429) {
+            await new Promise(r => setTimeout(r, interval));
+            continue;
+          }
+          throw new Error(`Poll failed: Status ${response.status} - ${errText}`);
+        }
+        
+        const data = await response.json();
+        logger.add(`📊 Poll Attempt ${attempt}/${maxAttempts}`, { status: data.status });
+        
+        if (data.status === 'completed') {
+          if (data.result && data.result.url) {
+            logger.add("✅ Task Completed", { imageUrl: data.result.url });
+            return data.result.url;
+          }
+          throw new Error("Task completed but no image URL in result: " + JSON.stringify(data));
+        }
+        
+        if (data.status === 'failed') {
+          const errorMsg = data.result?.error || data.result?.message || 'Unknown error';
+          throw new Error(`Task failed: ${errorMsg}`);
+        }
+        
+        // Still pending or processing, wait and continue
+        if (attempt < maxAttempts) {
+          await new Promise(r => setTimeout(r, interval));
+        }
+        
+      } catch (e) {
+        if (attempt === maxAttempts) {
+          throw e;
+        }
+        logger.add(`⚠️ Poll Error (Attempt ${attempt})`, { error: e.message });
+        await new Promise(r => setTimeout(r, interval));
+      }
+    }
+    
+    throw new Error(`Task timeout after ${maxAttempts} attempts (${maxAttempts * interval / 1000}s)`);
   }
 }
 
@@ -3334,7 +3446,7 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
 <div class="right-panel">
 <div class="form-group"><label data-t="pos_prompt">正面提示詞</label><textarea id="prompt" placeholder="Describe your image..." required></textarea></div>
 <div class="form-group"><label data-t="neg_prompt">負面提示詞 (可選)</label><textarea id="negativePrompt" placeholder="What to avoid..." rows="4">nsfw, ugly, text, watermark, low quality, bad anatomy, distortion, blurry</textarea></div>
-<div class="form-group"><label data-t="ref_img">參考圖像 (Img2Img) 📸</label>
+<div class="form-group" id="referenceImagesSection"><label data-t="ref_img">參考圖像 (Img2Img) 📸</label>
     <input type="file" id="imageUpload" accept="image/*" style="display:none">
     <div id="imageDropZone" class="drag-drop-zone">
         <div class="drag-icon">📷</div>
@@ -3348,7 +3460,7 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
         </div>
     </div>
     <textarea id="referenceImages" placeholder="Image URL (or upload above)" rows="3" style="margin-top:10px;"></textarea>
-    <div style="font-size:11px; color:#9ca3af; margin-top:4px;">* 支援模型: Kontext, Flux, Klein</div>
+    <div style="font-size:11px; color:#9ca3af; margin-top:4px;">* 支援模型: Kontext, Flux, Klein, NanoBanana (Aqua)</div>
 </div>
 
 <!-- ====== 專業提示詞生成器 (Pollinations) ====== -->
@@ -4002,6 +4114,7 @@ function updateModelOptions() {
     const groups = {};
     models.forEach(m => {
         // Skip nanobanana model - only available in Nano Pro page
+        // imagen4 is available in Professional UI (Aqua polling model)
         if (m.id === 'nanobanana') return;
         
         const cat = m.category || 'other';
@@ -4022,6 +4135,9 @@ function updateModelOptions() {
         });
         modelSelect.appendChild(optgroup);
     }
+    
+    // Update reference images visibility after model list is updated
+    updateReferenceImagesVisibility();
 }
 
 // ====== 拖放功能模塊 ======
@@ -4220,6 +4336,22 @@ apiKeyInput.addEventListener('input', (e) => {
     if (p === 'aqua') sessionStorage.setItem('aqua_api_key', e.target.value);
 });
 
+// Show/hide reference images section based on model support
+function updateReferenceImagesVisibility() {
+    const provider = providerSelect.value;
+    const model = modelSelect.value;
+    const config = PROVIDERS[provider];
+    const modelConfig = config?.models?.find(m => m.id === model);
+    const refImagesSection = document.getElementById('referenceImagesSection');
+    
+    if (refImagesSection) {
+        const supportsRefImages = modelConfig?.supports_reference_images || false;
+        refImagesSection.style.display = supportsRefImages ? 'block' : 'none';
+    }
+}
+
+modelSelect.addEventListener('change', updateReferenceImagesVisibility);
+
 const PRESET_SIZES=${JSON.stringify(CONFIG.PRESET_SIZES)};
 const STYLE_PRESETS=${JSON.stringify(CONFIG.STYLE_PRESETS)};
 const STYLE_CATEGORIES=${JSON.stringify(CONFIG.STYLE_CATEGORIES)};
@@ -4261,7 +4393,7 @@ async function updateHistoryDisplay(){
     history.forEach(item=>{
         const imgSrc = item.base64 || item.url;
         const d=document.createElement('div'); d.className='gallery-item';
-        d.innerHTML=\`<img src="\${imgSrc}" loading="lazy"><div class="gallery-info"><div class="gallery-meta"><span class="model-badge">\${item.model}</span><span class="seed-badge">#\${item.seed}</span></div><div class="gallery-actions"><button class="action-btn reuse-btn">\${I18N[curLang].btn_reuse}</button><button class="action-btn download-btn">\${I18N[curLang].btn_dl}</button><button class="action-btn delete delete-btn">🗑️</button></div></div>\`;
+        d.innerHTML='<img src="'+imgSrc+'" loading="lazy"><div class="gallery-info"><div class="gallery-meta"><span class="model-badge">'+item.model+'</span><span class="seed-badge">#'+item.seed+'</span></div><div class="gallery-actions"><button class="action-btn reuse-btn">'+I18N[curLang].btn_reuse+'</button><button class="action-btn download-btn">'+I18N[curLang].btn_dl+'</button><button class="action-btn delete delete-btn">🗑️</button></div></div>';
         d.querySelector('img').onclick=()=>openModal(imgSrc);
         d.querySelector('.reuse-btn').onclick=()=>{
             document.getElementById('prompt').value=item.prompt||'';
@@ -4296,7 +4428,7 @@ async function updateHistoryDisplay(){
         d.querySelector('.download-btn').onclick=()=>{
             const a=document.createElement('a');
             a.href=imgSrc;
-            a.download=\`\${item.model}-\${item.seed}.png\`;
+            a.download=item.model+'-'+item.seed+'.png';
             a.click();
         };
         d.querySelector('.delete-btn').onclick=()=>deleteFromDB(item.id);
