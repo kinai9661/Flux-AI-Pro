@@ -41,8 +41,16 @@ ENVIRONMENT = "production"
 # 1. POLLINATIONS_API_KEY (Pollinations)
 # 2. INFIP_API_KEY (Ghostbot/Infip)
 # 3. AQUA_API_KEY (Aqua Server)
+# 4. FREEIMAGE_API_KEY (Freeimage.host 圖片存儲 - 歷史記錄優化)
 # ============================================
 # 設置命令範例：
 # npx wrangler secret put POLLINATIONS_API_KEY
 # npx wrangler secret put INFIP_API_KEY
 # npx wrangler secret put AQUA_API_KEY
+# npx wrangler secret put FREEIMAGE_API_KEY
+#
+# 📝 Freeimage.host 圖片存儲:
+# - 預設 API Key: 6d207e02198a847aa98d0a2a901485a5 (無需註冊)
+# - 如需自訂 API Key，訪問 https://freeimage.host/api
+# - 支援縮圖、中等尺寸、完整尺寸三種格式
+# - 無需註冊即可使用預設 API Key

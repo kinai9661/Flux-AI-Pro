@@ -1153,7 +1153,7 @@ async function handleUpload(request) {
       });
     }
 
-    // 驗證文件大小（ImgBB 最大支持 32MB）
+    // 驗證文件大小（Freeimage.host 最大支持 32MB）
     const MAX_FILE_SIZE = 32 * 1024 * 1024; // 32MB
     if (file.size > MAX_FILE_SIZE) {
       return new Response(JSON.stringify({
@@ -1173,9 +1173,9 @@ async function handleUpload(request) {
       });
     }
 
-    // 使用 ImgBB API 上傳圖片
-    // ImgBB 免費 API Key (用於測試，生產環境建議使用自己的 API Key)
-    const IMGBB_API_KEY = '8245f772dd33870730fab74e7e236df2'; // 免費測試用 API Key
+    // 使用 Freeimage.host API 上傳圖片
+    // Freeimage.host 預設 API Key (無需註冊即可使用)
+    const FREEIMAGE_API_KEY = '6d207e02198a847aa98d0a2a901485a5'; // 預設 API Key
     
     // 將文件轉換為 Base64（使用分塊處理避免堆疊溢出）
     const arrayBuffer = await file.arrayBuffer();
@@ -1188,14 +1188,14 @@ async function handleUpload(request) {
     }
     const base64 = btoa(binary);
     
-    // 構建 ImgBB API 請求
-    const imgbbFormData = new FormData();
-    imgbbFormData.append('key', IMGBB_API_KEY);
-    imgbbFormData.append('image', base64);
-    
-    const response = await fetch('https://api.imgbb.com/1/upload', {
+    // 構建 Freeimage.host API 請求
+    const uploadFormData = new FormData();
+    uploadFormData.append('key', FREEIMAGE_API_KEY);
+    uploadFormData.append('source', base64);
+
+    const response = await fetch('https://freeimage.host/api/1/upload', {
       method: 'POST',
-      body: imgbbFormData,
+      body: uploadFormData,
       headers: {
         'User-Agent': 'FluxAIPro-Worker/1.0'
       }
@@ -1214,7 +1214,7 @@ async function handleUpload(request) {
         headers: corsHeaders({ 'Content-Type': 'application/json' })
       });
     } else {
-      console.error('ImgBB API Error:', data);
+      console.error('Freeimage.host API Error:', data);
       return new Response(JSON.stringify({
         error: data.error?.message || 'Upload failed',
         details: data
@@ -3843,23 +3843,67 @@ PerformanceOptimizer.initLazyLoad();
 // 定期清理過期緩存
 setInterval(() => PerformanceOptimizer.cache.cleanup(), 300000); // 每5分鐘清理一次
 
-// ====== IndexedDB 管理核心 (解決死圖) ======
-const DB_NAME='FluxAI_DB',STORE_NAME='images',DB_VERSION=2;
+// ====== IndexedDB 管理核心 (方案 2: Freeimage.host 上傳 + URL 儲存) ======
+const DB_NAME='FluxAI_DB',STORE_NAME='images',DB_VERSION=3;
 const dbPromise=new Promise((resolve,reject)=>{
     const req=indexedDB.open(DB_NAME,DB_VERSION);
     req.onupgradeneeded=(e)=>{
         const db=e.target.result;
-        if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id'});
+        const oldVersion=e.oldVersion;
+        
+        // 創建 object store (如果不存在)
+        if(!db.objectStoreNames.contains(STORE_NAME)){
+            db.createObjectStore(STORE_NAME,{keyPath:'id'});
+        }
+        
+        // 版本 2 -> 3: 移除 base64 欄位，新增 imageUrl 和 thumbnailUrl
+        if(oldVersion<3){
+            const store=e.target.transaction.objectStore(STORE_NAME);
+            
+            // 遍歷所有記錄，移除 base64，添加 imageUrl 和 thumbnailUrl
+            const getAllReq=store.getAll();
+            getAllReq.onsuccess=()=>{
+                const records=getAllReq.result;
+                records.forEach(record=>{
+                    // 如果有 base64，轉換為 URL (需要上傳到 Freeimage.host)
+                    // 這裡暫時保留舊記錄的 base64，新記錄將使用 URL
+                    if(record.base64 && !record.imageUrl){
+                        // 舊記錄標記為需要遷移
+                        record.needsMigration=true;
+                        store.put(record);
+                    }
+                });
+            };
+        }
     };
     req.onsuccess=(e)=>resolve(e.target.result);
     req.onerror=(e)=>reject(e.target.error);
 });
+
+/**
+ * 保存記錄到 IndexedDB (方案 2: 只儲存 URL，不儲存 base64)
+ * @param {Object} item - 記錄物件 {id, timestamp, prompt, model, style, seed, imageUrl, thumbnailUrl, provider}
+ */
 async function saveToDB(item){
     const db=await dbPromise;
     return new Promise((resolve)=>{
         const tx=db.transaction(STORE_NAME,'readwrite');
         const store=tx.objectStore(STORE_NAME);
-        store.put(item);
+        
+        // 只儲存必要的欄位，不儲存 base64
+        const record={
+            id: item.id,
+            timestamp: item.timestamp,
+            prompt: item.prompt,
+            model: item.model,
+            style: item.style,
+            seed: item.seed,
+            imageUrl: item.imageUrl,
+            thumbnailUrl: item.thumbnailUrl,
+            provider: item.provider || 'pollinations'
+        };
+        
+        store.put(record);
         tx.oncomplete=()=>resolve();
     });
 }
@@ -3886,6 +3930,107 @@ async function clearDB(){
     await new Promise(r=>tx.oncomplete=r);
     updateHistoryDisplay();
 }
+
+// ====== Freeimage.host 上傳器 (方案 2: Freeimage.host 上傳 + URL 儲存) ======
+class FreeImageUploader {
+    constructor(apiKey) {
+        this.apiKey = apiKey || '6d207e02198a847aa98d0a2a901485a5'; // Freeimage.host 預設 API Key
+        this.baseUrl = 'https://freeimage.host/api/1/upload';
+        this.maxRetries = 3;
+        this.retryDelay = 1000;
+    }
+
+    /**
+     * 上傳圖片到 Freeimage.host
+     * @param {string} base64Data - base64 圖片資料 (data:image/xxx;base64,...)
+     * @returns {Promise<{url: string, thumbnailUrl: string, mediumUrl: string}>}
+     */
+    async upload(base64Data) {
+        // 移除 data:image/xxx;base64, 前綴
+        const base64Image = base64Data.split(',')[1];
+        
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+            try {
+                const formData = new FormData();
+                formData.append('key', this.apiKey);
+                formData.append('source', base64Image);
+                formData.append('format', 'json');
+                
+                const response = await fetch(this.baseUrl, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.status && data.status_code === 200) {
+                    return {
+                        url: data.data.url,
+                        thumbnailUrl: data.data.thumb?.url || data.data.url,
+                        mediumUrl: data.data.medium?.url || data.data.url,
+                        displayUrl: data.data.display_url || data.data.url
+                    };
+                } else {
+                    throw new Error(data.error?.message || 'Freeimage.host 上傳失敗');
+                }
+            } catch (error) {
+                console.error(`Freeimage.host 上傳嘗試 ${attempt}/${this.maxRetries} 失敗:`, error);
+                
+                if (attempt === this.maxRetries) {
+                    throw new Error(`Freeimage.host 上傳失敗 (已重試 ${this.maxRetries} 次): ${error.message}`);
+                }
+                
+                // 等待後重試
+                await this.delay(this.retryDelay * attempt);
+            }
+        }
+    }
+
+    /**
+     * 從 URL 下載並上傳到 Freeimage.host
+     * @param {string} imageUrl - 圖片 URL
+     * @returns {Promise<{url: string, thumbnailUrl: string, mediumUrl: string}>}
+     */
+    async uploadFromUrl(imageUrl) {
+        try {
+            // 下載圖片
+            const response = await fetch(imageUrl);
+            if (!response.ok) {
+                throw new Error(`無法下載圖片: ${response.statusText}`);
+            }
+            
+            const blob = await response.blob();
+            
+            // 轉換為 base64
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = async () => {
+                    try {
+                        const result = await this.upload(reader.result);
+                        resolve(result);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(new Error('圖片讀取失敗'));
+                reader.readAsDataURL(blob);
+            });
+        } catch (error) {
+            console.error('從 URL 上傳到 Freeimage.host 失敗:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 延遲函數
+     */
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+}
+
+// 全局 Freeimage.host 上傳器實例
+let freeImageUploader = null;
 
 // ====== I18N 與 UI 邏輯 ======
 // 多語言支援（繁體中文、英文、日文、韓文）
@@ -4490,16 +4635,18 @@ if (${hasAquaServerKey} && frontendProviders.aqua) {
 const PROVIDERS=frontendProviders;
 
 async function addToHistory(item){
-    let base64Data = item.image;
-    if(!base64Data && item.url){
-        try{
-            const resp = await fetch(item.url);
-            const blob = await resp.blob();
-            base64Data = await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
-        }catch(e){console.error("Image convert failed",e);}
-    }
+    // 方案 2: 直接使用 imageUrl 和 thumbnailUrl，不上傳到 Freeimage.host
+    // 上傳邏輯在圖片生成處理中完成
     const record={
-        id: Date.now()+Math.random(), timestamp: new Date().toISOString(), prompt: item.prompt, model: item.model, style: item.style, seed: item.seed, base64: base64Data || item.url
+        id: Date.now()+Math.random(),
+        timestamp: new Date().toISOString(),
+        prompt: item.prompt,
+        model: item.model,
+        style: item.style,
+        seed: item.seed,
+        imageUrl: item.imageUrl,
+        thumbnailUrl: item.thumbnailUrl,
+        provider: item.provider || 'pollinations'
     };
     await saveToDB(record);
 }
@@ -4515,10 +4662,12 @@ async function updateHistoryDisplay(){
     if(history.length===0){ list.innerHTML='<div class="empty-state"><p>'+I18N[curLang].no_history+'</p></div>'; return; }
     const div=document.createElement('div');div.className='gallery';
     history.forEach(item=>{
-        const imgSrc = item.base64 || item.url;
+        // 方案 2: 優先使用縮圖 URL，其次使用完整圖片 URL
+        const imgSrc = item.thumbnailUrl || item.imageUrl || item.base64 || item.url;
+        const fullImgSrc = item.imageUrl || item.base64 || item.url || imgSrc;
         const d=document.createElement('div'); d.className='gallery-item';
         d.innerHTML='<img src="'+imgSrc+'" loading="lazy"><div class="gallery-info"><div class="gallery-meta"><span class="model-badge">'+item.model+'</span><span class="seed-badge">#'+item.seed+'</span></div><div class="gallery-actions"><button class="action-btn reuse-btn">'+I18N[curLang].btn_reuse+'</button><button class="action-btn download-btn">'+I18N[curLang].btn_dl+'</button><button class="action-btn delete delete-btn">🗑️</button></div></div>';
-        d.querySelector('img').onclick=()=>openModal(imgSrc);
+        d.querySelector('img').onclick=()=>openModal(fullImgSrc);
         d.querySelector('.reuse-btn').onclick=()=>{
             document.getElementById('prompt').value=item.prompt||'';
             const modelSelect = document.getElementById('model');
@@ -4551,7 +4700,7 @@ async function updateHistoryDisplay(){
         };
         d.querySelector('.download-btn').onclick=()=>{
             const a=document.createElement('a');
-            a.href=imgSrc;
+            a.href=fullImgSrc;
             a.download=item.model+'-'+item.seed+'.png';
             a.click();
         };
@@ -4651,6 +4800,8 @@ document.getElementById('generateForm').addEventListener('submit',async(e)=>{
         
         let items=[];
         const contentType=res.headers.get('content-type');
+        const provider = document.getElementById('provider').value;
+        
         if(contentType&&contentType.startsWith('image/')){
             const blob=await res.blob();
             const reader=new FileReader();
@@ -4658,25 +4809,81 @@ document.getElementById('generateForm').addEventListener('submit',async(e)=>{
             reader.onloadend=async()=>{
                 let base64=reader.result;
                 const realSeed = res.headers.get('X-Seed');
-                const item={ image:base64, prompt, model:res.headers.get('X-Model'), seed: realSeed, style:res.headers.get('X-Style') };
-                await addToHistory(item);
-                displayResult([item]);
+                const model = res.headers.get('X-Model');
+                const style = res.headers.get('X-Style');
+                
+                // 方案 2: 上傳到 Freeimage.host 並儲存 URL
+                try {
+                    if (!freeImageUploader) {
+                        // 使用 Freeimage.host 預設 API Key (無需註冊)
+                        freeImageUploader = new FreeImageUploader();
+                    }
+                    
+                    const uploadResult = await freeImageUploader.upload(base64);
+                    const item = {
+                        imageUrl: uploadResult.url,
+                        thumbnailUrl: uploadResult.thumbnailUrl,
+                        prompt,
+                        model,
+                        seed: realSeed,
+                        style,
+                        provider
+                    };
+                    await addToHistory(item);
+                    displayResult([item]);
+                } catch (uploadError) {
+                    console.error('Freeimage.host 上傳失敗，使用 base64 顯示:', uploadError);
+                    // 上傳失敗時，暫時使用 base64 顯示（不儲存到歷史）
+                    const item = { image: base64, prompt, model, seed: realSeed, style };
+                    displayResult([item]);
+                }
                 
                 // Determine cooldown based on provider
-                const provider = document.getElementById('provider').value;
                 const cooldownTime = provider === 'infip' ? INFIP_COOLDOWN_SEC : COOLDOWN_SEC;
                 startCooldown(cooldownTime);
             };
         }else{
             const data=await res.json();
             if(data.error) throw new Error(data.error.message);
-            for(const d of data.data){ const item={...d, prompt}; await addToHistory(item); items.push(item); }
+            
+            // 方案 2: 批量上傳到 Freeimage.host
+            for(const d of data.data){
+                try {
+                    if (!freeImageUploader) {
+                        freeImageUploader = new FreeImageUploader();
+                    }
+                    
+                    let uploadResult;
+                    if (d.image) {
+                        uploadResult = await freeImageUploader.upload(d.image);
+                    } else if (d.url) {
+                        uploadResult = await freeImageUploader.uploadFromUrl(d.url);
+                    } else {
+                        throw new Error('沒有可用的圖片資料');
+                    }
+                    
+                    const item = {
+                        imageUrl: uploadResult.url,
+                        thumbnailUrl: uploadResult.thumbnailUrl,
+                        prompt,
+                        model: d.model,
+                        seed: d.seed,
+                        style: d.style,
+                        provider
+                    };
+                    await addToHistory(item);
+                    items.push(item);
+                } catch (uploadError) {
+                    console.error('Freeimage.host 上傳失敗:', uploadError);
+                    // 上傳失上傳失敗時，暫時使用原始資料顯示（不儲存到歷史）
+                    items.push({...d, prompt});
+                }
+            }
             displayResult(items);
             
             // Determine cooldown based on provider
-            const provider = document.getElementById('provider').value;
             const cooldownTime = provider === 'infip' ? INFIP_COOLDOWN_SEC : COOLDOWN_SEC;
-            startCooldown(cooldownTime); 
+            startCooldown(cooldownTime);
         }
     }catch(err){ 
         resDiv.innerHTML='<p style="color:red;text-align:center">'+err.message+'</p>'; 
