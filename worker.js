@@ -4037,7 +4037,7 @@ class FreeImageUploader {
             // 下載圖片
             const response = await fetch(imageUrl);
             if (!response.ok) {
-                throw new Error(`無法下載圖片: ${response.statusText}`);
+                throw new Error('無法下載圖片: ' + response.statusText);
             }
             
             const blob = await response.blob();
