@@ -1,7 +1,7 @@
 # ============================================
 # Cloudflare Workers 配置文件
 # 項目: Flux AI Pro - NanoBanana Edition
-# 版本: 11.11.0 (自動模型發現 + Freeimage.host 優化)
+# 版本: 11.12.0 (模型預覽顯示 + 能力檢測)
 # 更新: 2026-02-03
 # ============================================
 
@@ -28,7 +28,7 @@ binding = "AI"
 # 環境變量（非敏感）
 # ============================================
 [vars]
-WORKER_VERSION = "11.11.0"
+WORKER_VERSION = "11.12.0"
 DEFAULT_MODEL = "flux-schnell"
 MAX_WIDTH = 2048
 MAX_HEIGHT = 2048

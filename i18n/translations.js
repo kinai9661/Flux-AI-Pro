@@ -121,6 +121,16 @@ export const TRANSLATIONS = {
     batch_label: "🖼️ 批量生成",
     batch_size_label: "生成數量 (Batch Size)",
     
+    // 模型預覽
+    model_preview_title: "模型預覽",
+    model_preview_no_info: "無能力資訊",
+    model_capability_ref_img: "📸 參考圖",
+    model_capability_img2img: "🔄 Img2Img",
+    model_capability_nsfw: "🔞 NSFW",
+    model_capability_batch: "📦 批量",
+    model_capability_resolution: "📐 解析度",
+    model_no_description: "此模型無描述資訊",
+    
     // 錯誤訊息
     error_no_prompt: "⚠️ 請輸入提示詞",
     error_energy_depleted: "🚫 本小時能量已耗盡，請稍後再來！",
@@ -325,6 +335,16 @@ export const TRANSLATIONS = {
     // Batch Generation
     batch_label: "🖼️ Batch Generation",
     batch_size_label: "Batch Size",
+    
+    // Model Preview
+    model_preview_title: "Model Preview",
+    model_preview_no_info: "No capability info",
+    model_capability_ref_img: "📸 Ref Image",
+    model_capability_img2img: "🔄 Img2Img",
+    model_capability_nsfw: "🔞 NSFW",
+    model_capability_batch: "📦 Batch",
+    model_capability_resolution: "📐 Resolution",
+    model_no_description: "No description available for this model",
     
     // Error Messages
     error_no_prompt: "⚠️ Please enter a prompt",
@@ -531,6 +551,16 @@ export const TRANSLATIONS = {
     batch_label: "🖼️ バッチ生成",
     batch_size_label: "バッチサイズ",
     
+    // モデルプレビュー
+    model_preview_title: "モデルプレビュー",
+    model_preview_no_info: "能力情報なし",
+    model_capability_ref_img: "📸 参照画像",
+    model_capability_img2img: "🔄 Img2Img",
+    model_capability_nsfw: "🔞 NSFW",
+    model_capability_batch: "📦 バッチ",
+    model_capability_resolution: "📐 解像度",
+    model_no_description: "このモデルの説明情報はありません",
+    
     // エラーメッセージ
     error_no_prompt: "⚠️ プロンプトを入力してください",
     error_energy_depleted: "🚫 今時間のエネルギーが枯渇しました。後でもう一度お越しください！",
@@ -736,6 +766,16 @@ export const TRANSLATIONS = {
     batch_label: "🖼️ 배치 생성",
     batch_size_label: "배치 크기",
     
+    // 모델 미리보기
+    model_preview_title: "모델 미리보기",
+    model_preview_no_info: "능력 정보 없음",
+    model_capability_ref_img: "📸 참조 이미지",
+    model_capability_img2img: "🔄 Img2Img",
+    model_capability_nsfw: "🔞 NSFW",
+    model_capability_batch: "📦 배치",
+    model_capability_resolution: "📐 해상도",
+    model_no_description: "이 모델에 대한 설명 정보가 없습니다",
+    
     // 오류 메시지
     error_no_prompt: "⚠️ 프롬프트를 입력하세요",
     error_energy_depleted: "🚫 이번 시간 에너지가 소진되었습니다. 나중에 다시 방문해주세요!",
@@ -940,6 +980,16 @@ export const TRANSLATIONS = {
     // الإنشاء المجموع
     batch_label: "🖼️ إنشاء مجموع",
     batch_size_label: "حجم المجموعة",
+    
+    // معاينة النموذج
+    model_preview_title: "معاينة النموذج",
+    model_preview_no_info: "لا توجد معلومات عن القدرات",
+    model_capability_ref_img: "📸 صورة مرجعية",
+    model_capability_img2img: "🔄 Img2Img",
+    model_capability_nsfw: "🔞 NSFW",
+    model_capability_batch: "📦 دفعي",
+    model_capability_resolution: "📐 الدقة",
+    model_no_description: "لا توجد معلومات وصف لهذا النموذج",
     
     // رسائل الخطأ
     error_no_prompt: "⚠️ يرجى إدخال موجه",

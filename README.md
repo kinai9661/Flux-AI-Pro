@@ -1,11 +1,12 @@
 # 🎨 Flux AI Pro - NanoBanana Edition
 
-![Version](https://img.shields.io/badge/Version-11.11.0-8B5CF6?style=flat-square)
+![Version](https://img.shields.io/badge/Version-11.12.0-8B5CF6?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Cloudflare%20Workers-orange?style=flat-square)
 ![Engine](https://img.shields.io/badge/Engine-Multi%20Provider-blue?style=flat-square)
 ![I18N](https://img.shields.io/badge/I18N-5%20Languages-green?style=flat-square)
 ![Storage](https://img.shields.io/badge/Storage-Freeimage.host%20Optimized-red?style=flat-square)
 ![Discovery](https://img.shields.io/badge/Model%20Discovery-Auto%20Weekly-yellow?style=flat-square)
+![Preview](https://img.shields.io/badge/Model%20Preview-Interactive-blue?style=flat-square)
 
 **Flux AI Pro - NanoBanana Edition** is a high-performance, single-file AI image generation solution built on Cloudflare Workers. It integrates top-tier AI providers like Pollinations.ai, Infip/Ghostbot, and Aqua Server to deliver a serverless, lightning-fast, and feature-rich creative experience.
 
@@ -30,10 +31,14 @@
 
 ---
 
-## 🔥 v11.11.0 更新亮點 (Release Highlights)
+## 🔥 v11.12.0 更新亮點 (Release Highlights)
 
+- **🖼️ 模型預覽顯示功能**：選擇模型時顯示預覽圖片，讓用戶直觀了解模型輸出效果。
+- **🏷️ 模型能力標籤**：顯示模型能力標籤（參考圖、Img2Img、NSFW、批量支援、最大解析度）。
+- **📝 模型描述顯示**：顯示模型的詳細描述資訊，幫助用戶選擇合適的模型。
 - **🔍 自動模型發現功能**：每週自動檢查 Infip 和 Aqua 供應商的新免費模型，自動發現並記錄可用模型。
 - **📡 模型發現 API**：新增 `/api/models/discover` 端點手動觸發模型發現檢查，`/api/models/discovered` 端點獲取已發現的模型列表。
+- **🖼️ 模型預覽 API**：新增 `/api/model-preview` 端點生成模型預覽圖片。
 - **💾 KV 持久化存儲**：已發現的模型存儲在 KV 中，確保數據持久性，避免重複檢查。
 - **⏰ 智能檢查間隔**：每週自動檢查一次，避免頻繁 API 請求，同時確保及時發現新模型。
 - **🚀 啟動時自動觸發**：Worker 啟動時自動檢查是否需要執行模型發現，在背景執行不影響正常請求。
