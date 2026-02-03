@@ -1082,7 +1082,7 @@ export default {
     const startTime = Date.now();
 
     const clientIP = getClientIP(request);
-    if (env.POLLINATIONS_API_KEY) { CONFIG.POLLINATIONS_AUTH.enabled = true; CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; } 
+    if (env.POLLINATIONS_API_KEY) { CONFIG.POLLINATIONS_AUTH.enabled = true; CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; }
     else { console.warn("⚠️ POLLINATIONS_API_KEY not set - requests may fail on new API endpoint"); CONFIG.POLLINATIONS_AUTH.enabled = false; CONFIG.POLLINATIONS_AUTH.token = ""; }
     
     console.log("=== Request Info ===");
@@ -1091,6 +1091,24 @@ export default {
     console.log("Method:", request.method);
     console.log("API Endpoint:", CONFIG.PROVIDERS.pollinations.endpoint);
     console.log("===================");
+    
+    // 初始化模型發現並在背景執行檢查
+    if (!modelDiscovery && env.FLUX_KV) {
+      modelDiscovery = new ModelDiscovery(env);
+      // 檢查是否需要執行模型發現，在背景執行
+      modelDiscovery.shouldCheck().then(shouldCheck => {
+        if (shouldCheck) {
+          console.log('🔍 觸發自動模型發現檢查...');
+          ctx.waitUntil(modelDiscovery.discover().then(result => {
+            console.log(`✅ 自動模型發現完成：發現 ${result.newModels.length} 個新模型`);
+          }).catch(error => {
+            console.error('❌ 自動模型發現失敗:', error);
+          }));
+        }
+      }).catch(error => {
+        console.error('檢查模型發現狀態失敗:', error);
+      });
+    }
     
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() });
     
@@ -1111,6 +1129,29 @@ export default {
       else if (url.pathname === '/api/generate-prompt') {
         response = await handlePromptGeneration(request, env);
       }
+      else if (url.pathname === '/api/models/discover') {
+        // 手動觸發模型發現檢查
+        if (!modelDiscovery) {
+          modelDiscovery = new ModelDiscovery(env);
+        }
+        const result = await modelDiscovery.discover();
+        response = new Response(JSON.stringify({
+          success: true,
+          ...result
+        }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+      }
+      else if (url.pathname === '/api/models/discovered') {
+        // 獲取已發現的模型列表
+        if (!modelDiscovery) {
+          modelDiscovery = new ModelDiscovery(env);
+        }
+        const models = await modelDiscovery.getAllDiscoveredModels();
+        response = new Response(JSON.stringify({
+          success: true,
+          models: models,
+          count: models.length
+        }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+      }
       else if (url.pathname === '/health') {
         response = new Response(JSON.stringify({
           status: 'ok', version: CONFIG.PROJECT_VERSION, timestamp: new Date().toISOString(),
@@ -1121,7 +1162,7 @@ export default {
           style_categories: Object.keys(CONFIG.STYLE_CATEGORIES).map(key => ({ id: key, name: CONFIG.STYLE_CATEGORIES[key].name, icon: CONFIG.STYLE_CATEGORIES[key].icon, count: Object.values(CONFIG.STYLE_PRESETS).filter(s => s.category === key).length }))
         }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       } else {
-        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano', '/api/models/discover', '/api/models/discovered'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       }
       const duration = Date.now() - startTime;
       const headers = new Headers(response.headers);
@@ -4032,6 +4073,230 @@ class FreeImageUploader {
 // 全局 Freeimage.host 上傳器實例
 let freeImageUploader = null;
 
+// ====== 模型發現器 (自動檢查新模型) ======
+class ModelDiscovery {
+    constructor(env) {
+        this.env = env;
+        this.kv = env?.FLUX_KV;
+        this.checkInterval = 7 * 24 * 60 * 60 * 1000; // 7天 (每週檢查一次)
+        this.lastCheckKey = 'model_discovery:last_check';
+        this.discoveredModelsKey = 'model_discovery:models';
+    }
+
+    /**
+     * 檢查是否需要執行模型發現
+     * @returns {Promise<boolean>}
+     */
+    async shouldCheck() {
+        if (!this.kv) return false;
+        
+        try {
+            const lastCheck = await this.kv.get(this.lastCheckKey, { type: 'text' });
+            if (!lastCheck) return true;
+            
+            const lastCheckTime = parseInt(lastCheck);
+            const now = Date.now();
+            return (now - lastCheckTime) >= this.checkInterval;
+        } catch (error) {
+            console.error('檢查模型發現時間失敗:', error);
+            return false;
+        }
+    }
+
+    /**
+     * 更新最後檢查時間
+     */
+    async updateLastCheck() {
+        if (!this.kv) return;
+        try {
+            await this.kv.put(this.lastCheckKey, Date.now().toString());
+        } catch (error) {
+            console.error('更新最後檢查時間失敗:', error);
+        }
+    }
+
+    /**
+     * 獲取已發現的模型列表
+     * @returns {Promise<Array>}
+     */
+    async getDiscoveredModels() {
+        if (!this.kv) return [];
+        try {
+            const data = await this.kv.get(this.discoveredModelsKey, { type: 'json' });
+            return data || [];
+        } catch (error) {
+            console.error('獲取已發現模型失敗:', error);
+            return [];
+        }
+    }
+
+    /**
+     * 保存已發現的模型列表
+     * @param {Array} models
+     */
+    async saveDiscoveredModels(models) {
+        if (!this.kv) return;
+        try {
+            await this.kv.put(this.discoveredModelsKey, JSON.stringify(models));
+        } catch (error) {
+            console.error('保存已發現模型失敗:', error);
+        }
+    }
+
+    /**
+     * 檢查 Infip 供應商的可用模型
+     * @returns {Promise<Array>}
+     */
+    async checkInfipModels() {
+        const apiKey = this.env?.INFIP_API_KEY;
+        if (!apiKey) {
+            console.log('⚠️ Infip API Key 未設置，跳過檢查');
+            return [];
+        }
+
+        try {
+            // Infip 使用 OpenAI 兼容 API，嘗試獲取模型列表
+            const response = await fetch('https://api.infip.pro/v1/models', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'User-Agent': 'Flux-AI-Pro-Worker'
+                }
+            });
+
+            if (!response.ok) {
+                console.log(`⚠️ Infip 模型列表請求失敗: ${response.status}`);
+                return [];
+            }
+
+            const data = await response.json();
+            const discoveredModels = [];
+
+            if (data.data && Array.isArray(data.data)) {
+                for (const model of data.data) {
+                    // 過濾掉已知的模型
+                    const knownModels = ['img4', 'flux-schnell', 'sdxl', 'lucid-origin'];
+                    if (!knownModels.includes(model.id)) {
+                        discoveredModels.push({
+                            id: model.id,
+                            name: model.id,
+                            provider: 'infip',
+                            discoveredAt: new Date().toISOString(),
+                            description: model.description || `新發現的 Infip 模型: ${model.id}`,
+                            max_size: 1024,
+                            category: 'other'
+                        });
+                    }
+                }
+            }
+
+            console.log(`✅ Infip 檢查完成，發現 ${discoveredModels.length} 個新模型`);
+            return discoveredModels;
+        } catch (error) {
+            console.error('❌ Infip 模型檢查失敗:', error);
+            return [];
+        }
+    }
+
+    /**
+     * 檢查 Aqua 供應商的可用模型
+     * @returns {Promise<Array>}
+     */
+    async checkAquaModels() {
+        const apiKey = this.env?.AQUA_API_KEY;
+        if (!apiKey) {
+            console.log('⚠️ Aqua API Key 未設置，跳過檢查');
+            return [];
+        }
+
+        try {
+            // Aqua 使用 OpenAI 兼容 API，嘗試獲取模型列表
+            const response = await fetch('https://api.aquadevs.com/v1/models', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
+            });
+
+            if (!response.ok) {
+                console.log(`⚠️ Aqua 模型列表請求失敗: ${response.status}`);
+                return [];
+            }
+
+            const data = await response.json();
+            const discoveredModels = [];
+
+            if (data.data && Array.isArray(data.data)) {
+                for (const model of data.data) {
+                    // 過濾掉已知的模型
+                    const knownModels = ['flux-2', 'zimage', 'nanobanana', 'imagen4'];
+                    if (!knownModels.includes(model.id)) {
+                        discoveredModels.push({
+                            id: model.id,
+                            name: model.id,
+                            provider: 'aqua',
+                            discoveredAt: new Date().toISOString(),
+                            description: model.description || `新發現的 Aqua 模型: ${model.id}`,
+                            max_size: 1024,
+                            category: 'other'
+                        });
+                    }
+                }
+            }
+
+            console.log(`✅ Aqua 檢查完成，發現 ${discoveredModels.length} 個新模型`);
+            return discoveredModels;
+        } catch (error) {
+            console.error('❌ Aqua 模型檢查失敗:', error);
+            return [];
+        }
+    }
+
+    /**
+     * 執行模型發現檢查
+     * @returns {Promise<{newModels: Array, totalDiscovered: number}>}
+     */
+    async discover() {
+        console.log('🔍 開始模型發現檢查...');
+
+        const existingModels = await this.getDiscoveredModels();
+        const existingIds = new Set(existingModels.map(m => `${m.provider}:${m.id}`));
+
+        // 並行檢查兩個供應商
+        const [infipModels, aquaModels] = await Promise.all([
+            this.checkInfipModels(),
+            this.checkAquaModels()
+        ]);
+
+        const allNewModels = [...infipModels, ...aquaModels];
+        const trulyNewModels = allNewModels.filter(m => !existingIds.has(`${m.provider}:${m.id}`));
+
+        // 合併並保存
+        const allModels = [...existingModels, ...trulyNewModels];
+        await this.saveDiscoveredModels(allModels);
+        await this.updateLastCheck();
+
+        console.log(`🎉 模型發現完成！本次發現 ${trulyNewModels.length} 個新模型，總共 ${allModels.length} 個已發現模型`);
+
+        return {
+            newModels: trulyNewModels,
+            totalDiscovered: allModels.length
+        };
+    }
+
+    /**
+     * 獲取所有已發現的模型（用於 UI 顯示）
+     * @returns {Promise<Array>}
+     */
+    async getAllDiscoveredModels() {
+        return await this.getDiscoveredModels();
+    }
+}
+
+// 全局模型發現器實例
+let modelDiscovery = null;
+
 // ====== I18N 與 UI 邏輯 ======
 // 多語言支援（繁體中文、英文、日文、韓文）
 const I18N={
@@ -4391,22 +4656,80 @@ function updateModelOptions() {
         groups[cat].push(m);
     });
     
-    for(const [cat, list] of Object.entries(groups)) {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = cat.toUpperCase();
-        list.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.id;
-            opt.textContent = m.name;
-            // Set default model to FLUX.2 Klein 9B
-            if (m.id === 'klein-large') opt.selected = true;
-            optgroup.appendChild(opt);
-        });
-        modelSelect.appendChild(optgroup);
+    // Load discovered models from API and add to the list
+    loadDiscoveredModels(p).then(discoveredModels => {
+        if (discoveredModels && discoveredModels.length > 0) {
+            discoveredModels.forEach(m => {
+                // Skip if model already exists in config
+                const exists = models.some(configModel => configModel.id === m.id);
+                if (!exists) {
+                    const cat = m.category || 'discovered';
+                    if(!groups[cat]) groups[cat] = [];
+                    groups[cat].push({
+                        id: m.id,
+                        name: m.name || m.id,
+                        category: cat,
+                        max_size: m.max_size || 1024
+                    });
+                }
+            });
+        }
+        
+        // Build the model select options
+        for(const [cat, list] of Object.entries(groups)) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = cat.toUpperCase();
+            list.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = m.name;
+                // Set default model to FLUX.2 Klein 9B
+                if (m.id === 'klein-large') opt.selected = true;
+                optgroup.appendChild(opt);
+            });
+            modelSelect.appendChild(optgroup);
+        }
+        
+        // Update reference images visibility after model list is updated
+        updateReferenceImagesVisibility();
+    }).catch(error => {
+        console.error('Failed to load discovered models:', error);
+        // Still build the model select with default models
+        for(const [cat, list] of Object.entries(groups)) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = cat.toUpperCase();
+            list.forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = m.name;
+                if (m.id === 'klein-large') opt.selected = true;
+                optgroup.appendChild(opt);
+            });
+            modelSelect.appendChild(optgroup);
+        }
+        updateReferenceImagesVisibility();
+    });
+}
+
+/**
+ * Load discovered models from the API
+ * @param {string} provider - The provider name (infip or aqua)
+ * @returns {Promise<Array>} - Array of discovered models
+ */
+async function loadDiscoveredModels(provider) {
+    try {
+        const response = await fetch('/api/models/discovered');
+        if (!response.ok) return [];
+        
+        const data = await response.json();
+        if (!data.success || !data.models) return [];
+        
+        // Filter models by provider
+        return data.models.filter(m => m.provider === provider);
+    } catch (error) {
+        console.error('Error loading discovered models:', error);
+        return [];
     }
-    
-    // Update reference images visibility after model list is updated
-    updateReferenceImagesVisibility();
 }
 
 // ====== 拖放功能模塊 ======

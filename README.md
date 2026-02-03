@@ -1,10 +1,11 @@
 # 🎨 Flux AI Pro - NanoBanana Edition
 
-![Version](https://img.shields.io/badge/Version-11.10.0-8B5CF6?style=flat-square)
+![Version](https://img.shields.io/badge/Version-11.11.0-8B5CF6?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Cloudflare%20Workers-orange?style=flat-square)
 ![Engine](https://img.shields.io/badge/Engine-Multi%20Provider-blue?style=flat-square)
 ![I18N](https://img.shields.io/badge/I18N-5%20Languages-green?style=flat-square)
 ![Storage](https://img.shields.io/badge/Storage-Freeimage.host%20Optimized-red?style=flat-square)
+![Discovery](https://img.shields.io/badge/Model%20Discovery-Auto%20Weekly-yellow?style=flat-square)
 
 **Flux AI Pro - NanoBanana Edition** is a high-performance, single-file AI image generation solution built on Cloudflare Workers. It integrates top-tier AI providers like Pollinations.ai, Infip/Ghostbot, and Aqua Server to deliver a serverless, lightning-fast, and feature-rich creative experience.
 
@@ -29,8 +30,14 @@
 
 ---
 
-## 🔥 v11.10.0 更新亮點 (Release Highlights)
+## 🔥 v11.11.0 更新亮點 (Release Highlights)
 
+- **🔍 自動模型發現功能**：每週自動檢查 Infip 和 Aqua 供應商的新免費模型，自動發現並記錄可用模型。
+- **📡 模型發現 API**：新增 `/api/models/discover` 端點手動觸發模型發現檢查，`/api/models/discovered` 端點獲取已發現的模型列表。
+- **💾 KV 持久化存儲**：已發現的模型存儲在 KV 中，確保數據持久性，避免重複檢查。
+- **⏰ 智能檢查間隔**：每週自動檢查一次，避免頻繁 API 請求，同時確保及時發現新模型。
+- **🚀 啟動時自動觸發**：Worker 啟動時自動檢查是否需要執行模型發現，在背景執行不影響正常請求。
+- **🎯 自動加入模型選單**：發現的新模型會自動加入到模型選單中，歸類到 "DISCOVERED" 分類，用戶可直接選擇使用。
 - **💾 Freeimage.host 雲端存儲優化**：歷史記錄改用 Freeimage.host 雲端存儲，IndexedDB 存儲空間減少 99%+，大幅提升載入速度。
 - **🖼️ 縮圖優先顯示**：歷史記錄使用 Freeimage.host 縮圖，點擊查看完整圖片，瀏覽體驗更流暢。
 - **🔄 自動上傳機制**：圖片生成後自動上傳至 Freeimage.host，無需手動操作。
@@ -64,6 +71,7 @@
 *   **輪詢模型支援**：imagen4 和 nanobanana 採用輪詢機制，確保大型模型生成的穩定性。
 *   **Img2Img 功能**：nanobanana 模型支援參考圖片上傳，實現圖片轉圖片生成。
 *   **供應商統計追蹤**：自動追蹤各供應商的使用次數與比例，透過 API 端點查詢。
+*   **自動模型發現**：每週自動檢查 Infip 和 Aqua 供應商的新免費模型，透過 `/api/models/discover` 手動觸發檢查，`/api/models/discovered` 查看已發現模型。
 
 ### 4. 性能與優化 (Performance)
 *   **Freeimage.host 雲端存儲**：歷史記錄圖片存儲在 Freeimage.host，IndexedDB 只存儲元數據，存儲空間減少 99%+。
