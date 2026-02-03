@@ -2709,7 +2709,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     }
 
     function updateCooldownText(sec) {
-        els.genBtn.innerHTML = '<span>' + nanoT('gen_btn_charging').replace('{s}', sec) + '</span>';
+        els.genBtn.innerHTML = \`<span>\${nanoT('gen_btn_charging').replace('{s}', sec)}</span>\`;
     }
     
     const now = new Date();
@@ -2733,7 +2733,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     checkAndStartCooldown();
     
     function updateQuotaUI() {
-        els.quotaText.textContent = currentQuota + ' / ' + maxQuota;
+        els.quotaText.textContent = \`\${currentQuota} / \${maxQuota}\`;
         const pct = (currentQuota / maxQuota) * 100;
         els.quotaFill.style.width = pct + '%';
         if(currentQuota <= 0) {
@@ -3093,7 +3093,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     function addHistory(url) {
         const div = document.createElement('div');
         div.className = 'history-item';
-        div.innerHTML = '<img src="' + url + '">';
+        div.innerHTML = \`<img src="\${url}">\`;
         div.onclick = () => {
             els.img.src = url;
             document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
@@ -4262,51 +4262,6 @@ function updateModelOptions() {
     
     // Update reference images visibility after model list is updated
     updateReferenceImagesVisibility();
-    
-    // Update size options based on selected model
-    updateSizeOptions();
-}
-
-// Update size options based on provider's max_size
-function updateSizeOptions() {
-    const p = providerSelect.value;
-    const config = PROVIDERS[p];
-    if (!config) return;
-    
-    // Use provider's max_size for filtering
-    const providerMaxSize = config.max_size;
-    if (!providerMaxSize) return;
-    
-    const maxSize = Math.min(providerMaxSize.width, providerMaxSize.height);
-    const sizeSelect = document.getElementById('size');
-    const currentSizeValue = sizeSelect.value;
-    
-    // Filter sizes based on provider's max_size
-    const filteredSizes = {};
-    for (const [key, size] of Object.entries(CONFIG.PRESET_SIZES)) {
-        // Check if both width and height are within max_size
-        if (size.width <= maxSize && size.height <= maxSize) {
-            filteredSizes[key] = size;
-        }
-    }
-    
-    // Generate size options HTML
-    let sizeOptionsHTML = '';
-    let hasValidSize = false;
-    
-    for (const [key, size] of Object.entries(filteredSizes)) {
-        const selected = key === currentSizeValue ? ' selected' : '';
-        if (key === currentSizeValue) hasValidSize = true;
-        sizeOptionsHTML += '<option value="' + key + '"' + selected + '>' + size.name + ' (' + size.width + 'x' + size.height + ')</option>';
-    }
-    
-    // If current size is not valid, select the first available size
-    if (!hasValidSize && Object.keys(filteredSizes).length > 0) {
-        const firstKey = Object.keys(filteredSizes)[0];
-        sizeOptionsHTML = sizeOptionsHTML.replace('value="' + firstKey + '"', 'value="' + firstKey + '" selected');
-    }
-    
-    sizeSelect.innerHTML = sizeOptionsHTML;
 }
 
 // ====== 拖放功能模塊 ======
@@ -4519,10 +4474,7 @@ function updateReferenceImagesVisibility() {
     }
 }
 
-modelSelect.addEventListener('change', () => {
-    updateReferenceImagesVisibility();
-    updateSizeOptions();
-});
+modelSelect.addEventListener('change', updateReferenceImagesVisibility);
 
 const PRESET_SIZES=${JSON.stringify(CONFIG.PRESET_SIZES)};
 const STYLE_PRESETS=${JSON.stringify(CONFIG.STYLE_PRESETS)};
@@ -4595,13 +4547,7 @@ async function updateHistoryDisplay(){
             const savedSeed = item.seed;
             if (savedSeed && savedSeed !== -1 && savedSeed !== '-1') { isSeedRandom = false; seedInput.value = savedSeed; } else { isSeedRandom = true; seedInput.value = '-1'; }
             updateSeedUI();
-            
-            // Switch to generate page
-            document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));
-            document.getElementById('generatePage').classList.add('active');
-            const generateBtn = document.querySelector('[data-page="generate"]');
-            if(generateBtn) generateBtn.classList.add('active');
+            document.querySelector('[data-page="generate"]').click();
         };
         d.querySelector('.download-btn').onclick=()=>{
             const a=document.createElement('a');
@@ -4622,7 +4568,7 @@ function openModal(src){
     
     // Auto set download filename
     downloadBtn.href = src;
-    downloadBtn.download = 'flux-ai-' + Date.now() + '.png';
+    downloadBtn.download = \`flux-ai-\${Date.now()}.png\`;
     
     document.getElementById('imageModal').classList.add('show');
 }
@@ -4764,7 +4710,7 @@ function startCooldown(duration = COOLDOWN_SEC) {
 
 function updateBtnText(sec) {
     const btn = document.getElementById('generateBtn');
-    const msg = curLang === 'zh' ? '⏳ 冷卻中 (' + sec + 's)' : '⏳ Cooldown (' + sec + 's)';
+    const msg = curLang === 'zh' ? \`⏳ 冷卻中 (\${sec}s)\` : \`⏳ Cooldown (\${sec}s)\`;
     btn.textContent = msg;
 }
 
@@ -4772,7 +4718,7 @@ function displayResult(items){
     const div=document.createElement('div');div.className='gallery';
     items.forEach(item=>{
         const d=document.createElement('div');d.className='gallery-item';
-        d.innerHTML='<img src="' + (item.image||item.url) + '" onclick="openModal(this.src)">';
+        d.innerHTML=\`<img src="\${item.image||item.url}" onclick="openModal(this.src)">\`;
         div.appendChild(d);
     });
     document.getElementById('results').innerHTML='';
