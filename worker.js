@@ -4159,13 +4159,13 @@ class ModelDiscovery {
             const response = await fetch('https://api.infip.pro/v1/models', {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${apiKey}`,
+                    'Authorization': 'Bearer ' + apiKey,
                     'User-Agent': 'Flux-AI-Pro-Worker'
                 }
             });
 
             if (!response.ok) {
-                console.log(`⚠️ Infip 模型列表請求失敗: ${response.status}`);
+                console.log('⚠️ Infip 模型列表請求失敗: ' + response.status);
                 return [];
             }
 
@@ -4182,7 +4182,7 @@ class ModelDiscovery {
                             name: model.id,
                             provider: 'infip',
                             discoveredAt: new Date().toISOString(),
-                            description: model.description || `新發現的 Infip 模型: ${model.id}`,
+                            description: model.description || '新發現的 Infip 模型: ' + model.id,
                             max_size: 1024,
                             category: 'other'
                         });
@@ -4190,7 +4190,7 @@ class ModelDiscovery {
                 }
             }
 
-            console.log(`✅ Infip 檢查完成，發現 ${discoveredModels.length} 個新模型`);
+            console.log('✅ Infip 檢查完成，發現 ' + discoveredModels.length + ' 個新模型');
             return discoveredModels;
         } catch (error) {
             console.error('❌ Infip 模型檢查失敗:', error);
