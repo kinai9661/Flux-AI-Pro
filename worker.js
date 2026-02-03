@@ -1082,7 +1082,7 @@ export default {
     const startTime = Date.now();
 
     const clientIP = getClientIP(request);
-    if (env.POLLINATIONS_API_KEY) { CONFIG.POLLINATIONS_AUTH.enabled = true; CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; }
+    if (env.POLLINATIONS_API_KEY) { CONFIG.POLLINATIONS_AUTH.enabled = true; CONFIG.POLLINATIONS_AUTH.token = env.POLLINATIONS_API_KEY; } 
     else { console.warn("⚠️ POLLINATIONS_API_KEY not set - requests may fail on new API endpoint"); CONFIG.POLLINATIONS_AUTH.enabled = false; CONFIG.POLLINATIONS_AUTH.token = ""; }
     
     console.log("=== Request Info ===");
@@ -1091,24 +1091,6 @@ export default {
     console.log("Method:", request.method);
     console.log("API Endpoint:", CONFIG.PROVIDERS.pollinations.endpoint);
     console.log("===================");
-    
-    // 初始化模型發現並在背景執行檢查
-    if (!modelDiscovery && env.FLUX_KV) {
-      modelDiscovery = new ModelDiscovery(env);
-      // 檢查是否需要執行模型發現，在背景執行
-      modelDiscovery.shouldCheck().then(shouldCheck => {
-        if (shouldCheck) {
-          console.log('🔍 觸發自動模型發現檢查...');
-          ctx.waitUntil(modelDiscovery.discover().then(result => {
-            console.log(`✅ 自動模型發現完成：發現 ${result.newModels.length} 個新模型`);
-          }).catch(error => {
-            console.error('❌ 自動模型發現失敗:', error);
-          }));
-        }
-      }).catch(error => {
-        console.error('檢查模型發現狀態失敗:', error);
-      });
-    }
     
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() });
     
@@ -1129,29 +1111,6 @@ export default {
       else if (url.pathname === '/api/generate-prompt') {
         response = await handlePromptGeneration(request, env);
       }
-      else if (url.pathname === '/api/models/discover') {
-        // 手動觸發模型發現檢查
-        if (!modelDiscovery) {
-          modelDiscovery = new ModelDiscovery(env);
-        }
-        const result = await modelDiscovery.discover();
-        response = new Response(JSON.stringify({
-          success: true,
-          ...result
-        }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-      }
-      else if (url.pathname === '/api/models/discovered') {
-        // 獲取已發現的模型列表
-        if (!modelDiscovery) {
-          modelDiscovery = new ModelDiscovery(env);
-        }
-        const models = await modelDiscovery.getAllDiscoveredModels();
-        response = new Response(JSON.stringify({
-          success: true,
-          models: models,
-          count: models.length
-        }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-      }
       else if (url.pathname === '/health') {
         response = new Response(JSON.stringify({
           status: 'ok', version: CONFIG.PROJECT_VERSION, timestamp: new Date().toISOString(),
@@ -1162,7 +1121,7 @@ export default {
           style_categories: Object.keys(CONFIG.STYLE_CATEGORIES).map(key => ({ id: key, name: CONFIG.STYLE_CATEGORIES[key].name, icon: CONFIG.STYLE_CATEGORIES[key].icon, count: Object.values(CONFIG.STYLE_PRESETS).filter(s => s.category === key).length }))
         }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       } else {
-        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano', '/api/models/discover', '/api/models/discovered'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       }
       const duration = Date.now() - startTime;
       const headers = new Headers(response.headers);
@@ -1194,7 +1153,7 @@ async function handleUpload(request) {
       });
     }
 
-    // 驗證文件大小（Freeimage.host 最大支持 32MB）
+    // 驗證文件大小（ImgBB 最大支持 32MB）
     const MAX_FILE_SIZE = 32 * 1024 * 1024; // 32MB
     if (file.size > MAX_FILE_SIZE) {
       return new Response(JSON.stringify({
@@ -1214,9 +1173,9 @@ async function handleUpload(request) {
       });
     }
 
-    // 使用 Freeimage.host API 上傳圖片
-    // Freeimage.host 預設 API Key (無需註冊即可使用)
-    const FREEIMAGE_API_KEY = '6d207e02198a847aa98d0a2a901485a5'; // 預設 API Key
+    // 使用 ImgBB API 上傳圖片
+    // ImgBB 免費 API Key (用於測試，生產環境建議使用自己的 API Key)
+    const IMGBB_API_KEY = '8245f772dd33870730fab74e7e236df2'; // 免費測試用 API Key
     
     // 將文件轉換為 Base64（使用分塊處理避免堆疊溢出）
     const arrayBuffer = await file.arrayBuffer();
@@ -1229,14 +1188,14 @@ async function handleUpload(request) {
     }
     const base64 = btoa(binary);
     
-    // 構建 Freeimage.host API 請求
-    const uploadFormData = new FormData();
-    uploadFormData.append('key', FREEIMAGE_API_KEY);
-    uploadFormData.append('source', base64);
-
-    const response = await fetch('https://freeimage.host/api/1/upload', {
+    // 構建 ImgBB API 請求
+    const imgbbFormData = new FormData();
+    imgbbFormData.append('key', IMGBB_API_KEY);
+    imgbbFormData.append('image', base64);
+    
+    const response = await fetch('https://api.imgbb.com/1/upload', {
       method: 'POST',
-      body: uploadFormData,
+      body: imgbbFormData,
       headers: {
         'User-Agent': 'FluxAIPro-Worker/1.0'
       }
@@ -1255,7 +1214,7 @@ async function handleUpload(request) {
         headers: corsHeaders({ 'Content-Type': 'application/json' })
       });
     } else {
-      console.error('Freeimage.host API Error:', data);
+      console.error('ImgBB API Error:', data);
       return new Response(JSON.stringify({
         error: data.error?.message || 'Upload failed',
         details: data
@@ -3884,67 +3843,23 @@ PerformanceOptimizer.initLazyLoad();
 // 定期清理過期緩存
 setInterval(() => PerformanceOptimizer.cache.cleanup(), 300000); // 每5分鐘清理一次
 
-// ====== IndexedDB 管理核心 (方案 2: Freeimage.host 上傳 + URL 儲存) ======
-const DB_NAME='FluxAI_DB',STORE_NAME='images',DB_VERSION=3;
+// ====== IndexedDB 管理核心 (解決死圖) ======
+const DB_NAME='FluxAI_DB',STORE_NAME='images',DB_VERSION=2;
 const dbPromise=new Promise((resolve,reject)=>{
     const req=indexedDB.open(DB_NAME,DB_VERSION);
     req.onupgradeneeded=(e)=>{
         const db=e.target.result;
-        const oldVersion=e.oldVersion;
-        
-        // 創建 object store (如果不存在)
-        if(!db.objectStoreNames.contains(STORE_NAME)){
-            db.createObjectStore(STORE_NAME,{keyPath:'id'});
-        }
-        
-        // 版本 2 -> 3: 移除 base64 欄位，新增 imageUrl 和 thumbnailUrl
-        if(oldVersion<3){
-            const store=e.target.transaction.objectStore(STORE_NAME);
-            
-            // 遍歷所有記錄，移除 base64，添加 imageUrl 和 thumbnailUrl
-            const getAllReq=store.getAll();
-            getAllReq.onsuccess=()=>{
-                const records=getAllReq.result;
-                records.forEach(record=>{
-                    // 如果有 base64，轉換為 URL (需要上傳到 Freeimage.host)
-                    // 這裡暫時保留舊記錄的 base64，新記錄將使用 URL
-                    if(record.base64 && !record.imageUrl){
-                        // 舊記錄標記為需要遷移
-                        record.needsMigration=true;
-                        store.put(record);
-                    }
-                });
-            };
-        }
+        if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME,{keyPath:'id'});
     };
     req.onsuccess=(e)=>resolve(e.target.result);
     req.onerror=(e)=>reject(e.target.error);
 });
-
-/**
- * 保存記錄到 IndexedDB (方案 2: 只儲存 URL，不儲存 base64)
- * @param {Object} item - 記錄物件 {id, timestamp, prompt, model, style, seed, imageUrl, thumbnailUrl, provider}
- */
 async function saveToDB(item){
     const db=await dbPromise;
     return new Promise((resolve)=>{
         const tx=db.transaction(STORE_NAME,'readwrite');
         const store=tx.objectStore(STORE_NAME);
-        
-        // 只儲存必要的欄位，不儲存 base64
-        const record={
-            id: item.id,
-            timestamp: item.timestamp,
-            prompt: item.prompt,
-            model: item.model,
-            style: item.style,
-            seed: item.seed,
-            imageUrl: item.imageUrl,
-            thumbnailUrl: item.thumbnailUrl,
-            provider: item.provider || 'pollinations'
-        };
-        
-        store.put(record);
+        store.put(item);
         tx.oncomplete=()=>resolve();
     });
 }
@@ -3971,331 +3886,6 @@ async function clearDB(){
     await new Promise(r=>tx.oncomplete=r);
     updateHistoryDisplay();
 }
-
-// ====== Freeimage.host 上傳器 (方案 2: Freeimage.host 上傳 + URL 儲存) ======
-class FreeImageUploader {
-    constructor(apiKey) {
-        this.apiKey = apiKey || '6d207e02198a847aa98d0a2a901485a5'; // Freeimage.host 預設 API Key
-        this.baseUrl = 'https://freeimage.host/api/1/upload';
-        this.maxRetries = 3;
-        this.retryDelay = 1000;
-    }
-
-    /**
-     * 上傳圖片到 Freeimage.host
-     * @param {string} base64Data - base64 圖片資料 (data:image/xxx;base64,...)
-     * @returns {Promise<{url: string, thumbnailUrl: string, mediumUrl: string}>}
-     */
-    async upload(base64Data) {
-        // 移除 data:image/xxx;base64, 前綴
-        const base64Image = base64Data.split(',')[1];
-        
-        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-            try {
-                const formData = new FormData();
-                formData.append('key', this.apiKey);
-                formData.append('source', base64Image);
-                formData.append('format', 'json');
-                
-                const response = await fetch(this.baseUrl, {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const data = await response.json();
-                
-                if (data.status && data.status_code === 200) {
-                    return {
-                        url: data.data.url,
-                        thumbnailUrl: data.data.thumb?.url || data.data.url,
-                        mediumUrl: data.data.medium?.url || data.data.url,
-                        displayUrl: data.data.display_url || data.data.url
-                    };
-                } else {
-                    throw new Error(data.error?.message || 'Freeimage.host 上傳失敗');
-                }
-            } catch (error) {
-                console.error('Freeimage.host 上傳嘗試 ' + attempt + '/' + this.maxRetries + ' 失敗:', error);
-                
-                if (attempt === this.maxRetries) {
-                    throw new Error('Freeimage.host 上傳失敗 (已重試 ' + this.maxRetries + ' 次): ' + error.message);
-                }
-                
-                // 等待後重試
-                await this.delay(this.retryDelay * attempt);
-            }
-        }
-    }
-
-    /**
-     * 從 URL 下載並上傳到 Freeimage.host
-     * @param {string} imageUrl - 圖片 URL
-     * @returns {Promise<{url: string, thumbnailUrl: string, mediumUrl: string}>}
-     */
-    async uploadFromUrl(imageUrl) {
-        try {
-            // 下載圖片
-            const response = await fetch(imageUrl);
-            if (!response.ok) {
-                throw new Error('無法下載圖片: ' + response.statusText);
-            }
-            
-            const blob = await response.blob();
-            
-            // 轉換為 base64
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = async () => {
-                    try {
-                        const result = await this.upload(reader.result);
-                        resolve(result);
-                    } catch (error) {
-                        reject(error);
-                    }
-                };
-                reader.onerror = () => reject(new Error('圖片讀取失敗'));
-                reader.readAsDataURL(blob);
-            });
-        } catch (error) {
-            console.error('從 URL 上傳到 Freeimage.host 失敗:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * 延遲函數
-     */
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-}
-
-// 全局 Freeimage.host 上傳器實例
-let freeImageUploader = null;
-
-// ====== 模型發現器 (自動檢查新模型) ======
-class ModelDiscovery {
-    constructor(env) {
-        this.env = env;
-        this.kv = env?.FLUX_KV;
-        this.checkInterval = 7 * 24 * 60 * 60 * 1000; // 7天 (每週檢查一次)
-        this.lastCheckKey = 'model_discovery:last_check';
-        this.discoveredModelsKey = 'model_discovery:models';
-    }
-
-    /**
-     * 檢查是否需要執行模型發現
-     * @returns {Promise<boolean>}
-     */
-    async shouldCheck() {
-        if (!this.kv) return false;
-        
-        try {
-            const lastCheck = await this.kv.get(this.lastCheckKey, { type: 'text' });
-            if (!lastCheck) return true;
-            
-            const lastCheckTime = parseInt(lastCheck);
-            const now = Date.now();
-            return (now - lastCheckTime) >= this.checkInterval;
-        } catch (error) {
-            console.error('檢查模型發現時間失敗:', error);
-            return false;
-        }
-    }
-
-    /**
-     * 更新最後檢查時間
-     */
-    async updateLastCheck() {
-        if (!this.kv) return;
-        try {
-            await this.kv.put(this.lastCheckKey, Date.now().toString());
-        } catch (error) {
-            console.error('更新最後檢查時間失敗:', error);
-        }
-    }
-
-    /**
-     * 獲取已發現的模型列表
-     * @returns {Promise<Array>}
-     */
-    async getDiscoveredModels() {
-        if (!this.kv) return [];
-        try {
-            const data = await this.kv.get(this.discoveredModelsKey, { type: 'json' });
-            return data || [];
-        } catch (error) {
-            console.error('獲取已發現模型失敗:', error);
-            return [];
-        }
-    }
-
-    /**
-     * 保存已發現的模型列表
-     * @param {Array} models
-     */
-    async saveDiscoveredModels(models) {
-        if (!this.kv) return;
-        try {
-            await this.kv.put(this.discoveredModelsKey, JSON.stringify(models));
-        } catch (error) {
-            console.error('保存已發現模型失敗:', error);
-        }
-    }
-
-    /**
-     * 檢查 Infip 供應商的可用模型
-     * @returns {Promise<Array>}
-     */
-    async checkInfipModels() {
-        const apiKey = this.env?.INFIP_API_KEY;
-        if (!apiKey) {
-            console.log('⚠️ Infip API Key 未設置，跳過檢查');
-            return [];
-        }
-
-        try {
-            // Infip 使用 OpenAI 兼容 API，嘗試獲取模型列表
-            const response = await fetch('https://api.infip.pro/v1/models', {
-                method: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + apiKey,
-                    'User-Agent': 'Flux-AI-Pro-Worker'
-                }
-            });
-
-            if (!response.ok) {
-                console.log('⚠️ Infip 模型列表請求失敗: ' + response.status);
-                return [];
-            }
-
-            const data = await response.json();
-            const discoveredModels = [];
-
-            if (data.data && Array.isArray(data.data)) {
-                for (const model of data.data) {
-                    // 過濾掉已知的模型
-                    const knownModels = ['img4', 'flux-schnell', 'sdxl', 'lucid-origin'];
-                    if (!knownModels.includes(model.id)) {
-                        discoveredModels.push({
-                            id: model.id,
-                            name: model.id,
-                            provider: 'infip',
-                            discoveredAt: new Date().toISOString(),
-                            description: model.description || '新發現的 Infip 模型: ' + model.id,
-                            max_size: 1024,
-                            category: 'other'
-                        });
-                    }
-                }
-            }
-
-            console.log('✅ Infip 檢查完成，發現 ' + discoveredModels.length + ' 個新模型');
-            return discoveredModels;
-        } catch (error) {
-            console.error('❌ Infip 模型檢查失敗:', error);
-            return [];
-        }
-    }
-
-    /**
-     * 檢查 Aqua 供應商的可用模型
-     * @returns {Promise<Array>}
-     */
-    async checkAquaModels() {
-        const apiKey = this.env?.AQUA_API_KEY;
-        if (!apiKey) {
-            console.log('⚠️ Aqua API Key 未設置，跳過檢查');
-            return [];
-        }
-
-        try {
-            // Aqua 使用 OpenAI 兼容 API，嘗試獲取模型列表
-            const response = await fetch('https://api.aquadevs.com/v1/models', {
-                method: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + apiKey,
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-            });
-
-            if (!response.ok) {
-                console.log('⚠️ Aqua 模型列表請求失敗: ' + response.status);
-                return [];
-            }
-
-            const data = await response.json();
-            const discoveredModels = [];
-
-            if (data.data && Array.isArray(data.data)) {
-                for (const model of data.data) {
-                    // 過濾掉已知的模型
-                    const knownModels = ['flux-2', 'zimage', 'nanobanana', 'imagen4'];
-                    if (!knownModels.includes(model.id)) {
-                        discoveredModels.push({
-                            id: model.id,
-                            name: model.id,
-                            provider: 'aqua',
-                            discoveredAt: new Date().toISOString(),
-                            description: model.description || '新發現的 Aqua 模型: ' + model.id,
-                            max_size: 1024,
-                            category: 'other'
-                        });
-                    }
-                }
-            }
-
-            console.log('✅ Aqua 檢查完成，發現 ' + discoveredModels.length + ' 個新模型');
-            return discoveredModels;
-        } catch (error) {
-            console.error('❌ Aqua 模型檢查失敗:', error);
-            return [];
-        }
-    }
-
-    /**
-     * 執行模型發現檢查
-     * @returns {Promise<{newModels: Array, totalDiscovered: number}>}
-     */
-    async discover() {
-        console.log('🔍 開始模型發現檢查...');
-
-        const existingModels = await this.getDiscoveredModels();
-        const existingIds = new Set(existingModels.map(m => m.provider + ':' + m.id));
-
-        // 並行檢查兩個供應商
-        const [infipModels, aquaModels] = await Promise.all([
-            this.checkInfipModels(),
-            this.checkAquaModels()
-        ]);
-
-        const allNewModels = [...infipModels, ...aquaModels];
-        const trulyNewModels = allNewModels.filter(m => !existingIds.has(m.provider + ':' + m.id));
-
-        // 合併並保存
-        const allModels = [...existingModels, ...trulyNewModels];
-        await this.saveDiscoveredModels(allModels);
-        await this.updateLastCheck();
-
-        console.log('🎉 模型發現完成！本次發現 ' + trulyNewModels.length + ' 個新模型，總共 ' + allModels.length + ' 個已發現模型');
-
-        return {
-            newModels: trulyNewModels,
-            totalDiscovered: allModels.length
-        };
-    }
-
-    /**
-     * 獲取所有已發現的模型（用於 UI 顯示）
-     * @returns {Promise<Array>}
-     */
-    async getAllDiscoveredModels() {
-        return await this.getDiscoveredModels();
-    }
-}
-
-// 全局模型發現器實例
-let modelDiscovery = null;
 
 // ====== I18N 與 UI 邏輯 ======
 // 多語言支援（繁體中文、英文、日文、韓文）
@@ -4656,80 +4246,22 @@ function updateModelOptions() {
         groups[cat].push(m);
     });
     
-    // Load discovered models from API and add to the list
-    loadDiscoveredModels(p).then(discoveredModels => {
-        if (discoveredModels && discoveredModels.length > 0) {
-            discoveredModels.forEach(m => {
-                // Skip if model already exists in config
-                const exists = models.some(configModel => configModel.id === m.id);
-                if (!exists) {
-                    const cat = m.category || 'discovered';
-                    if(!groups[cat]) groups[cat] = [];
-                    groups[cat].push({
-                        id: m.id,
-                        name: m.name || m.id,
-                        category: cat,
-                        max_size: m.max_size || 1024
-                    });
-                }
-            });
-        }
-        
-        // Build the model select options
-        for(const [cat, list] of Object.entries(groups)) {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = cat.toUpperCase();
-            list.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m.id;
-                opt.textContent = m.name;
-                // Set default model to FLUX.2 Klein 9B
-                if (m.id === 'klein-large') opt.selected = true;
-                optgroup.appendChild(opt);
-            });
-            modelSelect.appendChild(optgroup);
-        }
-        
-        // Update reference images visibility after model list is updated
-        updateReferenceImagesVisibility();
-    }).catch(error => {
-        console.error('Failed to load discovered models:', error);
-        // Still build the model select with default models
-        for(const [cat, list] of Object.entries(groups)) {
-            const optgroup = document.createElement('optgroup');
-            optgroup.label = cat.toUpperCase();
-            list.forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m.id;
-                opt.textContent = m.name;
-                if (m.id === 'klein-large') opt.selected = true;
-                optgroup.appendChild(opt);
-            });
-            modelSelect.appendChild(optgroup);
-        }
-        updateReferenceImagesVisibility();
-    });
-}
-
-/**
- * Load discovered models from the API
- * @param {string} provider - The provider name (infip or aqua)
- * @returns {Promise<Array>} - Array of discovered models
- */
-async function loadDiscoveredModels(provider) {
-    try {
-        const response = await fetch('/api/models/discovered');
-        if (!response.ok) return [];
-        
-        const data = await response.json();
-        if (!data.success || !data.models) return [];
-        
-        // Filter models by provider
-        return data.models.filter(m => m.provider === provider);
-    } catch (error) {
-        console.error('Error loading discovered models:', error);
-        return [];
+    for(const [cat, list] of Object.entries(groups)) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = cat.toUpperCase();
+        list.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.id;
+            opt.textContent = m.name;
+            // Set default model to FLUX.2 Klein 9B
+            if (m.id === 'klein-large') opt.selected = true;
+            optgroup.appendChild(opt);
+        });
+        modelSelect.appendChild(optgroup);
     }
+    
+    // Update reference images visibility after model list is updated
+    updateReferenceImagesVisibility();
 }
 
 // ====== 拖放功能模塊 ======
@@ -4958,18 +4490,16 @@ if (${hasAquaServerKey} && frontendProviders.aqua) {
 const PROVIDERS=frontendProviders;
 
 async function addToHistory(item){
-    // 方案 2: 直接使用 imageUrl 和 thumbnailUrl，不上傳到 Freeimage.host
-    // 上傳邏輯在圖片生成處理中完成
+    let base64Data = item.image;
+    if(!base64Data && item.url){
+        try{
+            const resp = await fetch(item.url);
+            const blob = await resp.blob();
+            base64Data = await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob);});
+        }catch(e){console.error("Image convert failed",e);}
+    }
     const record={
-        id: Date.now()+Math.random(),
-        timestamp: new Date().toISOString(),
-        prompt: item.prompt,
-        model: item.model,
-        style: item.style,
-        seed: item.seed,
-        imageUrl: item.imageUrl,
-        thumbnailUrl: item.thumbnailUrl,
-        provider: item.provider || 'pollinations'
+        id: Date.now()+Math.random(), timestamp: new Date().toISOString(), prompt: item.prompt, model: item.model, style: item.style, seed: item.seed, base64: base64Data || item.url
     };
     await saveToDB(record);
 }
@@ -4985,12 +4515,10 @@ async function updateHistoryDisplay(){
     if(history.length===0){ list.innerHTML='<div class="empty-state"><p>'+I18N[curLang].no_history+'</p></div>'; return; }
     const div=document.createElement('div');div.className='gallery';
     history.forEach(item=>{
-        // 方案 2: 優先使用縮圖 URL，其次使用完整圖片 URL
-        const imgSrc = item.thumbnailUrl || item.imageUrl || item.base64 || item.url;
-        const fullImgSrc = item.imageUrl || item.base64 || item.url || imgSrc;
+        const imgSrc = item.base64 || item.url;
         const d=document.createElement('div'); d.className='gallery-item';
         d.innerHTML='<img src="'+imgSrc+'" loading="lazy"><div class="gallery-info"><div class="gallery-meta"><span class="model-badge">'+item.model+'</span><span class="seed-badge">#'+item.seed+'</span></div><div class="gallery-actions"><button class="action-btn reuse-btn">'+I18N[curLang].btn_reuse+'</button><button class="action-btn download-btn">'+I18N[curLang].btn_dl+'</button><button class="action-btn delete delete-btn">🗑️</button></div></div>';
-        d.querySelector('img').onclick=()=>openModal(fullImgSrc);
+        d.querySelector('img').onclick=()=>openModal(imgSrc);
         d.querySelector('.reuse-btn').onclick=()=>{
             document.getElementById('prompt').value=item.prompt||'';
             const modelSelect = document.getElementById('model');
@@ -5023,7 +4551,7 @@ async function updateHistoryDisplay(){
         };
         d.querySelector('.download-btn').onclick=()=>{
             const a=document.createElement('a');
-            a.href=fullImgSrc;
+            a.href=imgSrc;
             a.download=item.model+'-'+item.seed+'.png';
             a.click();
         };
@@ -5123,8 +4651,6 @@ document.getElementById('generateForm').addEventListener('submit',async(e)=>{
         
         let items=[];
         const contentType=res.headers.get('content-type');
-        const provider = document.getElementById('provider').value;
-        
         if(contentType&&contentType.startsWith('image/')){
             const blob=await res.blob();
             const reader=new FileReader();
@@ -5132,81 +4658,25 @@ document.getElementById('generateForm').addEventListener('submit',async(e)=>{
             reader.onloadend=async()=>{
                 let base64=reader.result;
                 const realSeed = res.headers.get('X-Seed');
-                const model = res.headers.get('X-Model');
-                const style = res.headers.get('X-Style');
-                
-                // 方案 2: 上傳到 Freeimage.host 並儲存 URL
-                try {
-                    if (!freeImageUploader) {
-                        // 使用 Freeimage.host 預設 API Key (無需註冊)
-                        freeImageUploader = new FreeImageUploader();
-                    }
-                    
-                    const uploadResult = await freeImageUploader.upload(base64);
-                    const item = {
-                        imageUrl: uploadResult.url,
-                        thumbnailUrl: uploadResult.thumbnailUrl,
-                        prompt,
-                        model,
-                        seed: realSeed,
-                        style,
-                        provider
-                    };
-                    await addToHistory(item);
-                    displayResult([item]);
-                } catch (uploadError) {
-                    console.error('Freeimage.host 上傳失敗，使用 base64 顯示:', uploadError);
-                    // 上傳失敗時，暫時使用 base64 顯示（不儲存到歷史）
-                    const item = { image: base64, prompt, model, seed: realSeed, style };
-                    displayResult([item]);
-                }
+                const item={ image:base64, prompt, model:res.headers.get('X-Model'), seed: realSeed, style:res.headers.get('X-Style') };
+                await addToHistory(item);
+                displayResult([item]);
                 
                 // Determine cooldown based on provider
+                const provider = document.getElementById('provider').value;
                 const cooldownTime = provider === 'infip' ? INFIP_COOLDOWN_SEC : COOLDOWN_SEC;
                 startCooldown(cooldownTime);
             };
         }else{
             const data=await res.json();
             if(data.error) throw new Error(data.error.message);
-            
-            // 方案 2: 批量上傳到 Freeimage.host
-            for(const d of data.data){
-                try {
-                    if (!freeImageUploader) {
-                        freeImageUploader = new FreeImageUploader();
-                    }
-                    
-                    let uploadResult;
-                    if (d.image) {
-                        uploadResult = await freeImageUploader.upload(d.image);
-                    } else if (d.url) {
-                        uploadResult = await freeImageUploader.uploadFromUrl(d.url);
-                    } else {
-                        throw new Error('沒有可用的圖片資料');
-                    }
-                    
-                    const item = {
-                        imageUrl: uploadResult.url,
-                        thumbnailUrl: uploadResult.thumbnailUrl,
-                        prompt,
-                        model: d.model,
-                        seed: d.seed,
-                        style: d.style,
-                        provider
-                    };
-                    await addToHistory(item);
-                    items.push(item);
-                } catch (uploadError) {
-                    console.error('Freeimage.host 上傳失敗:', uploadError);
-                    // 上傳失上傳失敗時，暫時使用原始資料顯示（不儲存到歷史）
-                    items.push({...d, prompt});
-                }
-            }
+            for(const d of data.data){ const item={...d, prompt}; await addToHistory(item); items.push(item); }
             displayResult(items);
             
             // Determine cooldown based on provider
+            const provider = document.getElementById('provider').value;
             const cooldownTime = provider === 'infip' ? INFIP_COOLDOWN_SEC : COOLDOWN_SEC;
-            startCooldown(cooldownTime);
+            startCooldown(cooldownTime); 
         }
     }catch(err){ 
         resDiv.innerHTML='<p style="color:red;text-align:center">'+err.message+'</p>'; 
