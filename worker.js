@@ -1,11 +1,14 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 11.9.0 (Aqua Polling Models)
-//  更新: 新增 Aqua API 輪詢模型 (imagen4, nanobanana)、Img2Img 支援、參考圖片動態顯示
+//  版本: 11.12.0 (影片生成功能)
+//  更新: 新增影片生成功能、影片限流（每小時每IP 5個免費配額，180秒冷卻）
 // =================================================================================
 
 // 導入風格適配器（僅在服務器端使用）
 import { ServerStyleManager } from './utils/style-adapter.js';
+
+// 導入影片生成功能
+import { handleVideoAPI, handleVideoPage, handleVideoNanoPage } from './video-integration.js';
 
 // 初始化風格管理器
 const styleManager = new ServerStyleManager();
@@ -13,7 +16,7 @@ const mergedStyles = styleManager.merge();
 
 const CONFIG = {
   PROJECT_NAME: "Flux-AI-Pro",
-  PROJECT_VERSION: "11.9.0",
+  PROJECT_VERSION: "11.12.0",
   API_MASTER_KEY: "1",
   FETCH_TIMEOUT: 120000,
   MAX_RETRIES: 3,
@@ -1183,6 +1186,15 @@ export default {
       else if (url.pathname === '/api/generate-prompt') {
         response = await handlePromptGeneration(request, env);
       }
+      else if (url.pathname === '/video') {
+        response = await handleVideoPage(request, env);
+      }
+      else if (url.pathname.startsWith('/api/video')) {
+        response = await handleVideoAPI(request, env);
+      }
+      else if (url.pathname === '/video/nano') {
+        response = await handleVideoNanoPage(request, env);
+      }
       else if (url.pathname === '/health') {
         response = new Response(JSON.stringify({
           status: 'ok', version: CONFIG.PROJECT_VERSION, timestamp: new Date().toISOString(),
@@ -1193,7 +1205,7 @@ export default {
           style_categories: Object.keys(CONFIG.STYLE_CATEGORIES).map(key => ({ id: key, name: CONFIG.STYLE_CATEGORIES[key].name, icon: CONFIG.STYLE_CATEGORIES[key].icon, count: Object.values(CONFIG.STYLE_PRESETS).filter(s => s.category === key).length }))
         }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       } else {
-        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano', '/video', '/video/nano', '/api/video'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       }
       const duration = Date.now() - startTime;
       const headers = new Headers(response.headers);

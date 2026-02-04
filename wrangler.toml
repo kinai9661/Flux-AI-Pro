@@ -1,7 +1,7 @@
 # ============================================
 # Cloudflare Workers 配置文件
 # 項目: Flux AI Pro - NanoBanana Edition
-# 版本: 11.11.0 (非同步模型生成優化)
+# 版本: 11.12.0 (影片生成功能)
 # 更新: 2026-02-04
 # ============================================
 
@@ -10,7 +10,7 @@ main = "worker.js"
 compatibility_date = "2024-12-01"
 
 # ============================================
-# KV 存儲綁定 (NanoBanana 限流必需)
+# KV 存儲綁定 (NanoBanana 限流和影片生成限流必需)
 # ⚠️ 請執行: npx wrangler kv:namespace create "FLUX_KV"
 # 然後將生成的 id 填入下方
 # ============================================
@@ -28,7 +28,7 @@ binding = "AI"
 # 環境變量（非敏感）
 # ============================================
 [vars]
-WORKER_VERSION = "11.11.0"
+WORKER_VERSION = "11.12.0"
 DEFAULT_MODEL = "flux-schnell"
 MAX_WIDTH = 2048
 MAX_HEIGHT = 2048
