@@ -1,10 +1,10 @@
 # 🎨 Flux AI Pro - NanoBanana Edition
 
-![Version](https://img.shields.io/badge/Version-11.15.0-8B5CF6?style=flat-square)
+![Version](https://img.shields.io/badge/Version-11.17.0-8B5CF6?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Cloudflare%20Workers-orange?style=flat-square)
 ![Engine](https://img.shields.io/badge/Engine-Multi%20Provider-blue?style=flat-square)
 ![I18N](https://img.shields.io/badge/I18N-5%20Languages-green?style=flat-square)
-![Storage](https://img.shields.io/badge/Storage-Freeimage.host%20Direct%20Upload-red?style=flat-square)
+![Storage](https://img.shields.io/badge/Storage-Freeimage.host%20Base64-red?style=flat-square)
 ![Models](https://img.shields.io/badge/Infip%20Models-12%20Free-blue?style=flat-square)
 ![Config](https://img.shields.io/badge/Config-Auto%20Detection-green?style=flat-square)
 
@@ -31,11 +31,13 @@
 
 ---
 
-## 🔥 v11.15.0 更新亮點 (Release Highlights)
+## 🔥 v11.17.0 更新亮點 (Release Highlights)
 
-- **🚀 FILES["source"] 直接上傳**：改用 freeimage.host API 的 FILES["source"] 方式直接上傳文件，移除 base64 轉換，提升上傳效率。
-- **⚡ 性能優化**：移除 base64 編碼步驟，減少 CPU 使用和內存佔用，上傳速度更快。
-- **📡 API 最佳實踐**：遵循 freeimage.host 官方 API 建議，使用 FILES["source"] 方式上傳本地文件。
+- **🔧 API 響應結構修復**：修正 freeimage.host API 響應結構解析，正確檢查 `success.code` 而非 `success` 布林值。
+- **📡 增強調試日誌**：新增 `success.code` 和 `success.message` 日誌輸出，便於診斷 API 響應問題。
+- **🛡️ 穩定性提升**：根據官方 API 文檔更新響應驗證邏輯，確保正確處理上傳成功/失敗狀態。
+- **🔧 Base64 上傳優化**：改回使用 base64 方式上傳圖片，確保 Cloudflare Workers 環境下的兼容性。
+- **📡 分塊處理**：使用 64KB 分塊處理避免堆疊溢出，確保大文件上傳穩定。
 - **🔍 Freeimage.host 配置自動檢測**：新增 `/api/config/freeimage` 端點，自動檢測 freeimage.host 最新配置。
 - **📡 配置追蹤**：實時獲取 max_filesize、image_types、supported_mime_types 等配置資訊。
 - **🎯 官方規格同步**：文件大小限制更新為 64MB，支援格式精確驗證 (JPEG, PNG, BMP, GIF, WebP)。

@@ -1296,11 +1296,20 @@ async function handleUpload(request) {
       statusCode: data.status_code,
       statusTxt: data.status_txt,
       success: data.success,
+      successCode: data.success?.code,
+      successMessage: data.success?.message,
       hasImage: !!data.image,
       imageUrl: data.image?.url
     });
 
-    if (response.ok && data.status_code === 200 && data.image && data.image.url) {
+    // API 響應結構:
+    // {
+    //   "status_code": 200,
+    //   "success": { "message": "image uploaded", "code": 200 },
+    //   "image": { "url": "...", "url_viewer": "...", "thumb": {...}, ... },
+    //   "status_txt": "OK"
+    // }
+    if (response.ok && data.status_code === 200 && data.success?.code === 200 && data.image && data.image.url) {
       return new Response(JSON.stringify({
         url: data.image.url,
         deleteUrl: data.image.url_viewer,
