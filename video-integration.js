@@ -470,7 +470,27 @@ class VideoGenerator {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Pollinations API 錯誤: ${response.status} ${response.statusText} - ${errorText}`);
+      let errorMessage = `Pollinations API 錯誤: ${response.status} ${response.statusText}`;
+      
+      // 針對 429 錯誤提供更友好的訊息
+      if (response.status === 429) {
+        try {
+          const errorData = JSON.parse(errorText);
+          if (errorData.retryAfterSeconds) {
+            const minutes = Math.floor(errorData.retryAfterSeconds / 60);
+            const seconds = Math.floor(errorData.retryAfterSeconds % 60);
+            errorMessage = `Pollinations API 速率限制超過。請等待 ${minutes} 分 ${seconds} 秒後重試。如需無限請求，請提供 API Key (sk_*)。`;
+          } else {
+            errorMessage = `Pollinations API 速率限制超過。請稍後重試或提供 API Key (sk_*) 以獲得無限請求。`;
+          }
+        } catch (e) {
+          errorMessage = `Pollinations API 速率限制超過。請稍後重試或提供 API Key (sk_*) 以獲得無限請求。`;
+        }
+      } else {
+        errorMessage += ` - ${errorText}`;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     // Pollinations 直接返回影片文件
@@ -937,18 +957,32 @@ async function handleVideoAPI(request, env) {
         });
       }
 
-      // 檢查影片生成限流和冷卻
+      // 檢查影片生成限流和冷卻（不記錄）
       const rateLimiter = new VideoRateLimiter(env);
       const ip = rateLimiter.getClientIP(request);
-      const limitCheck = await rateLimiter.checkAndRecord(ip);
-
-      if (!limitCheck.allowed) {
+      
+      // 先檢查配額
+      const quotaCheck = await rateLimiter.checkQuota(ip);
+      if (!quotaCheck.allowed) {
         return new Response(JSON.stringify({
-          error: limitCheck.reason,
-          code: limitCheck.waitSeconds ? 'COOLDOWN' : 'QUOTA_EXCEEDED',
-          waitSeconds: limitCheck.waitSeconds,
-          remaining: limitCheck.remaining,
-          resetTime: limitCheck.resetTime
+          error: quotaCheck.reason,
+          code: 'QUOTA_EXCEEDED',
+          remaining: quotaCheck.remaining,
+          resetTime: quotaCheck.resetTime
+        }), {
+          status: 429,
+          headers: corsHeaders({ 'Content-Type': 'application/json' }),
+        });
+      }
+      
+      // 再檢查冷卻
+      const cooldownCheck = await rateLimiter.checkCooldown(ip);
+      if (!cooldownCheck.allowed) {
+        return new Response(JSON.stringify({
+          error: cooldownCheck.reason,
+          code: 'COOLDOWN',
+          waitSeconds: cooldownCheck.waitSeconds,
+          resetTime: cooldownCheck.resetTime
         }), {
           status: 429,
           headers: corsHeaders({ 'Content-Type': 'application/json' }),
@@ -968,7 +1002,10 @@ async function handleVideoAPI(request, env) {
         apiKey: api_key,
       });
 
+      // 只有生成成功才記錄
       if (result.success) {
+        // 記錄生成（扣除配額並設置冷卻）
+        await rateLimiter.recordGeneration(ip);
         return new Response(JSON.stringify({
           ...result,
           remaining: limitCheck.remaining - 1
