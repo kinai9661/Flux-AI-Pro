@@ -1488,7 +1488,7 @@ select{background-color:var(--bg-secondary)!important;color:var(--text-primary)!
 </div>
 <script>
 // 配置數據
-const VIDEO_CONFIG = ${JSON.stringify(VIDEO_CONFIG)};
+const VIDEO_CONFIG = ${JSON.stringify(VIDEO_CONFIG, null, 2)};
 
 // 狀態管理
 let isGenerating = false;
@@ -1661,11 +1661,82 @@ async function updateModelOptions() {
             const opt = document.createElement('option');
             opt.value = m.id;
             opt.textContent = m.name;
+            // 將模型數據存儲在 dataset 屬性中
+            opt.dataset.fps = m.fps || 24;
+            opt.dataset.maxDuration = Math.min(m.maxDuration || 10, 10); // 限制最大為10秒
+            opt.dataset.description = m.description || '';
             if (m.id === 'seedance-pro') opt.selected = true;
             optgroup.appendChild(opt);
         });
         modelSelect.appendChild(optgroup);
     }
+    
+    // 觸發模型參數更新
+    updateModelParams();
+}
+
+// 根據選擇的模型自動更新 FPS 和持續時間
+function updateModelParams() {
+    const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+    if (!selectedOption) return;
+    
+    const modelFps = parseInt(selectedOption.dataset.fps) || 24;
+    const modelMaxDuration = parseInt(selectedOption.dataset.maxDuration) || 10;
+    const modelDescription = selectedOption.dataset.description || '';
+    
+    // 自動設置 FPS
+    fpsInput.value = modelFps;
+    
+    // 自動設置持續時間（不超過模型最大值和10秒）
+    const currentDuration = parseInt(durationInput.value) || 4;
+    const newDuration = Math.min(currentDuration, modelMaxDuration);
+    durationInput.value = newDuration;
+    
+    // 更新持續時間的最大值
+    durationInput.max = modelMaxDuration;
+    
+    // 顯示模型限制提示
+    showModelLimitHint(modelFps, modelMaxDuration, modelDescription);
+}
+
+// 顯示模型限制提示
+function showModelLimitHint(fps, maxDuration, description) {
+    // 檢查是否已存在提示元素
+    let hintElement = document.getElementById('modelLimitHint');
+    
+    if (!hintElement) {
+        // 創建提示元素
+        hintElement = document.createElement('div');
+        hintElement.id = 'modelLimitHint';
+        hintElement.style.cssText = 'background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 10px; margin-bottom: 14px; font-size: 12px; color: var(--text-secondary);';
+        
+        // 插入到模型選擇之後
+        const modelGroup = modelSelect.closest('.form-group');
+        if (modelGroup) {
+            modelGroup.parentNode.insertBefore(hintElement, modelGroup.nextSibling);
+        }
+    }
+    
+    // 更新提示內容
+    hintElement.innerHTML = \`
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <span style="font-size: 16px;">📋</span>
+            <strong style="color: var(--accent-color);">模型參數限制</strong>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div>
+                <span style="opacity: 0.7;">幀率 (FPS):</span>
+                <strong style="color: var(--text-primary);">\${fps}</strong>
+            </div>
+            <div>
+                <span style="opacity: 0.7;">最大持續時間:</span>
+                <strong style="color: var(--text-primary);">\${maxDuration}秒</strong>
+            </div>
+        </div>
+        <div style="margin-top: 6px; font-size: 11px; opacity: 0.8;">
+            \${description}
+        </div>
+    \`;
 }
 
 // 更新尺寸參數
@@ -1674,8 +1745,25 @@ function updateSizeParams() {
     const sizeConfig = VIDEO_CONFIG.PRESET_SIZES[sizeKey];
     
     if (sizeConfig) {
-        durationInput.value = sizeConfig.duration;
-        fpsInput.value = sizeConfig.fps;
+        // 尺寸預設不再自動覆蓋 FPS 和持續時間
+        // 這些參數現在由模型決定
+        // 只在用戶手動選擇尺寸時更新
+        // durationInput.value = sizeConfig.duration;
+        // fpsInput.value = sizeConfig.fps;
+    }
+}
+
+// 持續時間輸入驗證
+function validateDurationInput() {
+    const selectedOption = modelSelect.options[modelSelect.selectedIndex];
+    if (!selectedOption) return;
+    
+    const modelMaxDuration = parseInt(selectedOption.dataset.maxDuration) || 10;
+    const inputValue = parseInt(durationInput.value);
+    
+    if (inputValue > modelMaxDuration) {
+        durationInput.value = modelMaxDuration;
+        addLog(\`持續時間已自動調整為模型最大值 \${modelMaxDuration}秒\`, 'warning');
     }
 }
 
@@ -1760,7 +1848,7 @@ function renderHistory() {
         historyItem.addEventListener('click', () => {
             promptInput.value = item.prompt;
             providerSelect.value = item.provider;
-            updateModelOptions();
+            // updateModelOptions() 會由 change 事件自動觸發
             modelSelect.value = item.model;
             styleSelect.value = item.style;
             durationInput.value = item.duration;
@@ -1956,7 +2044,10 @@ function displayVideo(data) {
 
 // 事件監聽
 providerSelect.addEventListener('change', updateModelOptions);
+modelSelect.addEventListener('change', updateModelParams);
 sizeSelect.addEventListener('change', updateSizeParams);
+durationInput.addEventListener('input', validateDurationInput);
+durationInput.addEventListener('change', validateDurationInput);
 themeToggle.addEventListener('click', toggleTheme);
 document.getElementById('refreshRateLimit').addEventListener('click', checkRateLimitStatus);
 
