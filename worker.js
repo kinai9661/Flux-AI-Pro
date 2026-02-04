@@ -1284,13 +1284,27 @@ async function handleUpload(request) {
     });
 
     const data = await response.json();
+    
+    // 🔍 調試日誌：檢查 API 響應結構
+    console.log('📤 freeimage.host API Response:', {
+      status: response.status,
+      ok: response.ok,
+      statusCode: data.status_code,
+      statusTxt: data.status_txt,
+      success: data.success,
+      hasImage: !!data.image,
+      imageUrl: data.image?.url
+    });
 
-    if (response.ok && data.success && data.data && data.data.url) {
+    if (response.ok && data.status_code === 200 && data.image && data.image.url) {
       return new Response(JSON.stringify({
-        url: data.data.url,
-        deleteUrl: data.data.delete_url,
-        displayUrl: data.data.display_url,
-        thumbUrl: data.data.thumb.url
+        url: data.image.url,
+        deleteUrl: data.image.url_viewer,
+        displayUrl: data.image.display_url,
+        thumbUrl: data.image.thumb.url,
+        filename: data.image.filename,
+        size: data.image.size,
+        sizeFormatted: data.image.size_formatted
       }), {
         status: 200,
         headers: corsHeaders({ 'Content-Type': 'application/json' })
@@ -1298,7 +1312,9 @@ async function handleUpload(request) {
     } else {
       console.error('freeimage.host API Error:', data);
       return new Response(JSON.stringify({
-        error: data.error?.message || 'Upload failed',
+        error: data.error?.message || data.status_txt || 'Upload failed',
+        statusCode: data.status_code,
+        errorCode: data.error?.code,
         details: data
       }), {
         status: 502,
