@@ -3525,6 +3525,9 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
             🍌 <span data-t="nav_nano">Nano版</span>
         </a>
         <button class="nav-btn active" data-page="generate"><span data-t="nav_gen">🎨 生成圖像</span></button>
+        <a href="/video" class="nav-btn" style="border-color:rgba(239,68,68,0.5);color:#ef4444">
+            <span data-t="nav_video">🎬 生成影片</span>
+        </a>
         <button class="nav-btn" data-page="history"><span data-t="nav_his">📚 歷史記錄</span> <span id="historyCount" style="background:rgba(245,158,11,0.2);padding:2px 8px;border-radius:10px;font-size:11px">0</span></button>
         <div style="position:relative">
             <button class="lang-btn" id="langSwitch">
