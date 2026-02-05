@@ -1,8 +1,8 @@
 /**
  * 影片生成模組入口
- * 
- * 這個模組提供簡化的 Pollinations.ai 影片生成功能
- * 移除了其他供應商（Runway、Pika、Luma、Kling）
+ *
+ * 這個模組提供完整的 Pollinations.ai 影片生成功能
+ * 包含 API 處理器和 UI 介面
  */
 
 // 核心服務
@@ -20,3 +20,6 @@ export { Logger } from './utils/logger.js';
 
 // API 處理器
 export { handleVideoAPI } from './api/handlers.js';
+
+// UI 頁面生成器
+export { VideoPageGenerator, videoPageGenerator } from './ui/page-generator.js';

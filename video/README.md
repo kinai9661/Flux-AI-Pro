@@ -1,8 +1,8 @@
-# 影片生成模組 - 簡化版
+# 影片生成模組 - 完整 UI 版本
 
 ## 概述
 
-這是 Flux AI Pro 的簡化版影片生成模組，僅支援 Pollinations.ai 供應商。模組採用模組化架構設計，提供完整的 RESTful API 端點供外部呼叫。
+這是 Flux AI Pro 的完整影片生成模組，僅支援 Pollinations.ai 供應商。模組採用模組化架構設計，提供完整的 RESTful API 端點和精美的使用者介面。
 
 ## 架構
 
@@ -16,11 +16,59 @@ video/
 ├── providers/
 │   └── pollinations-provider.js  # Pollinations 供應商
 ├── utils/
-│   └── logger.js                 # 日誌工具
+│   └── logger.js                 # 日日誌工具
 ├── api/
 │   └── handlers.js               # API 處理器
+├── ui/
+│   ├── templates.js              # HTML 模板
+│   ├── components.js             # UI 組件 JavaScript
+│   └── page-generator.js         # 頁面生成器
 └── index.js                      # 模組入口
 ```
+
+## UI 介面
+
+### 主頁面 (`/video`)
+
+完整功能的影片生成介面，包含：
+
+- **輸入區域**
+  - 提示詞輸入框（多行文字）
+  - 圖片上傳區域（支援拖曳上傳）
+  - 模型選擇下拉選單（Flux Video、Turbo）
+  - 尺寸選擇下拉選單（HD、Full HD、Square、Portrait）
+  - FPS 調整滑桿（24-60）
+  - 持續時間調整滑桿（3-10 秒）
+
+- **配額顯示**
+  - 剩餘配額數量
+  - 冷卻時間倒數計時
+  - 使用進度條
+
+- **生成按鈕**
+  - 生成按鈕（帶載入動畫）
+  - 生成進度顯示
+  - 取消生成按鈕
+
+- **結果區域**
+  - 影片預覽播放器
+  - 下載按鈕
+  - 分享按鈕
+  - 重新生成按鈕
+
+- **歷史記錄**
+  - 最近 10 筆生成記錄
+  - 縮圖預覽
+  - 點擊重新載入
+
+### Nano 版本 (`/video/nano`)
+
+簡化版介面，適合手機瀏覽：
+
+- 精簡的輸入表單
+- 快速生成按鈕
+- 基本結果顯示
+- 下載和重新生成功能
 
 ## API 端點
 
@@ -97,41 +145,19 @@ curl https://your-worker.workers.dev/api/video/quota
 
 | 比例 | 寬度 | 高度 | 標籤 |
 |------|------|------|------|
-| 16:9 | 1280 | 720 | 橫向 (16:9) |
-| 9:16 | 720 | 1280 | 直向 (9:16) |
-| 1:1 | 1024 | 1024 | 方形 (1:1) |
+| 16:9 | 1280 | 720 | HD (16:9) |
+| 16:9 | 1920 | 1080 | Full HD (16:9) |
+| 1:1 | 720 | 720 | 方形 (1:1) |
+| 9:16 | 1080 | 1920 | 直向 (9:16) |
 
-## 遷移說明
+## UI 設計特色
 
-從舊版 `video-integration.js` 遷移到新模組：
-
-### 1. 舊的 import
-```javascript
-import { handleVideoAPI, handleVideoPage, handleVideoNanoPage } from './video-integration.js';
-```
-
-### 2. 新的 import
-```javascript
-import { handleVideoAPI } from './video/index.js';
-```
-
-### 3. 移除的供應商
-- Runway
-- Pika
-- Luma
-- Kling
-
-### 4. 保留的功能
-- Pollinations.ai 文字轉影片
-- Pollinations.ai 圖片轉影片
-- IP 限流
-- 冷卻機制
-
-### 5. 移除的功能
-- `/video` 和 `/video/nano` UI 頁面（改為 API 文件頁面）
-- 多供應商支援
-- 風格預設
-- 本地歷史記錄
+- **深色漸變背景**：使用漸變色背景，營造現代感
+- **毛玻璃效果**：面板使用 backdrop-filter 毛玻璃效果
+- **響應式設計**：支援桌面和手機瀏覽
+- **動畫過渡**：按鈕懸停、載入等動畫效果
+- **載入狀態**：生成時顯示進度條和載入動畫
+- **錯誤提示**：友好的錯誤訊息顯示
 
 ## 模組說明
 
@@ -175,9 +201,31 @@ API 處理器，提供：
 - 響應格式化
 - 錯誤處理
 
+### ui/templates.js
+HTML 模板，包含：
+- 主頁面 HTML 模板
+- Nano 版本 HTML 模板
+- 內嵌 CSS 樣式
+
+### ui/components.js
+UI 組件 JavaScript，包含：
+- 狀態管理
+- 事件監聽器
+- API 呼叫
+- DOM 操作
+- 歷史記錄管理
+
+### ui/page-generator.js
+頁面生成器，提供：
+- 主頁面生成函數
+- Nano 版本生成函數
+- 請求處理函數
+
 ### index.js
 模組入口，導出：
 - `handleVideoAPI` - API 處理函數
+- `VideoPageGenerator` - 頁面生成器類
+- `videoPageGenerator` - 頁面生成器實例
 - `VideoService` - 影片服務類
-- `RateLimiter` - 限流器類
+- `VideoRateLimiter` - 限流器類
 - `PollinationsProvider` - Pollinations 供應商類

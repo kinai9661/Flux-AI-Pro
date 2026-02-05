@@ -7,8 +7,8 @@
 // 導入風格適配器（僅在服務器端使用）
 import { ServerStyleManager } from './utils/style-adapter.js';
 
-// 導入影片生成功能（簡化版 - 僅 Pollinations.ai）
-import { handleVideoAPI } from './video/index.js';
+// 導入影片生成功能（完整版 UI - 僅 Pollinations.ai）
+import { handleVideoAPI, videoPageGenerator } from './video/index.js';
 
 // 初始化風格管理器
 const styleManager = new ServerStyleManager();
@@ -1187,80 +1187,15 @@ export default {
         response = await handlePromptGeneration(request, env);
       }
       else if (url.pathname === '/video') {
-        // 影片生成頁面 - 簡化版僅提供 API
-        response = new Response(`
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>影片生成 - Flux AI Pro</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-    h1 { color: #333; }
-    .api-info { background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0; }
-    code { background: #e0e0e0; padding: 2px 6px; border-radius: 4px; }
-    pre { background: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 8px; overflow-x: auto; }
-  </style>
-</head>
-<body>
-  <h1>🎬 影片生成 API</h1>
-  <p>簡化版影片生成功能，僅支援 Pollinations.ai 供應商。</p>
-  
-  <div class="api-info">
-    <h3>API 端點</h3>
-    <ul>
-      <li><code>POST /api/video/generate</code> - 生成影片</li>
-      <li><code>GET /api/video/models</code> - 獲取模型列表</li>
-      <li><code>GET /api/video/styles</code> - 獲取樣式列表</li>
-      <li><code>GET /api/video/sizes</code> - 獲取尺寸列表</li>
-      <li><code>GET /api/video/quota</code> - 獲取配額資訊</li>
-      <li><code>GET /api/video/config</code> - 獲取完整配置</li>
-    </ul>
-  </div>
-
-  <div class="api-info">
-    <h3>生成影片範例</h3>
-    <pre>
-POST /api/video/generate
-Content-Type: application/json
-
-{
-  "prompt": "A beautiful sunset over mountains",
-  "model": "flux-video",
-  "width": 1280,
-  "height": 720,
-  "fps": 24,
-  "duration": 5
-}
-    </pre>
-  </div>
-
-  <div class="api-info">
-    <h3>圖片轉影片範例</h3>
-    <pre>
-POST /api/video/generate
-Content-Type: application/json
-
-{
-  "referenceImage": "https://example.com/image.jpg",
-  "model": "flux-video",
-  "duration": 5
-}
-    </pre>
-  </div>
-
-  <p><a href="/">← 返回首頁</a></p>
-</body>
-</html>
-        `, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+        // 影片生成頁面 - 完整 UI 介面
+        response = videoPageGenerator.handleVideoPage(request);
       }
       else if (url.pathname.startsWith('/api/video')) {
         response = await handleVideoAPI(request, env);
       }
       else if (url.pathname === '/video/nano') {
-        // Nano 版本重定向到主頁面
-        response = new Response('', { status: 302, headers: { 'Location': '/video' } });
+        // Nano 版本頁面 - 簡化 UI 介面
+        response = videoPageGenerator.handleVideoPage(request);
       }
       else if (url.pathname === '/health') {
         response = new Response(JSON.stringify({
