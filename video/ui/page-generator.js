@@ -20,7 +20,7 @@ export class VideoPageGenerator {
     // 插入 JavaScript
     const scriptTag = `<script>${VideoUIComponents.mainPageScript}</script>`;
     html = html.replace(
-      '<script>\n    // JavaScript 將由 page-generator.js 動態生成\n  </script>',
+      '  <script>\n    // JavaScript 將由 page-generator.js 動態生成\n  </script>',
       scriptTag
     );
     
@@ -37,7 +37,7 @@ export class VideoPageGenerator {
     // 插入 JavaScript
     const scriptTag = `<script>${VideoUIComponents.nanoPageScript}</script>`;
     html = html.replace(
-      '<script>\n    // JavaScript 將由 page-generator.js 動態生成\n  </script>',
+      '  <script>\n    // JavaScript 將由 page-generator.js 動態生成\n  </script>',
       scriptTag
     );
     
