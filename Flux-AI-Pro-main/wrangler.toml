@@ -1,0 +1,58 @@
+# ============================================
+# Cloudflare Workers 配置文件
+# 項目: Flux AI Pro - NanoBanana Edition
+# 版本: 11.12.0 (影片生成功能)
+# 更新: 2026-02-04
+# ============================================
+
+name = "flux-ai-pro"
+main = "worker.js"
+compatibility_date = "2024-12-01"
+
+# ============================================
+# KV 存儲綁定 (NanoBanana 限流和影片生成限流必需)
+# ⚠️ 請執行: npx wrangler kv:namespace create "FLUX_KV"
+# 然後將生成的 id 填入下方
+# ============================================
+[[kv_namespaces]]
+binding = "FLUX_KV"
+id = "65c2232e78044e749adb797599cb6ac8"
+
+# ============================================
+# Workers AI 綁定（用於中文自動翻譯）
+# ============================================
+[ai]
+binding = "AI"
+
+# ============================================
+# 環境變量（非敏感）
+# ============================================
+[vars]
+WORKER_VERSION = "11.12.0"
+DEFAULT_MODEL = "flux-schnell"
+MAX_WIDTH = 2048
+MAX_HEIGHT = 2048
+MAX_TIMEOUT = 300000
+ENVIRONMENT = "production"
+
+# ============================================
+# Secrets 通過 wrangler secret 命令設置
+# 🔐 推薦設置:
+# 1. POLLINATIONS_API_KEY (Pollinations 圖像生成)
+# 2. INFIP_API_KEY (Ghostbot/Infip)
+# 3. AQUA_API_KEY (Aqua Server)
+# 4. POLLINATIONS_VIDEO_API_KEY (Pollinations 影片生成)
+# 5. RUNWAY_VIDEO_API_KEY (Runway 影片生成)
+# 6. PIKA_VIDEO_API_KEY (Pika 影片生成)
+# 7. LUMA_VIDEO_API_KEY (Luma 影片生成)
+# 8. KLING_VIDEO_API_KEY (Kling 影片生成)
+# ============================================
+# 設置命令範例：
+# npx wrangler secret put POLLINATIONS_API_KEY
+# npx wrangler secret put INFIP_API_KEY
+# npx wrangler secret put AQUA_API_KEY
+# npx wrangler secret put POLLINATIONS_VIDEO_API_KEY
+# npx wrangler secret put RUNWAY_VIDEO_API_KEY
+# npx wrangler secret put PIKA_VIDEO_API_KEY
+# npx wrangler secret put LUMA_VIDEO_API_KEY
+# npx wrangler secret put KLING_VIDEO_API_KEY
