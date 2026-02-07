@@ -1,14 +1,11 @@
 // =================================================================================
 //  項目: Flux AI Pro - NanoBanana Edition
-//  版本: 11.12.0 (影片生成功能)
-//  更新: 新增影片生成功能、影片限流（每小時每IP 5個免費配額，180秒冷卻）
+//  版本: 11.12.0
+//  更新: AI 圖像生成服務
 // =================================================================================
 
 // 導入風格適配器（僅在服務器端使用）
 import { ServerStyleManager } from './utils/style-adapter.js';
-
-// 導入影片生成功能（完整版 UI - 僅 Pollinations.ai）
-import { handleVideoAPI, videoPageGenerator } from './video/index.js';
 
 // 初始化風格管理器
 const styleManager = new ServerStyleManager();
@@ -1186,17 +1183,6 @@ export default {
       else if (url.pathname === '/api/generate-prompt') {
         response = await handlePromptGeneration(request, env);
       }
-      else if (url.pathname === '/video') {
-        // 影片生成頁面 - 完整 UI 介面
-        response = videoPageGenerator.handleVideoPage(request);
-      }
-      else if (url.pathname.startsWith('/api/video')) {
-        response = await handleVideoAPI(request, env);
-      }
-      else if (url.pathname === '/video/nano') {
-        // Nano 版本頁面 - 簡化 UI 介面
-        response = videoPageGenerator.handleVideoPage(request);
-      }
       else if (url.pathname === '/health') {
         response = new Response(JSON.stringify({
           status: 'ok', version: CONFIG.PROJECT_VERSION, timestamp: new Date().toISOString(),
@@ -1207,7 +1193,7 @@ export default {
           style_categories: Object.keys(CONFIG.STYLE_CATEGORIES).map(key => ({ id: key, name: CONFIG.STYLE_CATEGORIES[key].name, icon: CONFIG.STYLE_CATEGORIES[key].icon, count: Object.values(CONFIG.STYLE_PRESETS).filter(s => s.category === key).length }))
         }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       } else {
-        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano', '/video', '/video/nano', '/api/video'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       }
       const duration = Date.now() - startTime;
       const headers = new Headers(response.headers);
@@ -3527,9 +3513,6 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
             🍌 <span data-t="nav_nano">Nano版</span>
         </a>
         <button class="nav-btn active" data-page="generate"><span data-t="nav_gen">🎨 生成圖像</span></button>
-        <a href="/video" class="nav-btn" style="border-color:rgba(239,68,68,0.5);color:#ef4444">
-            <span data-t="nav_video">🎬 生成影片</span>
-        </a>
         <button class="nav-btn" data-page="history"><span data-t="nav_his">📚 歷史記錄</span> <span id="historyCount" style="background:rgba(245,158,11,0.2);padding:2px 8px;border-radius:10px;font-size:11px">0</span></button>
         <div style="position:relative">
             <button class="lang-btn" id="langSwitch">
