@@ -1410,8 +1410,167 @@ class AirforceProvider {
         throw new Error(errorMessage);
       }
 
-      // Handle SSE streaming response
-      const results = await this.handleSSEStream(response, logger, width, height, model);
+      // Check if response is SSE (Server-Sent Events) or regular JSON
+      const contentType = response.headers.get('content-type') || '';
+      let results = [];
+      
+      if (contentType.includes('text/event-stream') || contentType.includes('text/plain')) {
+        // Handle SSE streaming response
+        logger.add("📡 Using SSE stream handler");
+        results = await this.handleSSEStream(response, logger, width, height, model);
+      } else {
+        // Handle regular JSON response
+        logger.add("📡 Using JSON response handler");
+        const data = await response.json();
+        logger.add("📊 Airforce Response Data", {
+          data,
+          dataType: typeof data,
+          dataKeys: Object.keys(data),
+          dataPreview: JSON.stringify(data).substring(0, 500)
+        });
+
+        // Parse JSON response
+        if (data.url) {
+          results.push({
+            url: data.url,
+            width: width,
+            height: height,
+            model: model,
+            provider: this.name
+          });
+          logger.add("✅ JSON: Found URL in data.url");
+        } else if (data.data && Array.isArray(data.data)) {
+          for (const item of data.data) {
+            if (item.url) {
+              results.push({
+                url: item.url,
+                width: width,
+                height: height,
+                model: model,
+                provider: this.name
+              });
+            }
+            if (item.b64_json) {
+              results.push({
+                url: `data:image/png;base64,${item.b64_json}`,
+                width: width,
+                height: height,
+                model: model,
+                provider: this.name
+              });
+            }
+          }
+          logger.add("✅ JSON: Processed data.data array", { count: results.length });
+        } else if (data.b64_json) {
+          results.push({
+            url: `data:image/png;base64,${data.b64_json}`,
+            width: width,
+            height: height,
+            model: model,
+            provider: this.name
+          });
+          logger.add("✅ JSON: Found b64_json");
+        } else if (data.images && Array.isArray(data.images)) {
+          for (const item of data.images) {
+            if (item.url) {
+              results.push({
+                url: item.url,
+                width: width,
+                height: height,
+                model: model,
+                provider: this.name
+              });
+            }
+          }
+          logger.add("✅ JSON: Processed data.images array", { count: results.length });
+        } else if (data.image) {
+          results.push({
+            url: data.image,
+            width: width,
+            height: height,
+            model: model,
+            provider: this.name
+          });
+          logger.add("✅ JSON: Found URL in data.image");
+        } else if (data.output && Array.isArray(data.output)) {
+          for (const item of data.output) {
+            if (item.url || item.image) {
+              results.push({
+                url: item.url || item.image,
+                width: width,
+                height: height,
+                model: model,
+                provider: this.name
+              });
+            }
+            if (item.b64_json) {
+              results.push({
+                url: `data:image/png;base64,${item.b64_json}`,
+                width: width,
+                height: height,
+                model: model,
+                provider: this.name
+              });
+            }
+          }
+          logger.add("✅ JSON: Processed data.output array", { count: results.length });
+        } else if (data.result && (data.result.url || data.result.b64_json)) {
+          if (data.result.url) {
+            results.push({
+              url: data.result.url,
+              width: width,
+              height: height,
+              model: model,
+              provider: this.name
+            });
+          }
+          if (data.result.b64_json) {
+            results.push({
+              url: `data:image/png;base64,${data.result.b64_json}`,
+              width: width,
+              height: height,
+              model: model,
+              provider: this.name
+            });
+          }
+          logger.add("✅ JSON: Found data in data.result");
+        } else {
+          logger.add("⚠️ JSON: Unknown format - deep searching", {
+            dataKeys: Object.keys(data),
+            fullData: JSON.stringify(data)
+          });
+          
+          const findImages = (obj, path = "") => {
+            const images = [];
+            if (typeof obj === 'string') {
+              if (obj.startsWith('http://') || obj.startsWith('https://')) {
+                images.push({ url: obj, path });
+              } else if (obj.startsWith('data:image')) {
+                images.push({ url: obj, path });
+              }
+            } else if (typeof obj === 'object' && obj !== null) {
+              for (const [key, value] of Object.entries(obj)) {
+                images.push(...findImages(value, path ? `${path}.${key}` : key));
+              }
+            }
+            return images;
+          };
+          
+          const foundImages = findImages(data);
+          if (foundImages.length > 0) {
+            for (const { url } of foundImages) {
+              results.push({
+                url: url,
+                width: width,
+                height: height,
+                model: model,
+                provider: this.name
+              });
+            }
+            logger.add("✅ JSON: Found images via deep search", { count: results.length });
+          }
+        }
+      }
 
       if (results.length === 0) {
         throw new Error("No images returned from Airforce API");
@@ -1460,20 +1619,36 @@ class AirforceProvider {
         if (done) break;
 
         accumulatedData += decoder.decode(value, { stream: true });
-        const lines = accumulatedData.split('\n\n');
-        accumulatedData = lines.pop();
+        
+        // Try splitting by \n\n first (standard SSE format)
+        let lines = accumulatedData.split('\n\n');
+        
+        // If no \n\n found, try splitting by \n (some APIs use single newline)
+        if (lines.length === 1) {
+          lines = accumulatedData.split('\n');
+        }
+        
+        accumulatedData = lines.pop() || '';
 
         for (const line of lines) {
+          // Handle both 'data: ' and 'data:' prefixes
+          let dataStr = '';
           if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6);
-             
-            // Skip keepalive and done messages
-            if (dataStr === '[DONE]') continue;
-            if (dataStr === ': keepalive') continue;
-            if (!dataStr || dataStr.trim() === '') continue;
+            dataStr = line.slice(6);
+          } else if (line.startsWith('data:')) {
+            dataStr = line.slice(5);
+          } else {
+            continue; // Skip lines that don't start with 'data:'
+          }
+          
+          // Skip keepalive and done messages
+          if (dataStr === '[DONE]') continue;
+          if (dataStr === ': keepalive') continue;
+          if (dataStr.startsWith(':')) continue; // Skip SSE comments
+          if (!dataStr || dataStr.trim() === '') continue;
 
-            try {
-              const data = JSON.parse(dataStr);
+          try {
+            const data = JSON.parse(dataStr);
               logger.add("📊 SSE Data", {
                 data,
                 dataKeys: Object.keys(data),
