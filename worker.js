@@ -1343,13 +1343,16 @@ class AirforceProvider {
         prompt: finalPrompt,
         n: 1,
         size: size,
-        response_format: "url"
+        response_format: "b64_json",
+        sse: true
       };
 
       logger.add("📤 Request to Airforce", {
         url,
         model: body.model,
         size: body.size,
+        response_format: body.response_format,
+        sse: body.sse,
         promptLength: finalPrompt.length,
         apiKeyPrefix: finalApiKey ? finalApiKey.substring(0, 8) + '...' : 'none',
         apiKeyLength: finalApiKey ? finalApiKey.length : 0,
@@ -1407,55 +1410,8 @@ class AirforceProvider {
         throw new Error(errorMessage);
       }
 
-      // Handle non-streaming JSON response
-      const data = await response.json();
-      logger.add("📊 Airforce Response Data", { data });
-
-      let results = [];
-      
-      if (data.url) {
-        results.push({
-          url: data.url,
-          width: width,
-          height: height,
-          model: model,
-          provider: this.name
-        });
-      } else if (data.data && Array.isArray(data.data)) {
-        for (const item of data.data) {
-          if (item.url) {
-            results.push({
-              url: item.url,
-              width: width,
-              height: height,
-              model: model,
-              provider: this.name
-            });
-          }
-        }
-      } else if (data.images && Array.isArray(data.images)) {
-        for (const item of data.images) {
-          if (item.url) {
-            results.push({
-              url: item.url,
-              width: width,
-              height: height,
-              model: model,
-              provider: this.name
-            });
-          }
-        }
-      } else if (data.image) {
-        results.push({
-          url: data.image,
-          width: width,
-          height: height,
-          model: model,
-          provider: this.name
-        });
-      } else {
-        logger.add("⚠️ Unknown response format", { data });
-      }
+      // Handle SSE streaming response
+      const results = await this.handleSSEStream(response, logger, width, height, model);
 
       if (results.length === 0) {
         throw new Error("No images returned from Airforce API");
@@ -1518,9 +1474,14 @@ class AirforceProvider {
 
             try {
               const data = JSON.parse(dataStr);
-              logger.add("📊 SSE Data", { data });
+              logger.add("📊 SSE Data", {
+                data,
+                dataKeys: Object.keys(data),
+                dataPreview: JSON.stringify(data).substring(0, 200)
+              });
 
               // Handle different response formats
+              // Format 1: Direct URL
               if (data.url) {
                 results.push({
                   url: data.url,
@@ -1529,7 +1490,10 @@ class AirforceProvider {
                   model: model,
                   provider: this.name
                 });
-              } else if (data.data && Array.isArray(data.data)) {
+                logger.add("✅ SSE: Found URL in data.url", { url: data.url.substring(0, 50) + "..." });
+              }
+              // Format 2: OpenAI compatible - data array
+              else if (data.data && Array.isArray(data.data)) {
                 for (const item of data.data) {
                   if (item.url) {
                     results.push({
@@ -1540,8 +1504,22 @@ class AirforceProvider {
                       provider: this.name
                     });
                   }
+                  // Handle b64_json in data array
+                  if (item.b64_json) {
+                    results.push({
+                      url: `data:image/png;base64,${item.b64_json}`,
+                      width: width,
+                      height: height,
+                      model: model,
+                      provider: this.name
+                    });
+                    logger.add("✅ SSE: Found b64_json in data.data array");
+                  }
                 }
-              } else if (data.images && Array.isArray(data.images)) {
+                logger.add("✅ SSE: Processed data.data array", { count: results.length });
+              }
+              // Format 3: Images array
+              else if (data.images && Array.isArray(data.images)) {
                 for (const item of data.images) {
                   if (item.url) {
                     results.push({
@@ -1553,7 +1531,10 @@ class AirforceProvider {
                     });
                   }
                 }
-              } else if (data.image) {
+                logger.add("✅ SSE: Processed data.images array", { count: results.length });
+              }
+              // Format 4: Direct image property
+              else if (data.image) {
                 results.push({
                   url: data.image,
                   width: width,
@@ -1561,10 +1542,105 @@ class AirforceProvider {
                   model: model,
                   provider: this.name
                 });
+                logger.add("✅ SSE: Found URL in data.image", { url: data.image.substring(0, 50) + "..." });
+              }
+              // Format 5: Base64 encoded image (b64_json)
+              else if (data.b64_json) {
+                results.push({
+                  url: `data:image/png;base64,${data.b64_json}`,
+                  width: width,
+                  height: height,
+                  model: model,
+                  provider: this.name
+                });
+                logger.add("✅ SSE: Found b64_json", { dataLength: data.b64_json.length });
+              }
+              // Format 6: Output array
+              else if (data.output && Array.isArray(data.output)) {
+                for (const item of data.output) {
+                  if (item.url || item.image) {
+                    results.push({
+                      url: item.url || item.image,
+                      width: width,
+                      height: height,
+                      model: model,
+                      provider: this.name
+                    });
+                  }
+                  if (item.b64_json) {
+                    results.push({
+                      url: `data:image/png;base64,${item.b64_json}`,
+                      width: width,
+                      height: height,
+                      model: model,
+                      provider: this.name
+                    });
+                  }
+                }
+                logger.add("✅ SSE: Processed data.output array", { count: results.length });
+              }
+              // Format 7: Result object
+              else if (data.result && (data.result.url || data.result.b64_json)) {
+                if (data.result.url) {
+                  results.push({
+                    url: data.result.url,
+                    width: width,
+                    height: height,
+                    model: model,
+                    provider: this.name
+                  });
+                }
+                if (data.result.b64_json) {
+                  results.push({
+                    url: `data:image/png;base64,${data.result.b64_json}`,
+                    width: width,
+                    height: height,
+                    model: model,
+                    provider: this.name
+                  });
+                }
+                logger.add("✅ SSE: Found data in data.result");
+              }
+              // Format 8: Deep search for any URL or base64
+              else {
+                logger.add("⚠️ SSE: Unknown format - deep searching", {
+                  dataKeys: Object.keys(data),
+                  dataPreview: JSON.stringify(data).substring(0, 300)
+                });
+                
+                const findImages = (obj, path = "") => {
+                  const images = [];
+                  if (typeof obj === 'string') {
+                    if (obj.startsWith('http://') || obj.startsWith('https://')) {
+                      images.push({ url: obj, path });
+                    } else if (obj.startsWith('data:image')) {
+                      images.push({ url: obj, path });
+                    }
+                  } else if (typeof obj === 'object' && obj !== null) {
+                    for (const [key, value] of Object.entries(obj)) {
+                      images.push(...findImages(value, path ? `${path}.${key}` : key));
+                    }
+                  }
+                  return images;
+                };
+                
+                const foundImages = findImages(data);
+                if (foundImages.length > 0) {
+                  for (const { url } of foundImages) {
+                    results.push({
+                      url: url,
+                      width: width,
+                      height: height,
+                      model: model,
+                      provider: this.name
+                    });
+                  }
+                  logger.add("✅ SSE: Found images via deep search", { count: results.length });
+                }
               }
             } catch (parseError) {
               logger.add("⚠️ SSE Parse Error", {
-                dataStr,
+                dataStr: dataStr.substring(0, 500),
                 error: parseError.message
               });
             }
