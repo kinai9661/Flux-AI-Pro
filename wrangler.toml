@@ -42,9 +42,11 @@ ENVIRONMENT = "production"
 # 2. INFIP_API_KEY (Ghostbot/Infip)
 # 3. AQUA_API_KEY (Aqua Server)
 # 4. KINAI_API_KEY (Kinai API)
+# 5. AIRFORCE_API_KEY (Airforce API)
 # ============================================
 # 設置命令範例：
 # npx wrangler secret put POLLINATIONS_API_KEY
 # npx wrangler secret put INFIP_API_KEY
 # npx wrangler secret put AQUA_API_KEY
 # npx wrangler secret put KINAI_API_KEY
+# npx wrangler secret put AIRFORCE_API_KEY
