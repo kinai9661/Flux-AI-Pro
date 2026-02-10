@@ -142,7 +142,7 @@ const CONFIG = {
         { id: "plutogen-o1", name: "Plutogen O1 🌟", category: "plutogen", description: "Plutogen O1 高品質圖像生成模型", max_size: 2048 },
         { id: "z-image", name: "Z-Image ⚡", category: "zimage", description: "快速 6B 參數圖像生成", max_size: 2048 },
         { id: "imagen-4", name: "Imagen 4 (Google) 🌟", category: "google", description: "Google 最新高品質繪圖模型", max_size: 2048 },
-        { id: "flux-2-por", name: "Flux 2 Pro 🌟", category: "flux", description: "Flux 2 Pro 高品質模型", max_size: 2048 },
+        { id: "flux-2-pro", name: "Flux 2 Pro 🌟", category: "flux", description: "Flux 2 Pro 高品質模型", max_size: 2048 },
         { id: "flux-2-flex", name: "Flux 2 Flex ⚡", category: "flux", description: "Flux 2 Flex 靈活模型", max_size: 2048 },
         { id: "gpt-image-1.5", name: "GPT Image 1.5 🎨", category: "gpt", description: "GPT Image 1.5 圖像生成模型", max_size: 2048 },
         { id: "flux-2-klein-4b", name: "Flux 2 Klein 4B", category: "flux", description: "Advanced Flux 2 model - 4B parameters", max_size: 2048 },
@@ -1866,11 +1866,170 @@ class AirforceProvider {
   }
 }
 
+// =================================================================================
+// 供應商隊列管理器 - 為指定供應商提供獨立的隊列和並發控制
+// =================================================================================
+class ProviderQueueManager {
+  constructor() {
+    // 只為需要隊列的供應商配置隊列
+    this.queues = {
+      aqua: { queue: [], maxConcurrent: 2, processing: 0 },
+      airforce: { queue: [], maxConcurrent: 1, processing: 0 }
+    };
+    
+    // 不使用隊列的供應商列表
+    this.noQueueProviders = ['pollinations', 'infip', 'kinai'];
+  }
+
+  /**
+   * 添加請求到指定供應商的隊列
+   * @param {string} provider - 供應商名稱
+   * @param {Function} requestFn - 請求函數
+   * @returns {Promise} 請求結果
+   */
+  async addToQueue(provider, requestFn) {
+    // 如果供應商不使用隊列，直接執行
+    if (this.noQueueProviders.includes(provider)) {
+      return requestFn();
+    }
+    
+    const queue = this.queues[provider];
+    if (!queue) {
+      // 如果供應商沒有配置隊列，直接執行
+      return requestFn();
+    }
+    
+    return new Promise((resolve, reject) => {
+      const position = queue.queue.length;
+      const item = {
+        fn: requestFn,
+        resolve,
+        reject,
+        position,
+        timestamp: Date.now()
+      };
+      queue.queue.push(item);
+      this.processQueue(provider);
+    });
+  }
+
+  /**
+   * 處理指定供應商的隊列
+   * @param {string} provider - 供應商名稱
+   */
+  async processQueue(provider) {
+    const queue = this.queues[provider];
+    if (!queue) return;
+    
+    if (queue.processing >= queue.maxConcurrent || queue.queue.length === 0) return;
+
+    queue.processing++;
+    const item = queue.queue.shift();
+    
+    try {
+      const result = await item.fn();
+      item.resolve(result);
+    } catch (error) {
+      item.reject(error);
+    } finally {
+      queue.processing--;
+      this.processQueue(provider);
+    }
+  }
+
+  /**
+   * 獲取指定供應商的隊列狀態
+   * @param {string} provider - 供應商名稱
+   * @returns {Object} 隊列狀態
+   */
+  getQueueStatus(provider) {
+    // 如果供應商不使用隊列，返回空狀態
+    if (this.noQueueProviders.includes(provider)) {
+      return { waiting: 0, processing: 0, maxConcurrent: 0, total: 0, usesQueue: false };
+    }
+    
+    const queue = this.queues[provider];
+    if (!queue) {
+      return { waiting: 0, processing: 0, maxConcurrent: 0, total: 0, usesQueue: false };
+    }
+    
+    return {
+      waiting: queue.queue.length,
+      processing: queue.processing,
+      maxConcurrent: queue.maxConcurrent,
+      total: queue.queue.length + queue.processing,
+      usesQueue: true
+    };
+  }
+
+  /**
+   * 獲取所有供應商的隊列狀態
+   * @returns {Object} 所有供應商的隊列狀態
+   */
+  getAllQueueStatus() {
+    const status = {};
+    
+    // 添加不使用隊列的供應商
+    for (const provider of this.noQueueProviders) {
+      status[provider] = { waiting: 0, processing: 0, maxConcurrent: 0, total: 0, usesQueue: false };
+    }
+    
+    // 添加使用隊列的供應商
+    for (const [provider, queue] of Object.entries(this.queues)) {
+      status[provider] = {
+        waiting: queue.queue.length,
+        processing: queue.processing,
+        maxConcurrent: queue.maxConcurrent,
+        total: queue.queue.length + queue.processing,
+        usesQueue: true
+      };
+    }
+    return status;
+  }
+
+  /**
+   * 清空指定供應商的隊列
+   * @param {string} provider - 供應商名稱
+   */
+  clearQueue(provider) {
+    const queue = this.queues[provider];
+    if (queue) {
+      // 拒絕所有等待中的請求
+      queue.queue.forEach(item => {
+        item.reject(new Error('Queue cleared'));
+      });
+      queue.queue = [];
+    }
+  }
+
+  /**
+   * 清空所有隊列
+   */
+  clearAllQueues() {
+    for (const provider of Object.keys(this.queues)) {
+      this.clearQueue(provider);
+    }
+  }
+
+  /**
+   * 更新供應商的並發限制
+   * @param {string} provider - 供應商名稱
+   * @param {number} maxConcurrent - 最大並發數
+   */
+  updateMaxConcurrent(provider, maxConcurrent) {
+    const queue = this.queues[provider];
+    if (queue) {
+      queue.maxConcurrent = maxConcurrent;
+    }
+  }
+}
+
 class MultiProviderRouter {
   constructor(apiKeys = {}, env = null) {
     this.providers = {};
     this.apiKeys = apiKeys;
     this.env = env;
+    this.queueManager = new ProviderQueueManager();
     for (const [key, config] of Object.entries(CONFIG.PROVIDERS)) {
       if (config.enabled) {
         if (key === 'pollinations') this.providers[key] = new PollinationsProvider(config, env);
@@ -1928,32 +2087,52 @@ class MultiProviderRouter {
       providerInstance: provider ? provider.name : 'null'
     });
     
-    const results = [];
-    
-    // Optimization for Infip: Use native batching if available
-    if (providerName === 'infip' && numOutputs > 1) {
-         const batchOptions = { ...options, numOutputs: numOutputs, seed: options.seed };
-         try {
-             const result = await provider.generate(prompt, batchOptions, logger);
-             if (result.batch_results) {
-                 results.push(...result.batch_results);
-                 return results;
-             } else {
-                 results.push(result);
-             }
-         } catch (e) {
-             logger.add("❌ Batch Generation Failed", { error: e.message });
-             throw e;
-         }
-         return results;
-    }
+    // 使用隊列管理器處理請求
+    return await this.queueManager.addToQueue(providerName, async () => {
+      const results = [];
+      
+      // Optimization for Infip: Use native batching if available
+      if (providerName === 'infip' && numOutputs > 1) {
+           const batchOptions = { ...options, numOutputs: numOutputs, seed: options.seed };
+           try {
+               const result = await provider.generate(prompt, batchOptions, logger);
+               if (result.batch_results) {
+                   results.push(...result.batch_results);
+                   return results;
+               } else {
+                   results.push(result);
+               }
+           } catch (e) {
+               logger.add("❌ Batch Generation Failed", { error: e.message });
+               throw e;
+           }
+           return results;
+      }
 
-    for (let i = 0; i < numOutputs; i++) {
-      const currentOptions = { ...options, seed: options.seed === -1 ? -1 : options.seed + i };
-      const result = await provider.generate(prompt, currentOptions, logger);
-      results.push(result);
-    }
-    return results;
+      for (let i = 0; i < numOutputs; i++) {
+        const currentOptions = { ...options, seed: options.seed === -1 ? -1 : options.seed + i };
+        const result = await provider.generate(prompt, currentOptions, logger);
+        results.push(result);
+      }
+      return results;
+    });
+  }
+
+  /**
+   * 獲取指定供應商的隊列狀態
+   * @param {string} provider - 供應商名稱
+   * @returns {Object} 隊列狀態
+   */
+  getQueueStatus(provider) {
+    return this.queueManager.getQueueStatus(provider);
+  }
+
+  /**
+   * 獲取所有供應商的隊列狀態
+   * @returns {Object} 所有供應商的隊列狀態
+   */
+  getAllQueueStatus() {
+    return this.queueManager.getAllQueueStatus();
   }
 }
 // Global Cache for Online Count (To save KV List operations)
@@ -1991,6 +2170,13 @@ export default {
       }
       else if (url.pathname === '/api/generate-prompt') {
         response = await handlePromptGeneration(request, env);
+      }
+      else if (url.pathname === '/api/queue-status') {
+        const router = new MultiProviderRouter({}, env);
+        response = new Response(JSON.stringify({
+          status: 'ok',
+          queues: router.getAllQueueStatus()
+        }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       }
       else if (url.pathname === '/health') {
         response = new Response(JSON.stringify({
@@ -4521,6 +4707,14 @@ select{background-color:#1e293b!important;color:#e2e8f0!important;cursor:pointer
     </div>
 </div>
 
+<!-- 隊列狀態顯示 -->
+<div id="queueStatus" style="margin-top:10px; padding:8px 12px; background:rgba(255,255,255,0.05); border-radius:8px; font-size:12px; display:none;">
+    <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:14px;">📊</span>
+        <span id="queueStatusText">隊列狀態</span>
+    </div>
+</div>
+
 <button type="submit" class="btn btn-primary" id="generateBtn" data-t="gen_btn" style="margin-top:10px;">🎨 開始生成</button>
 </form>
 </div>
@@ -6135,6 +6329,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (applyBtn) {
         applyBtn.addEventListener('click', () => PromptGenerator.applyToPrompt());
     }
+    
+    // ====== 隊列狀態更新 ======
+    const queueStatusEl = document.getElementById('queueStatus');
+    const queueStatusTextEl = document.getElementById('queueStatusText');
+    
+    // 更新隊列狀態顯示
+    async function updateQueueStatus() {
+        try {
+            const response = await fetch('/api/queue-status');
+            const data = await response.json();
+            
+            if (data.status === 'ok' && data.queues) {
+                const provider = document.getElementById('provider')?.value || 'pollinations';
+                const queue = data.queues[provider];
+                
+                // 只為使用隊列的供應商顯示隊列狀態
+                if (queue && queue.usesQueue && (queue.waiting > 0 || queue.processing > 0)) {
+                    queueStatusEl.style.display = 'block';
+                    var waitingText = queue.waiting > 0 ? queue.waiting + ' 等待中' : '';
+                    var processingText = queue.processing > 0 ? queue.processing + ' 處理中' : '';
+                    var separator = waitingText && processingText ? ', ' : '';
+                    queueStatusTextEl.textContent = '隊列: ' + waitingText + separator + processingText;
+                } else {
+                    queueStatusEl.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch queue status:', error);
+        }
+    }
+    
+    // 每2秒更新一次隊列狀態
+    setInterval(updateQueueStatus, 2000);
+    updateQueueStatus(); // 初始更新
     
     // ====== 主頁面提示詞生成器拖放功能 ======
     const promptImageDropZone = document.getElementById('promptImageDropZone');
