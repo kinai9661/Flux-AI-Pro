@@ -4461,20 +4461,53 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         setTimeout(() => t.style.display = 'none', 3000);
     }
 
-    function addHistory(url) {
-        const div = document.createElement('div');
-        div.className = 'history-item';
-        div.innerHTML = \`<img src="\${url}">\`;
-        div.onclick = () => {
-            els.img.src = url;
-            document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
-            div.classList.add('active');
-        };
-        els.history.prepend(div);
-        if(els.history.children.length > 10) els.history.lastChild.remove();
-        document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
-        div.classList.add('active');
+    // Nano Pro 歷史記錄管理
+    const NANO_HISTORY_KEY = 'nano_pro_history';
+    const MAX_HISTORY_ITEMS = 10;
+
+    function addHistory(base64) {
+        // 保存到 localStorage
+        let history = JSON.parse(localStorage.getItem(NANO_HISTORY_KEY) || '[]');
+        history.unshift({
+            image: base64,
+            timestamp: Date.now()
+        });
+        
+        // 限制歷史記錄數量
+        if (history.length > MAX_HISTORY_ITEMS) {
+            history = history.slice(0, MAX_HISTORY_ITEMS);
+        }
+        
+        localStorage.setItem(NANO_HISTORY_KEY, JSON.stringify(history));
+        
+        // 更新 UI
+        updateHistoryUI();
     }
+
+    function updateHistoryUI() {
+        const history = JSON.parse(localStorage.getItem(NANO_HISTORY_KEY) || '[]');
+        els.history.innerHTML = '';
+        
+        history.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.innerHTML = \`<img src="\${item.image}">\`;
+            div.onclick = () => {
+                els.img.src = item.image;
+                document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
+                div.classList.add('active');
+            };
+            els.history.appendChild(div);
+        });
+        
+        // 設置第一個為活動狀態
+        if (els.history.children.length > 0) {
+            els.history.children[0].classList.add('active');
+        }
+    }
+
+    // 頁面加載時恢復歷史記錄
+    updateHistoryUI();
 
     // 保存到主頁 IndexedDB 歷史記錄
     async function saveToMainHistory(blob, prompt, negative, style, width, height, seed) {
@@ -4615,9 +4648,16 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                 throw new Error("生成的圖片為空，請稍後再試");
             }
             
-            const url = URL.createObjectURL(blob);
+            // 將 Blob 轉換為 Base64
+            const reader = new FileReader();
+            const base64Promise = new Promise((resolve, reject) => {
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            const base64 = await base64Promise;
             
-            els.img.src = url;
+            els.img.src = base64;
             els.img.style.display = 'block';
             els.img.style.opacity = '1';
             document.querySelector('.placeholder-text').style.display = 'none';
@@ -4625,7 +4665,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             const realSeed = res.headers.get('X-Seed');
             if(!isSeedRandom && realSeed) els.seed.value = realSeed;
 
-            addHistory(url);
+            addHistory(base64);
             
             // 保存到主頁 IndexedDB 歷史記錄
             saveToMainHistory(blob, p, els.negative.value, els.style.value, parseInt(els.width.value), parseInt(els.height.value), realSeed || els.seed.value);
