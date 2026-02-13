@@ -1,11 +1,11 @@
 # 🎨 Flux AI Pro - NanoBanana Edition
 
-![Version](https://img.shields.io/badge/Version-11.12.0-8B5CF6?style=flat-square)
+![Version](https://img.shields.io/badge/Version-11.13.0-8B5CF6?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-Cloudflare%20Workers-orange?style=flat-square)
 ![Engine](https://img.shields.io/badge/Engine-Multi%20Provider-blue?style=flat-square)
 ![I18N](https://img.shields.io/badge/I18N-5%20Languages-green?style=flat-square)
 
-**Flux AI Pro - NanoBanana Edition** 是一個基於 Cloudflare Workers 構建的高性能、單文件 AI 圖像生成解決方案。它整合了 Pollinations.ai、Infip/Ghostbot、Aqua Server、Kinai API 和 Airforce API 等頂級 AI 供應商，提供無伺服器、極速且功能豐富的創作體驗。
+**Flux AI Pro - NanoBanana Edition** 是一個基於 Cloudflare Workers 構建的高性能、單文件 AI 圖像生成解決方案。它整合了 Pollinations.ai、Infip/Ghostbot、Aqua Server、Kinai API、Airforce API 和 Nonpon API 等頂級 AI 供應商，提供無伺服器、極速且功能豐富的創作體驗。
 
 ---
 
@@ -16,8 +16,8 @@
 ### 🚀 Key Features
 - **雙重介面設計**：
   - **專業版 UI**：完整控制 Steps、Guidance 和 Seed 等參數。
-  - **NanoBanana Pro**：簡化、手機友好的「一鍵」生成體驗。
-- **多供應商架構**：無縫切換 Pollinations.ai（免費）、Infip/Ghostbot（專業版）、Aqua Server、Kinai API 和 Airforce API。
+  - **NanoBanana Pro**：簡化、手機友好的「一鍵」生成體驗，使用 Gemini 3 Pro Image Preview 模型。
+- **多供應商架構**：無縫切換 Pollinations.ai（免費）、Infip/Ghostbot（專業版）、Aqua Server、Kinai API、Airforce API 和 Nonpon API。
 - **全球語言支援**：原生支援 **英文、繁體中文、日文、韓文和阿拉伯文**。
 - **智慧語言偵測**：自動遵循您的系統/瀏覽器語言設置。
 - **完整 RTL 支援**：為從右到左語言（阿拉伯語）提供專用佈局和文字方向。
@@ -25,10 +25,11 @@
 - **預設超高清**：內建優化策略，確保每張圖像都以最大品質生成。
 - **永久本地歷史記錄**：使用 IndexedDB 本地存儲您的創作，支援匯出/匯入功能。
 - **介面語言跟蹤**：所有 UI 元素（生成進度、按鈕、狀態消息）完全支持 5 種語言。
+- **歷史記錄同步**：Nano Pro 頁面生成的圖片自動同步到主頁歷史記錄。
 
 ---
 
-## 🔥 v11.12.0 更新亮點 (Release Highlights)
+## 🔥 v11.13.0 更新亮點 (Release Highlights)
 
 - **🎨 精美 UI 設計**：深色漸變背景、毛玻璃效果、響應式設計。
 - **🌍 多語言支援**：完整支援繁體中文、英文、日文、韓文、阿拉伯語，所有語言均包含視頻生成翻譯。
@@ -37,6 +38,12 @@
 - **📊 API 端點**：提供完整的 RESTful API 端點供外部呼叫。
 - **🌐 介面語言跟蹤**：生成進度、按鈕文本、狀態消息等所有 UI 元素均支持 5 種語言。
 - **🔧 Airforce API 優化**：更新端點為 `https://api.airforce/v1/images/generations`，改進 JSON 響應處理和錯誤處理。
+- **🆕 Nonpon API 整合**：新增 Nonpon API 供應商，使用 Gemini 3 Pro Image Preview 模型。
+- **🆕 Gemini 3 Pro 參數控制**：Nano Pro 頁面新增 Steps、Guidance、Quality Mode 參數控制。
+- **🆕 2K/4K 輸出支持**：Nano Pro 頁面支持 2K (2048x2048) 和 4K (4096x4096) 輸出。
+- **🆕 風格快捷按鈕**：Nano Pro 頁面新增 10 個常用風格快捷按鈕。
+- **🆕 每分鐘配額系統**：Nano Pro 頁面改為每分鐘 3 次免費配額。
+- **🆕 歷史記錄同步**：Nano Pro 頁面生成的圖片自動同步到主頁歷史記錄。
 
 ---
 
@@ -44,8 +51,9 @@
 
 ### 1. 雙重操作介面 (Dual UI)
 *   **專業版主介面 (`/`)**：提供完整的參數控制，適合需要精細調整的專業創作者。支援 Pollinations.ai、Infip、Aqua、Kinai、Airforce 等供應商。
-*   **Nano Pro (`/nano`)**：極簡設計，專門使用 Nonpon API 的 Gemini 3 Pro Image Preview 模型，支援 2K/4K 輸出，內建每小時 5 張的免費配額與能量回充系統，適合快速獲取靈感。
+*   **Nano Pro (`/nano`)**：極簡設計，專門使用 Nonpon API 的 Gemini 3 Pro Image Preview 模型，支援 2K/4K 輸出，內建每分鐘 3 張的免費配額與能量回充系統，適合快速獲取靈感。
     > **注意**：Nonpon API 僅在 Nano Pro 頁面可用，主介面不支援此供應商。
+    > **特色功能**：Gemini 3 Pro 參數控制（Steps、Guidance、Quality Mode）、風格快捷按鈕、歷史記錄自動同步。
 
 ### 2. 智慧語言管理 (Smart I18N)
 *   **自動偵測**：根據 `navigator.language` 自動切換，並記憶用戶的手動選擇。
@@ -91,6 +99,10 @@
 - **Flux 2 Klein 9B** 🌟 - Advanced Flux 2 Large model - 9B parameters
 - **SeeDream 4.5** 🌈 - 夢幻般的圖像生成 v4.5
 - **特色功能**：排隊系統、並發控制、實時隊列狀態顯示
+
+#### 🍌 Nonpon API（Nano Pro 專用）
+- **Gemini 3 Pro Image Preview** 🌟 - Google Gemini 3 Pro 高品質圖像生成模型
+- **特色功能**：2K/4K 輸出支持、Steps/Guidance/Quality Mode 參數控制、風格快捷按鈕、每分鐘 3 次免費配額
 
 #### 📋 其他功能
 - **輪詢模型支援**：imagen-4 和 nanobanana 採用輪詢機制，確保大型模型生成的穩定性
@@ -140,7 +152,7 @@
 
 ## 📊 限流與冷卻 (Rate Limiting)
 
-*   **Nano 模式**：每小時 5 張免費配額，180 秒生成冷卻。
+*   **Nano 模式**：每分鐘 3 張免費配額，20 秒生成冷卻。
 *   **主介面**：根據供應商不同，設有 30-60 秒的智慧冷卻保護。
 
 ---

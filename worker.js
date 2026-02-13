@@ -233,7 +233,7 @@ class Logger {
   get() { return this.logs; }
 }
 
-// ====== RateLimiter: 負責 KV 限制邏輯 (5次/小時) ======
+// ====== RateLimiter: 負責 KV 限制邏輯 (3次/分鐘) ======
 class RateLimiter {
   constructor(env) {
     this.env = env;
@@ -245,8 +245,8 @@ class RateLimiter {
       return { allowed: true };
     }
     const key = `nano_limit:${ip}`;
-    const windowSize = 3600 * 1000; // 1小時 (毫秒)
-    const maxRequests = 5; 
+    const windowSize = 60 * 1000; // 1分鐘 (毫秒)
+    const maxRequests = 3;
     try {
       const rawData = await this.KV.get(key);
       let timestamps = rawData ? JSON.parse(rawData) : [];
@@ -255,11 +255,11 @@ class RateLimiter {
       if (timestamps.length >= maxRequests) {
         const oldest = timestamps[0];
         const resetTime = oldest + windowSize;
-        const waitMin = Math.ceil((resetTime - now) / 60000);
-        return { allowed: false, reason: `🍌 香蕉能量耗盡！限額已滿 (5張/小時)。請休息 ${waitMin} 分鐘後再來。`, remaining: 0 };
+        const waitSec = Math.ceil((resetTime - now) / 1000);
+        return { allowed: false, reason: `🍌 請求過於頻繁！請等待 ${waitSec} 秒後再試。`, remaining: 0 };
       }
       timestamps.push(now);
-      await this.KV.put(key, JSON.stringify(timestamps), { expirationTtl: 3600 });
+      await this.KV.put(key, JSON.stringify(timestamps), { expirationTtl: 60 });
       return { allowed: true, remaining: maxRequests - timestamps.length };
     } catch (err) {
       console.error("KV Error:", err);
@@ -3198,7 +3198,7 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                     <label id="styleLabel">風格 & 設定</label>
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <select id="style" id="nanoStyleSelect">
+                    <select id="style">
                         <!-- 風格選項將由 JavaScript 動態生成 -->
                     </select>
                     <div style="position:relative">
@@ -3211,6 +3211,51 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             <div class="control-group">
                 <label id="negativeLabel">排除 (Negative)</label>
                 <input type="text" id="negative" value="nsfw, ugly, text, watermark, low quality, bad anatomy" style="font-size:12px; color:#aaa">
+            </div>
+
+            <!-- ====== Gemini 3 Pro 參數控制 ====== -->
+            <div class="control-group" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(59, 130, 246, 0.1)); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 12px; padding: 16px; margin-top: 16px;">
+                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: #8B5CF6;">
+                    <span style="font-size: 16px;">⚙️</span>
+                    <span style="font-weight: 700;">Gemini 3 Pro 參數</span>
+                </label>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <div>
+                        <label style="font-size: 11px; color: #9ca3af; display: block; margin-bottom: 4px;">Steps (生成步數)</label>
+                        <input type="number" id="nanoSteps" value="30" min="10" max="100" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; padding: 8px; color: #fff;">
+                    </div>
+                    <div>
+                        <label style="font-size: 11px; color: #9ca3af; display: block; margin-bottom: 4px;">Guidance (引導係數)</label>
+                        <input type="number" id="nanoGuidance" value="7.5" min="1" max="20" step="0.5" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; padding: 8px; color: #fff;">
+                    </div>
+                </div>
+                
+                <div>
+                    <label style="font-size: 11px; color: #9ca3af; display: block; margin-bottom: 4px;">質量模式</label>
+                    <select id="nanoQuality" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; padding: 8px; color: #fff;">
+                        <option value="economy">Economy (快速)</option>
+                        <option value="standard" selected>Standard (平衡)</option>
+                        <option value="ultra">Ultra HD (極致)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ====== 風格快捷按鈕 ====== -->
+            <div class="control-group">
+                <label style="font-size: 12px; color: #9ca3af; margin-bottom: 8px; display: block;">常用風格快捷鍵</label>
+                <div class="style-shortcuts" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;">
+                    <button class="style-shortcut-btn" data-style="photorealistic" title="寫實">📷</button>
+                    <button class="style-shortcut-btn" data-style="anime" title="動漫">🎭</button>
+                    <button class="style-shortcut-btn" data-style="oil-painting" title="油畫">🖼️</button>
+                    <button class="style-shortcut-btn" data-style="cyberpunk" title="賽博龐克">🌆</button>
+                    <button class="style-shortcut-btn" data-style="watercolor" title="水彩">💧</button>
+                    <button class="style-shortcut-btn" data-style="sketch" title="素描">✏️</button>
+                    <button class="style-shortcut-btn" data-style="3d-render" title="3D渲染">🎮</button>
+                    <button class="style-shortcut-btn" data-style="pixel-art" title="像素藝術">👾</button>
+                    <button class="style-shortcut-btn" data-style="cinematic" title="電影感">🎬</button>
+                    <button class="style-shortcut-btn" data-style="none" title="無風格">⚡</button>
+                </div>
             </div>
 
             <!-- ====== 專業提示詞生成器 (Nano Pro 版) ====== -->
@@ -3275,8 +3320,8 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             
             <div class="quota-box">
                 <div class="quota-info">
-                    <span id="quotaLabel">每小時能量</span>
-                    <span id="quotaText" class="quota-text">5 / 5</span>
+                    <span id="quotaLabel">每分鐘能量</span>
+                    <span id="quotaText" class="quota-text">3 / 3</span>
                 </div>
                 <div class="quota-bar">
                     <div id="quotaFill" class="quota-fill"></div>
@@ -3356,13 +3401,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             gen_btn: "生成圖像",
             gen_btn_cost: "消耗 1 香蕉能量 🍌",
             gen_btn_charging: "⚡ 能量回充中... ({s}s)",
-            gen_btn_depleted: "本小時能量已耗盡",
+            gen_btn_depleted: "本分鐘能量已耗盡",
             gen_btn_depleted_sub: "請稍後再來",
-            quota_label: "每小時能量",
+            quota_label: "每分鐘能量",
             placeholder_text: "NANOPRO",
             loading_text: "正在注入 AI 能量...",
             toast_no_prompt: "⚠️ 請輸入提示詞",
-            toast_energy_depleted: "🚫 本小時能量已耗盡，請稍後再來！",
+            toast_energy_depleted: "🚫 本分鐘能量已耗盡，請稍後再來！",
             toast_error: "❌ ",
             lightbox_save: "📥 保存圖片",
             lightbox_close: "❌ 關閉"
@@ -3380,6 +3425,10 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             style_cyberpunk: "🌃 Cyberpunk",
             style_manga: "📖 Manga",
             style_oil_painting: "🎨 Oil Painting",
+            style_watercolor: "💧 Watercolor",
+            style_sketch: "✏️ Sketch",
+            style_pixel_art: "👾 Pixel Art",
+            style_cinematic: "🎬 Cinematic",
             seed_placeholder: "Seed",
             negative_label: "Negative",
             negative_default: "nsfw, ugly, text, watermark, low quality, bad anatomy",
@@ -3404,13 +3453,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             gen_btn: "Generate Image",
             gen_btn_cost: "Consume 1 Banana Energy 🍌",
             gen_btn_charging: "⚡ Energy Charging... ({s}s)",
-            gen_btn_depleted: "Energy Depleted This Hour",
+            gen_btn_depleted: "Energy Depleted This Minute",
             gen_btn_depleted_sub: "Please come back later",
-            quota_label: "Hourly Energy",
+            quota_label: "Minute Energy",
             placeholder_text: "NANOPRO",
             loading_text: "Injecting AI Energy...",
             toast_no_prompt: "⚠️ Please enter a prompt",
-            toast_energy_depleted: "🚫 Energy depleted this hour, please come back later!",
+            toast_energy_depleted: "🚫 Energy depleted this minute, please come back later!",
             toast_error: "❌ ",
             lightbox_save: "📥 Save Image",
             lightbox_close: "❌ Close"
@@ -3428,6 +3477,10 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             style_cyberpunk: "🌃 サイバーパンク",
             style_manga: "📖 漫画",
             style_oil_painting: "🎨 油絵",
+            style_watercolor: "💧 水彩画",
+            style_sketch: "✏️ スケッチ",
+            style_pixel_art: "👾 ピクセルアート",
+            style_cinematic: "🎬 映画的",
             seed_placeholder: "Seed",
             negative_label: "ネガティブ",
             negative_default: "nsfw, ugly, text, watermark, low quality, bad anatomy",
@@ -3452,13 +3505,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             gen_btn: "画像を生成",
             gen_btn_cost: "バナナエネルギー1消費 🍌",
             gen_btn_charging: "⚡ エネルギー充電中... ({s}s)",
-            gen_btn_depleted: "今時間のエネルギーが枯渇しました",
+            gen_btn_depleted: "今分のエネルギーが枯渇しました",
             gen_btn_depleted_sub: "後でもう一度お越しください",
-            quota_label: "1時間あたりのエネルギー",
+            quota_label: "1分あたりのエネルギー",
             placeholder_text: "NANOPRO",
             loading_text: "AIエネルギーを注入中...",
             toast_no_prompt: "⚠️ プロンプトを入力してください",
-            toast_energy_depleted: "🚫 今時間のエネルギーが枯渇しました。後でもう一度お越しください！",
+            toast_energy_depleted: "🚫 今分のエネルギーが枯渇しました。後でもう一度お越しください！",
             toast_error: "❌ ",
             lightbox_save: "📥 画像を保存",
             lightbox_close: "❌ 閉じる"
@@ -3476,6 +3529,10 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             style_cyberpunk: "🌃 사이버펑크",
             style_manga: "📖 만화",
             style_oil_painting: "🎨 유화",
+            style_watercolor: "💧 수채화",
+            style_sketch: "✏️ 스케치",
+            style_pixel_art: "👾 픽셀 아트",
+            style_cinematic: "🎬 시네마틱",
             seed_placeholder: "Seed",
             negative_label: "네거티브",
             negative_default: "nsfw, ugly, text, watermark, low quality, bad anatomy",
@@ -3500,13 +3557,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             gen_btn: "이미지 생성",
             gen_btn_cost: "바나나 에너지 1 소비 🍌",
             gen_btn_charging: "⚡ 에너지 충전 중... ({s}s)",
-            gen_btn_depleted: "이번 시간 에너지 소진됨",
+            gen_btn_depleted: "이번 분 에너지 소진됨",
             gen_btn_depleted_sub: "나중에 다시 방문해주세요",
-            quota_label: "시간당 에너지",
+            quota_label: "분당 에너지",
             placeholder_text: "NANOPRO",
             loading_text: "AI 에너지 주입 중...",
             toast_no_prompt: "⚠️ 프롬프트를 입력하세요",
-            toast_energy_depleted: "🚫 이번 시간 에너지가 소진되었습니다. 나중에 다시 방문해주세요！",
+            toast_energy_depleted: "🚫 이번 분 에너지가 소진되었습니다. 나중에 다시 방문해주세요！",
             toast_error: "❌ ",
             lightbox_save: "📥 이미지 저장",
             lightbox_close: "❌ 닫기"
@@ -3524,6 +3581,10 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             style_cyberpunk: "🌃 سايبربانك",
             style_manga: "📖 مانغا",
             style_oil_painting: "🎨 رسم زيتي",
+            style_watercolor: "💧 ألوان مائية",
+            style_sketch: "✏️ رسم تخطيطي",
+            style_pixel_art: "👾 فن البكسل",
+            style_cinematic: "🎬 سينمائي",
             seed_placeholder: "Seed",
             negative_label: "سلبي",
             negative_default: "nsfw, ugly, text, watermark, low quality, bad anatomy",
@@ -3548,13 +3609,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             gen_btn: "إنشاء صورة",
             gen_btn_cost: "استهلاك 1 طاقة موز 🍌",
             gen_btn_charging: "⚡ إعادة شحن الطاقة... ({s}s)",
-            gen_btn_depleted: "نفدت الطاقة لهذه الساعة",
+            gen_btn_depleted: "نفدت الطاقة لهذه الدقيقة",
             gen_btn_depleted_sub: "يرجى العودة لاحقًا",
-            quota_label: "الطاقة لكل ساعة",
+            quota_label: "الطاقة لكل دقيقة",
             placeholder_text: "NANOPRO",
             loading_text: "حقن طاقة AI...",
             toast_no_prompt: "⚠️ يرجى إدخال موجه",
-            toast_energy_depleted: "🚫 نفدت الطاقة لهذه الساعة، يرجى العودة لاحقًا!",
+            toast_energy_depleted: "🚫 نفدت الطاقة لهذه الدقيقة، يرجى العودة لاحقًا!",
             toast_error: "❌ ",
             lightbox_save: "📥 حفظ الصورة",
             lightbox_close: "❌ إغلاق"
@@ -3683,7 +3744,11 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             { key: '3d-render', icon: '🧊', nameKey: 'style_3d_render' },
             { key: 'cyberpunk', icon: '🌃', nameKey: 'style_cyberpunk' },
             { key: 'manga', icon: '📖', nameKey: 'style_manga' },
-            { key: 'oil-painting', icon: '🎨', nameKey: 'style_oil_painting' }
+            { key: 'oil-painting', icon: '🎨', nameKey: 'style_oil_painting' },
+            { key: 'watercolor', icon: '💧', nameKey: 'style_watercolor' },
+            { key: 'sketch', icon: '✏️', nameKey: 'style_sketch' },
+            { key: 'pixel-art', icon: '👾', nameKey: 'style_pixel_art' },
+            { key: 'cinematic', icon: '🎬', nameKey: 'style_cinematic' }
         ];
         
         // 生成選項
@@ -3943,13 +4008,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         lbDownload: document.getElementById('lbDownload')
     };
     
-    // UI Quota Logic (Syncs with server limit of 5)
-    let currentQuota = 5;
-    const maxQuota = 5;
+    // UI Quota Logic (Syncs with server limit of 3 per minute)
+    let currentQuota = 3;
+    const maxQuota = 3;
     
     // Cooldown Logic
     const COOLDOWN_KEY = 'nano_cooldown_timestamp';
-    const COOLDOWN_SEC = 180;
+    const COOLDOWN_SEC = 20;
     let cooldownInterval = null;
 
     // Online Count (whos.amung.us widget handled in HTML)
@@ -3994,22 +4059,33 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         els.genBtn.innerHTML = \`<span>\${nanoT('gen_btn_charging').replace('{s}', sec)}</span>\`;
     }
     
-    const now = new Date();
-    const currentHourStr = now.toDateString() + '-' + now.getHours();
-    const stored = localStorage.getItem('nano_quota_hourly_v2'); 
-    
-    if(stored) {
-        const data = JSON.parse(stored);
-        if(data.hour === currentHourStr) {
-            currentQuota = data.val;
+    // Check quota reset (per minute)
+    function checkQuotaReset() {
+        const now = new Date();
+        const currentMinStr = now.toDateString() + '-' + now.getHours() + '-' + now.getMinutes();
+        const stored = localStorage.getItem('nano_quota_minutely');
+        
+        if(stored) {
+            const data = JSON.parse(stored);
+            if(data.min !== currentMinStr) {
+                // New minute, reset quota
+                localStorage.setItem('nano_quota_minutely', JSON.stringify({min: currentMinStr, val: maxQuota}));
+                currentQuota = maxQuota;
+            } else {
+                currentQuota = data.val;
+            }
         } else {
-            localStorage.setItem('nano_quota_hourly_v2', JSON.stringify({hour: currentHourStr, val: maxQuota}));
+            localStorage.setItem('nano_quota_minutely', JSON.stringify({min: currentMinStr, val: maxQuota}));
             currentQuota = maxQuota;
         }
-    } else {
-        localStorage.setItem('nano_quota_hourly_v2', JSON.stringify({hour: currentHourStr, val: maxQuota}));
+        updateQuotaUI();
     }
-    updateQuotaUI();
+    
+    // Initial quota check
+    checkQuotaReset();
+    
+    // Auto-check quota reset every 10 seconds
+    setInterval(checkQuotaReset, 10000);
     
     // Check cooldown on load
     checkAndStartCooldown();
@@ -4028,9 +4104,9 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     function consumeQuota() {
         if(currentQuota > 0) {
             currentQuota--;
-            const n = new Date();
-            const h = n.toDateString() + '-' + n.getHours();
-            localStorage.setItem('nano_quota_hourly_v2', JSON.stringify({hour: h, val: currentQuota}));
+            const now = new Date();
+            const currentMinStr = now.toDateString() + '-' + now.getHours() + '-' + now.getMinutes();
+            localStorage.setItem('nano_quota_minutely', JSON.stringify({min: currentMinStr, val: currentQuota}));
             updateQuotaUI();
         }
     }
@@ -4077,6 +4153,19 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
     if (els.randomBtn) {
         els.randomBtn.textContent = nanoT('random_btn');
     }
+    
+    // 風格快捷按鈕事件處理
+    document.querySelectorAll('.style-shortcut-btn').forEach(btn => {
+        btn.onclick = () => {
+            const style = btn.dataset.style;
+            if (els.style) {
+                els.style.value = style;
+                // 添加點擊動畫效果
+                btn.style.transform = 'scale(0.9)';
+                setTimeout(() => btn.style.transform = 'scale(1)', 150);
+            }
+        };
+    });
     
     function openLightbox(url) {
         els.lbImg.src = url;
@@ -4387,10 +4476,74 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         div.classList.add('active');
     }
 
+    // 保存到主頁 IndexedDB 歷史記錄
+    async function saveToMainHistory(blob, prompt, negative, style, width, height, seed) {
+        try {
+            // 將 Blob 轉換為 Base64
+            const reader = new FileReader();
+            const base64Promise = new Promise((resolve, reject) => {
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+            const base64 = await base64Promise;
+
+            // 打開主頁的 IndexedDB
+            const DB_NAME = 'FluxAI_DB';
+            const STORE_NAME = 'images';
+            const DB_VERSION = 2;
+            
+            const dbPromise = new Promise((resolve, reject) => {
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = (e) => resolve(e.target.result);
+                req.onerror = (e) => reject(e.target.error);
+            });
+
+            const db = await dbPromise;
+            
+            // 創建歷史記錄項目
+            const item = {
+                id: Date.now().toString(),
+                image: base64,
+                prompt: prompt,
+                negative: negative,
+                style: style,
+                width: width,
+                height: height,
+                seed: seed,
+                timestamp: new Date().toISOString(),
+                source: 'nano-pro' // 標記來源為 Nano Pro
+            };
+
+            // 保存到 IndexedDB
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            store.put(item);
+
+            await new Promise((resolve, reject) => {
+                tx.oncomplete = () => {
+                    console.log("🍌 Nano Pro: 已保存到主頁歷史記錄");
+                    resolve();
+                };
+                tx.onerror = () => reject(tx.error);
+            });
+
+            db.close();
+        } catch (error) {
+            console.error("🍌 Nano Pro: 保存到主頁歷史記錄失敗", error);
+        }
+    }
+
     els.genBtn.onclick = async () => {
         const p = els.prompt.value.trim();
         if(!p) return nanoToast('toast_no_prompt', "⚠️ 請輸入提示詞");
-        if(currentQuota <= 0) return nanoToast('toast_energy_depleted', "🚫 本小時能量已耗盡，請稍後再來！");
+        if(currentQuota <= 0) return nanoToast('toast_energy_depleted', "🚫 本分鐘能量已耗盡，請稍後再來！");
 
         els.genBtn.disabled = true;
         els.loader.style.display = 'flex';
@@ -4416,11 +4569,13 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                 height: parseInt(els.height.value),
                 style: els.style.value,
                 seed: parseInt(els.seed.value),
+                steps: parseInt(els.nanoSteps?.value || 30),
+                guidance: parseFloat(els.nanoGuidance?.value || 7.5),
+                quality_mode: els.nanoQuality?.value || 'standard',
                 n: 1,
                 nologo: true,
                 auto_optimize: true,
                 auto_hd: true,
-                quality_mode: 'standard',
                 language: nanoCurLang  // Track interface language
             };
             
@@ -4440,8 +4595,8 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
                 console.error("🍌 Nano Pro: 限額錯誤", err);
                 currentQuota = 0;
                 const n = new Date();
-                const h = n.toDateString() + '-' + n.getHours();
-                localStorage.setItem('nano_quota_hourly_v2', JSON.stringify({hour: h, val: 0}));
+                const m = n.toDateString() + '-' + n.getHours() + '-' + n.getMinutes();
+                localStorage.setItem('nano_quota_minutely', JSON.stringify({min: m, val: 0}));
                 updateQuotaUI();
                 throw new Error(err.error?.message || '限額已滿');
             }
@@ -4471,6 +4626,10 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
             if(!isSeedRandom && realSeed) els.seed.value = realSeed;
 
             addHistory(url);
+            
+            // 保存到主頁 IndexedDB 歷史記錄
+            saveToMainHistory(blob, p, els.negative.value, els.style.value, parseInt(els.width.value), parseInt(els.height.value), realSeed || els.seed.value);
+            
             consumeQuota();
             
             // Start Cooldown
