@@ -2458,8 +2458,10 @@ export default {
           models: CONFIG.PROVIDERS.pollinations.models.map(m => ({ id: m.id, name: m.name, category: m.category, supports_reference_images: m.supports_reference_images || false })),
           style_categories: Object.keys(CONFIG.STYLE_CATEGORIES).map(key => ({ id: key, name: CONFIG.STYLE_CATEGORIES[key].name, icon: CONFIG.STYLE_CATEGORIES[key].icon, count: Object.values(CONFIG.STYLE_PRESETS).filter(s => s.category === key).length }))
         }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+      } else if (url.pathname.startsWith('/admin')) {
+        response = await handleAdminPage(request, env, ctx);
       } else {
-        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+        response = new Response(JSON.stringify({ error: 'Not Found', message: '此 Worker 僅提供 Web UI 界面', available_paths: ['/', '/health', '/_internal/generate', '/nano', '/admin'] }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
       }
       const duration = Date.now() - startTime;
       const headers = new Headers(response.headers);
@@ -5300,6 +5302,1425 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
 </html>`;
   
   return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8', ...corsHeaders() } });
+}
+
+// ====== Admin Management System ======
+async function handleAdminPage(request, env, ctx) {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+  
+  // API 路由
+  if (pathname.startsWith('/admin/api/')) {
+    return await handleAdminAPI(request, env, ctx);
+  }
+  
+  // 頁面路由
+  if (pathname === '/admin/login') {
+    return await renderAdminLogin();
+  }
+  
+  // 其他頁面需要身份驗證
+  const authResult = await verifyAdminAuth(request, env);
+  if (!authResult.valid) {
+    return new Response('', { status: 302, headers: { 'Location': '/admin/login' } });
+  }
+  
+  if (pathname === '/admin' || pathname === '/admin/') {
+    return await renderAdminDashboard();
+  } else if (pathname === '/admin/styles') {
+    return await renderAdminStyles();
+  } else if (pathname === '/admin/providers') {
+    return await renderAdminProviders();
+  } else if (pathname === '/admin/parameters') {
+    return await renderAdminParameters();
+  } else if (pathname === '/admin/settings') {
+    return await renderAdminSettings();
+  } else {
+    return new Response('Not Found', { status: 404 });
+  }
+}
+
+// 身份驗證中間件
+async function verifyAdminAuth(request, env) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { valid: false };
+  }
+  
+  const token = authHeader.substring(7);
+  try {
+    const tokenData = await env.FLUX_KV.get('admin:tokens:' + token, 'json');
+    if (!tokenData) {
+      return { valid: false };
+    }
+    
+    // 檢查 token 是否過期
+    if (Date.now() > tokenData.expiresAt) {
+      await env.FLUX_KV.delete('admin:tokens:' + token);
+      return { valid: false };
+    }
+    
+    return { valid: true, user: tokenData.user };
+  } catch (error) {
+    return { valid: false };
+  }
+}
+
+// API 路由處理
+async function handleAdminAPI(request, env, ctx) {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+  const method = request.method;
+  
+  // 登入 API 不需要驗證
+  if (pathname === '/admin/api/login' && method === 'POST') {
+    return await handleAdminLogin(request, env);
+  }
+  
+  // 其他 API 需要驗證
+  const authResult = await verifyAdminAuth(request, env);
+  if (!authResult.valid) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+  
+  // 風格管理 API
+  if (pathname === '/admin/api/styles' && method === 'GET') {
+    return await getAdminStyles(env);
+  } else if (pathname === '/admin/api/styles' && method === 'POST') {
+    return await createAdminStyle(request, env);
+  } else if (pathname.match(/^\/admin\/api\/styles\/[^\/]+$/) && method === 'PUT') {
+    const styleId = pathname.split('/').pop();
+    return await updateAdminStyle(request, env, styleId);
+  } else if (pathname.match(/^\/admin\/api\/styles\/[^\/]+$/) && method === 'DELETE') {
+    const styleId = pathname.split('/').pop();
+    return await deleteAdminStyle(env, styleId);
+  }
+  
+  // 供應商管理 API
+  if (pathname === '/admin/api/providers' && method === 'GET') {
+    return await getAdminProviders(env);
+  } else if (pathname.match(/^\/admin\/api\/providers\/[^\/]+$/) && method === 'PUT') {
+    const providerId = pathname.split('/').pop();
+    return await updateAdminProvider(request, env, providerId);
+  }
+  
+  // 參數管理 API
+  if (pathname === '/admin/api/parameters' && method === 'GET') {
+    return await getAdminParameters(env);
+  } else if (pathname === '/admin/api/parameters/optimization' && method === 'PUT') {
+    return await updateAdminOptimization(request, env);
+  } else if (pathname === '/admin/api/parameters/rate-limits' && method === 'PUT') {
+    return await updateAdminRateLimits(request, env);
+  }
+  
+  // 全局設置 API
+  if (pathname === '/admin/api/settings/global' && method === 'GET') {
+    return await getAdminGlobalSettings(env);
+  } else if (pathname === '/admin/api/settings/global' && method === 'PUT') {
+    return await updateAdminGlobalSettings(request, env);
+  }
+  
+  return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+}
+
+// 登入處理
+async function handleAdminLogin(request, env) {
+  try {
+    const body = await request.json();
+    const { username, password } = body;
+    
+    // 獲取存儲的管理員憑證
+    const credentials = await env.FLUX_KV.get('admin:credentials', 'json');
+    if (!credentials) {
+      // 創建默認管理員賬戶
+      const defaultCredentials = {
+        username: 'admin',
+        passwordHash: await hashPassword('admin123')
+      };
+      await env.FLUX_KV.put('admin:credentials', JSON.stringify(defaultCredentials));
+    }
+    
+    const storedCredentials = credentials || {
+      username: 'admin',
+      passwordHash: await hashPassword('admin123')
+    };
+    
+    // 驗證用戶名和密碼
+    if (username !== storedCredentials.username) {
+      return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+    }
+    
+    const passwordHash = await hashPassword(password);
+    if (passwordHash !== storedCredentials.passwordHash) {
+      return new Response(JSON.stringify({ error: 'Invalid credentials' }), { status: 401, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+    }
+    
+    // 生成 JWT Token
+    const token = await generateAdminToken(username);
+    const tokenData = {
+      user: username,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000 // 24 小時
+    };
+    
+    await env.FLUX_KV.put('admin:tokens:' + token, JSON.stringify(tokenData), { expirationTtl: 86400 });
+    
+    return new Response(JSON.stringify({ token, user: username }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+// 密碼哈希
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 生成 Token
+async function generateAdminToken(username) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(username + Date.now() + Math.random());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 渲染登入頁面
+async function renderAdminLogin() {
+  const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理員登入 - Flux AI Pro</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-header h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        .login-header p {
+            color: #666;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+        }
+        .error-message {
+            color: #ef4444;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 16px;
+            display: none;
+        }
+        .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🔐 管理員登入</h1>
+            <p>Flux AI Pro 後台管理系統</p>
+        </div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">用戶名</label>
+                <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">密碼</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="login-btn">登入</button>
+        </form>
+        <div class="error-message" id="errorMessage"></div>
+    </div>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+            
+            try {
+                const response = await fetch('/admin/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    localStorage.setItem('adminToken', data.token);
+                    localStorage.setItem('adminUser', data.user);
+                    window.location.href = '/admin';
+                } else {
+                    errorMessage.textContent = data.error || '登入失敗';
+                    errorMessage.classList.add('show');
+                }
+            } catch (error) {
+                errorMessage.textContent = '網絡錯誤，請稍後再試';
+                errorMessage.classList.add('show');
+            }
+        });
+    </script>
+</body>
+</html>`;
+  
+  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+}
+
+// 渲染儀表板
+async function renderAdminDashboard() {
+  const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>儀表板 - Flux AI Pro 管理後台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100%;
+            background: #1a1a2e;
+            color: white;
+            padding: 20px;
+        }
+        .sidebar-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-item {
+            display: block;
+            padding: 12px 16px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(102, 126, 234, 0.2);
+            color: white;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+        .page-header {
+            margin-bottom: 30px;
+        }
+        .page-header h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .page-header p {
+            color: #666;
+            font-size: 14px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .stat-card h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        .stat-card .value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #333;
+        }
+        .logout-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">🎨 Flux AI Pro</div>
+        <a href="/admin" class="nav-item active">📊 儀表板</a>
+        <a href="/admin/styles" class="nav-item">🎨 風格管理</a>
+        <a href="/admin/providers" class="nav-item">🤖 模型配置</a>
+        <a href="/admin/parameters" class="nav-item">⚙️ 參數調整</a>
+        <a href="/admin/settings" class="nav-item">🔧 系統設置</a>
+    </div>
+    
+    <button class="logout-btn" onclick="logout()">登出</button>
+    
+    <div class="main-content">
+        <div class="page-header">
+            <h1>儀表板</h1>
+            <p>歡迎來到 Flux AI Pro 管理後台</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>總風格數</h3>
+                <div class="value" id="totalStyles">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>供應商數</h3>
+                <div class="value" id="totalProviders">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>模型數</h3>
+                <div class="value" id="totalModels">-</div>
+            </div>
+            <div class="stat-card">
+                <h3>系統版本</h3>
+                <div class="value">v11.14.0</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            window.location.href = '/admin/login';
+        }
+        
+        function logout() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
+            window.location.href = '/admin/login';
+        }
+        
+        // 加載統計數據
+        async function loadStats() {
+            try {
+                const response = await fetch('/admin/api/styles', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                document.getElementById('totalStyles').textContent = data.total || 0;
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+        
+        loadStats();
+    </script>
+</body>
+</html>`;
+  
+  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+}
+
+// 渲染風格管理頁面
+async function renderAdminStyles() {
+  const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>風格管理 - Flux AI Pro 管理後台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100%;
+            background: #1a1a2e;
+            color: white;
+            padding: 20px;
+        }
+        .sidebar-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-item {
+            display: block;
+            padding: 12px 16px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(102, 126, 234, 0.2);
+            color: white;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .page-header h1 {
+            font-size: 28px;
+            color: #333;
+        }
+        .add-btn {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .styles-table {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .styles-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .styles-table th {
+            background: #f8f9fa;
+            padding: 16px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .styles-table td {
+            padding: 16px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+        .edit-btn {
+            background: #667eea;
+            color: white;
+        }
+        .delete-btn {
+            background: #ef4444;
+            color: white;
+        }
+        .logout-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">🎨 Flux AI Pro</div>
+        <a href="/admin" class="nav-item">📊 儀表板</a>
+        <a href="/admin/styles" class="nav-item active">🎨 風格管理</a>
+        <a href="/admin/providers" class="nav-item">🤖 模型配置</a>
+        <a href="/admin/parameters" class="nav-item">⚙️ 參數調整</a>
+        <a href="/admin/settings" class="nav-item">🔧 系統設置</a>
+    </div>
+    
+    <button class="logout-btn" onclick="logout()">登出</button>
+    
+    <div class="main-content">
+        <div class="page-header">
+            <h1>風格管理</h1>
+            <button class="add-btn" onclick="showCreateModal()">+ 新增風格</button>
+        </div>
+        
+        <div class="styles-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>名稱</th>
+                        <th>分類</th>
+                        <th>圖標</th>
+                        <th>狀態</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="stylesTableBody">
+                    <tr><td colspan="6" style="text-align:center;">載入中...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            window.location.href = '/admin/login';
+        }
+        
+        function logout() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
+            window.location.href = '/admin/login';
+        }
+        
+        async function loadStyles() {
+            try {
+                const response = await fetch('/admin/api/styles', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                
+                const tbody = document.getElementById('stylesTableBody');
+                if (data.styles && data.styles.length > 0) {
+                    tbody.innerHTML = data.styles.map(style =>
+                        '<tr>' +
+                            '<td>' + style.id + '</td>' +
+                            '<td>' + (style.name?.zh || style.name?.en || style.id) + '</td>' +
+                            '<td>' + style.category + '</td>' +
+                            '<td>' + style.icon + '</td>' +
+                            '<td>' + (style.enabled ? '啟用' : '禁用') + '</td>' +
+                            '<td>' +
+                                '<button class="action-btn edit-btn" onclick="editStyle(\'' + style.id + '\')">編輯</button>' +
+                                '<button class="action-btn delete-btn" onclick="deleteStyle(\'' + style.id + '\')">刪除</button>' +
+                            '</td>' +
+                        '</tr>'
+                    ).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">暫無風格</td></tr>';
+                }
+            } catch (error) {
+                console.error('Failed to load styles:', error);
+                document.getElementById('stylesTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">載入失敗</td></tr>';
+            }
+        }
+        
+        function showCreateModal() {
+            alert('新增風格功能開發中...');
+        }
+        
+        function editStyle(id) {
+            alert('編輯風格功能開發中... ID: ' + id);
+        }
+        
+        function deleteStyle(id) {
+            if (confirm('確定要刪除此風格嗎？')) {
+                alert('刪除風格功能開發中... ID: ' + id);
+            }
+        }
+        
+        loadStyles();
+    </script>
+</body>
+</html>`;
+  
+  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+}
+
+// 渲染供應商管理頁面
+async function renderAdminProviders() {
+  const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型配置 - Flux AI Pro 管理後台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100%;
+            background: #1a1a2e;
+            color: white;
+            padding: 20px;
+        }
+        .sidebar-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-item {
+            display: block;
+            padding: 12px 16px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(102, 126, 234, 0.2);
+            color: white;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+        .page-header h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .provider-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .provider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .provider-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        .provider-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .provider-status.enabled {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .provider-status.disabled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .logout-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">🎨 Flux AI Pro</div>
+        <a href="/admin" class="nav-item">📊 儀表板</a>
+        <a href="/admin/styles" class="nav-item">🎨 風格管理</a>
+        <a href="/admin/providers" class="nav-item active">🤖 模型配置</a>
+        <a href="/admin/parameters" class="nav-item">⚙️ 參數調整</a>
+        <a href="/admin/settings" class="nav-item">🔧 系統設置</a>
+    </div>
+    
+    <button class="logout-btn" onclick="logout()">登出</button>
+    
+    <div class="main-content">
+        <h1>模型配置</h1>
+        <div id="providersContainer">
+            <p>載入中...</p>
+        </div>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            window.location.href = '/admin/login';
+        }
+        
+        function logout() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
+            window.location.href = '/admin/login';
+        }
+        
+        async function loadProviders() {
+            try {
+                const response = await fetch('/admin/api/providers', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                
+                const container = document.getElementById('providersContainer');
+                if (data.providers) {
+                    container.innerHTML = Object.entries(data.providers).map(([id, provider]) =>
+                        '<div class="provider-card">' +
+                            '<div class="provider-header">' +
+                                '<span class="provider-name">' + provider.name + '</span>' +
+                                '<span class="provider-status ' + (provider.enabled ? 'enabled' : 'disabled') + '">' +
+                                    (provider.enabled ? '啟用' : '禁用') +
+                                '</span>' +
+                            '</div>' +
+                            '<p>端點: ' + provider.endpoint + '</p>' +
+                            '<p>模型數: ' + (provider.models?.length || 0) + '</p>' +
+                        '</div>'
+                    ).join('');
+                } else {
+                    container.innerHTML = '<p>暫無供應商</p>';
+                }
+            } catch (error) {
+                console.error('Failed to load providers:', error);
+                document.getElementById('providersContainer').innerHTML = '<p>載入失敗</p>';
+            }
+        }
+        
+        loadProviders();
+    </script>
+</body>
+</html>`;
+  
+  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+}
+
+// 渲染參數調整頁面
+async function renderAdminParameters() {
+  const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>參數調整 - Flux AI Pro 管理後台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100%;
+            background: #1a1a2e;
+            color: white;
+            padding: 20px;
+        }
+        .sidebar-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-item {
+            display: block;
+            padding: 12px 16px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(102, 126, 234, 0.2);
+            color: white;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+        .page-header h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .param-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .param-section h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 16px;
+        }
+        .param-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .param-item:last-child {
+            border-bottom: none;
+        }
+        .param-label {
+            color: #333;
+            font-size: 14px;
+        }
+        .param-value {
+            color: #666;
+            font-size: 14px;
+        }
+        .logout-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">🎨 Flux AI Pro</div>
+        <a href="/admin" class="nav-item">📊 儀表板</a>
+        <a href="/admin/styles" class="nav-item">🎨 風格管理</a>
+        <a href="/admin/providers" class="nav-item">🤖 模型配置</a>
+        <a href="/admin/parameters" class="nav-item active">⚙️ 參數調整</a>
+        <a href="/admin/settings" class="nav-item">🔧 系統設置</a>
+    </div>
+    
+    <button class="logout-btn" onclick="logout()">登出</button>
+    
+    <div class="main-content">
+        <h1>參數調整</h1>
+        <div id="parametersContainer">
+            <p>載入中...</p>
+        </div>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            window.location.href = '/admin/login';
+        }
+        
+        function logout() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
+            window.location.href = '/admin/login';
+        }
+        
+        async function loadParameters() {
+            try {
+                const response = await fetch('/admin/api/parameters', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                
+                const container = document.getElementById('parametersContainer');
+                if (data.optimization_rules) {
+                    let html = '<div class="param-section"><h2>優化規則</h2>';
+                    Object.entries(data.optimization_rules.MODEL_STEPS || {}).forEach(([model, config]) => {
+                        html += '<div class="param-item">' +
+                            '<span class="param-label">' + model + ' 步數</span>' +
+                            '<span class="param-value">' + config.min + ' - ' + config.max + ' (默認: ' + config.default + ')</span>' +
+                        '</div>';
+                    });
+                    html += '</div>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p>暫無參數配置</p>';
+                }
+            } catch (error) {
+                console.error('Failed to load parameters:', error);
+                document.getElementById('parametersContainer').innerHTML = '<p>載入失敗</p>';
+            }
+        }
+        
+        loadParameters();
+    </script>
+</body>
+</html>`;
+  
+  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+}
+
+// 渲染系統設置頁面
+async function renderAdminSettings() {
+  const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統設置 - Flux AI Pro 管理後台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100%;
+            background: #1a1a2e;
+            color: white;
+            padding: 20px;
+        }
+        .sidebar-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .nav-item {
+            display: block;
+            padding: 12px 16px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background: rgba(102, 126, 234, 0.2);
+            color: white;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 30px;
+        }
+        .page-header h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .settings-section {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .settings-section h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 16px;
+        }
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        .setting-label {
+            color: #333;
+            font-size: 14px;
+        }
+        .setting-value {
+            color: #666;
+            font-size: 14px;
+        }
+        .logout-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">🎨 Flux AI Pro</div>
+        <a href="/admin" class="nav-item">📊 儀表板</a>
+        <a href="/admin/styles" class="nav-item">🎨 風格管理</a>
+        <a href="/admin/providers" class="nav-item">🤖 模型配置</a>
+        <a href="/admin/parameters" class="nav-item">⚙️ 參數調整</a>
+        <a href="/admin/settings" class="nav-item active">🔧 系統設置</a>
+    </div>
+    
+    <button class="logout-btn" onclick="logout()">登出</button>
+    
+    <div class="main-content">
+        <h1>系統設置</h1>
+        <div id="settingsContainer">
+            <p>載入中...</p>
+        </div>
+    </div>
+    
+    <script>
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            window.location.href = '/admin/login';
+        }
+        
+        function logout() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
+            window.location.href = '/admin/login';
+        }
+        
+        async function loadSettings() {
+            try {
+                const response = await fetch('/admin/api/settings/global', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                
+                const container = document.getElementById('settingsContainer');
+                if (data.global_settings) {
+                    let html = '<div class="settings-section"><h2>全局設置</h2>';
+                    html += '<div class="setting-item">' +
+                        '<span class="setting-label">默認供應商</span>' +
+                        '<span class="setting-value">' + (data.global_settings.defaultProvider || 'pollinations') + '</span>' +
+                    '</div>';
+                    html += '<div class="setting-item">' +
+                        '<span class="setting-label">默認模型</span>' +
+                        '<span class="setting-value">' + (data.global_settings.defaultModel || 'flux-2-dev') + '</span>' +
+                    '</div>';
+                    html += '<div class="setting-item">' +
+                        '<span class="setting-label">默認尺寸</span>' +
+                        '<span class="setting-value">' + (data.global_settings.defaultSize || 'square-1k') + '</span>' +
+                    '</div>';
+                    html += '</div>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p>暫無設置</p>';
+                }
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+                document.getElementById('settingsContainer').innerHTML = '<p>載入失敗</p>';
+            }
+        }
+        
+        loadSettings();
+    </script>
+</body>
+</html>`;
+  
+  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+}
+
+// API 實現函數
+async function getAdminStyles(env) {
+  try {
+    const stylesData = await env.FLUX_KV.get('admin:styles', 'json');
+    const styles = stylesData?.custom_styles || {};
+    
+    return new Response(JSON.stringify({
+      styles: Object.values(styles),
+      total: Object.keys(styles).length
+    }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function createAdminStyle(request, env) {
+  try {
+    const body = await request.json();
+    const styleId = 'custom_' + Date.now();
+    
+    const stylesData = await env.FLUX_KV.get('admin:styles', 'json') || { custom_styles: {}, style_categories: {} };
+    stylesData.custom_styles[styleId] = {
+      id: styleId,
+      name: body.name || {},
+      prompt: body.prompt || '',
+      negative: body.negative || '',
+      category: body.category || 'custom',
+      icon: body.icon || '🎨',
+      description: body.description || {},
+      enabled: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    await env.FLUX_KV.put('admin:styles', JSON.stringify(stylesData));
+    
+    return new Response(JSON.stringify({ success: true, styleId }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function updateAdminStyle(request, env, styleId) {
+  try {
+    const body = await request.json();
+    const stylesData = await env.FLUX_KV.get('admin:styles', 'json');
+    
+    if (!stylesData || !stylesData.custom_styles[styleId]) {
+      return new Response(JSON.stringify({ error: 'Style not found' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+    }
+    
+    stylesData.custom_styles[styleId] = {
+      ...stylesData.custom_styles[styleId],
+      ...body,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await env.FLUX_KV.put('admin:styles', JSON.stringify(stylesData));
+    
+    return new Response(JSON.stringify({ success: true }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function deleteAdminStyle(env, styleId) {
+  try {
+    const stylesData = await env.FLUX_KV.get('admin:styles', 'json');
+    
+    if (!stylesData || !stylesData.custom_styles[styleId]) {
+      return new Response(JSON.stringify({ error: 'Style not found' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+    }
+    
+    delete stylesData.custom_styles[styleId];
+    await env.FLUX_KV.put('admin:styles', JSON.stringify(stylesData));
+    
+    return new Response(JSON.stringify({ success: true }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function getAdminProviders(env) {
+  try {
+    const providersData = await env.FLUX_KV.get('admin:providers', 'json');
+    
+    return new Response(JSON.stringify({
+      providers: providersData?.providers || CONFIG.PROVIDERS,
+      global_settings: providersData?.global_settings || {}
+    }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function updateAdminProvider(request, env, providerId) {
+  try {
+    const body = await request.json();
+    const providersData = await env.FLUX_KV.get('admin:providers', 'json') || { providers: {}, global_settings: {} };
+    
+    if (!providersData.providers[providerId]) {
+      return new Response(JSON.stringify({ error: 'Provider not found' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+    }
+    
+    providersData.providers[providerId] = {
+      ...providersData.providers[providerId],
+      ...body
+    };
+    
+    await env.FLUX_KV.put('admin:providers', JSON.stringify(providersData));
+    
+    return new Response(JSON.stringify({ success: true }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function getAdminParameters(env) {
+  try {
+    const parametersData = await env.FLUX_KV.get('admin:parameters', 'json');
+    
+    return new Response(JSON.stringify({
+      optimization_rules: parametersData?.optimization_rules || CONFIG.OPTIMIZATION_RULES,
+      rate_limits: parametersData?.rate_limits || {},
+      hd_optimization: parametersData?.hd_optimization || CONFIG.HD_OPTIMIZATION
+    }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function updateAdminOptimization(request, env) {
+  try {
+    const body = await request.json();
+    const parametersData = await env.FLUX_KV.get('admin:parameters', 'json') || { optimization_rules: {}, rate_limits: {}, hd_optimization: {} };
+    
+    parametersData.optimization_rules = {
+      ...parametersData.optimization_rules,
+      ...body
+    };
+    
+    await env.FLUX_KV.put('admin:parameters', JSON.stringify(parametersData));
+    
+    return new Response(JSON.stringify({ success: true }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function updateAdminRateLimits(request, env) {
+  try {
+    const body = await request.json();
+    const parametersData = await env.FLUX_KV.get('admin:parameters', 'json') || { optimization_rules: {}, rate_limits: {}, hd_optimization: {} };
+    
+    parametersData.rate_limits = {
+      ...parametersData.rate_limits,
+      ...body
+    };
+    
+    await env.FLUX_KV.put('admin:parameters', JSON.stringify(parametersData));
+    
+    return new Response(JSON.stringify({ success: true }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function getAdminGlobalSettings(env) {
+  try {
+    const providersData = await env.FLUX_KV.get('admin:providers', 'json');
+    
+    return new Response(JSON.stringify({
+      global_settings: providersData?.global_settings || {}
+    }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function updateAdminGlobalSettings(request, env) {
+  try {
+    const body = await request.json();
+    const providersData = await env.FLUX_KV.get('admin:providers', 'json') || { providers: {}, global_settings: {} };
+    
+    providersData.global_settings = {
+      ...providersData.global_settings,
+      ...body
+    };
+    
+    await env.FLUX_KV.put('admin:providers', JSON.stringify(providersData));
+    
+    return new Response(JSON.stringify({ success: true }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
 }
 
 // KV-based Online Counter (Free)

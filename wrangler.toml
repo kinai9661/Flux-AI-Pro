@@ -1,8 +1,8 @@
 # ============================================
 # Cloudflare Workers 配置文件
 # 項目: Flux AI Pro - NanoBanana Edition
-# 版本: 11.12.0
-# 更新: 2026-02-10
+# 版本: 11.15.0
+# 更新: 2026-02-18
 # ============================================
 
 name = "flux-ai-pro"
@@ -10,9 +10,18 @@ main = "worker.js"
 compatibility_date = "2024-12-01"
 
 # ============================================
-# KV 存儲綁定 (NanoBanana 限流必需)
+# KV 存儲綁定 (NanoBanana 限流必需 + 管理後台系統)
 # ⚠️ 請執行: npx wrangler kv:namespace create "FLUX_KV"
 # 然後將生成的 id 填入下方
+#
+# KV 存儲用途:
+# - Nano Pro 限流和配額管理
+# - 管理後台系統:
+#   - admin:credentials (管理員憑證)
+#   - admin:tokens:{token} (JWT Token)
+#   - admin:styles (自定義風格)
+#   - admin:providers (供應商配置)
+#   - admin:parameters (參數配置)
 # ============================================
 [[kv_namespaces]]
 binding = "FLUX_KV"
@@ -28,7 +37,7 @@ binding = "AI"
 # 環境變量（非敏感）
 # ============================================
 [vars]
-WORKER_VERSION = "11.12.0"
+WORKER_VERSION = "11.15.0"
 DEFAULT_MODEL = "flux-schnell"
 MAX_WIDTH = 4096
 MAX_HEIGHT = 4096
