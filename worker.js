@@ -5399,6 +5399,19 @@ async function handleAdminAPI(request, env, ctx) {
     const providerId = pathname.split('/').pop();
     return await updateAdminProvider(request, env, providerId);
   }
+
+  // 自定義模型 API
+  if (pathname === '/admin/api/models/custom' && method === 'GET') {
+    return await getAdminCustomModels(env);
+  } else if (pathname === '/admin/api/models/custom' && method === 'POST') {
+    return await createAdminCustomModel(request, env);
+  } else if (pathname.match(/^\/admin\/api\/models\/custom\/[^\/]+$/) && method === 'PUT') {
+    const modelId = pathname.split('/').pop();
+    return await updateAdminCustomModel(request, env, modelId);
+  } else if (pathname.match(/^\/admin\/api\/models\/custom\/[^\/]+$/) && method === 'DELETE') {
+    const modelId = pathname.split('/').pop();
+    return await deleteAdminCustomModel(env, modelId);
+  }
   
   // 參數管理 API
   if (pathname === '/admin/api/parameters' && method === 'GET') {
@@ -5418,11 +5431,43 @@ async function handleAdminAPI(request, env, ctx) {
   
     // 修改密碼 API
     if (pathname === '/admin/api/settings/password' && method === 'PUT') {
-      return await updateAdminPassword(request, env);
+    	return await updateAdminPassword(request, env);
     }
-  
+   
+    // 儀表板統計 API
+    if (pathname === '/admin/api/stats' && method === 'GET') {
+    	return await getAdminStats(env);
+    }
+   
+    // 數據備份 API
+    if (pathname === '/admin/api/backup' && method === 'GET') {
+    	return await exportAdminBackup(env);
+    }
+    else if (pathname === '/admin/api/backup' && method === 'POST') {
+    	return await importAdminBackup(request, env);
+    }
+   
+    // 自定義供應商 API
+    if (pathname === '/admin/api/providers/custom' && method === 'GET') {
+    	return await getAdminCustomProviders(env);
+    } else if (pathname === '/admin/api/providers/custom' && method === 'POST') {
+    	return await createAdminCustomProvider(request, env);
+    } else if (pathname.match(/^\/admin\/api\/providers\/custom\/[^\/]+$/) && method === 'PUT') {
+    	const providerId = pathname.split('/').pop();
+    	return await updateAdminCustomProvider(request, env, providerId);
+    } else if (pathname.match(/^\/admin\/api\/providers\/custom\/[^\/]+$/) && method === 'DELETE') {
+    	const providerId = pathname.split('/').pop();
+    	return await deleteAdminCustomProvider(env, providerId);
+    }
+   
+    // 供應商連接測試 API
+    if (pathname.match(/^\/admin\/api\/providers\/test\/[^\/]+$/) && method === 'POST') {
+    	const providerId = pathname.split('/').pop();
+    	return await testAdminProviderConnection(request, env, providerId);
+    }
+   
     return new Response(JSON.stringify({ error: 'Not Found' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  }
+   }
   
   // 修改密碼
   async function updateAdminPassword(request, env) {
@@ -5742,173 +5787,278 @@ async function renderAdminLogin() {
 
 // 渲染儀表板
 async function renderAdminDashboard() {
-  const html = `<!DOCTYPE html>
+	const html = `<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>儀表板 - Flux AI Pro 管理後台</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-        }
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 250px;
-            height: 100%;
-            background: #1a1a2e;
-            color: white;
-            padding: 20px;
-        }
-        .sidebar-header {
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .nav-item {
-            display: block;
-            padding: 12px 16px;
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            transition: all 0.3s;
-        }
-        .nav-item:hover, .nav-item.active {
-            background: rgba(102, 126, 234, 0.2);
-            color: white;
-        }
-        .main-content {
-            margin-left: 250px;
-            padding: 30px;
-        }
-        .page-header {
-            margin-bottom: 30px;
-        }
-        .page-header h1 {
-            font-size: 28px;
-            color: #333;
-            margin-bottom: 8px;
-        }
-        .page-header p {
-            color: #666;
-            font-size: 14px;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        .stat-card h3 {
-            font-size: 14px;
-            color: #666;
-            margin-bottom: 8px;
-        }
-        .stat-card .value {
-            font-size: 32px;
-            font-weight: 600;
-            color: #333;
-        }
-        .logout-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 8px 16px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-    </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>儀表板 - Flux AI Pro 管理後台</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; min-height: 100vh; }
+		.sidebar { position: fixed; left: 0; top: 0; width: 250px; height: 100%; background: #1a1a2e; color: white; padding: 20px; }
+		.sidebar-header { font-size: 20px; font-weight: 600; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+		.nav-item { display: block; padding: 12px 16px; color: rgba(255, 255, 255, 0.7); text-decoration: none; border-radius: 8px; margin-bottom: 8px; transition: all 0.3s; }
+		.nav-item:hover, .nav-item.active { background: rgba(102, 126, 234, 0.2); color: white; }
+		.main-content { margin-left: 250px; padding: 30px; }
+		.page-header { margin-bottom: 30px; }
+		.page-header h1 { font-size: 28px; color: #333; margin-bottom: 8px; }
+		.page-header p { color: #666; font-size: 14px; }
+		.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+		.stat-card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); position: relative; overflow: hidden; }
+		.stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+		.stat-card.styles::before { background: linear-gradient(180deg, #667eea, #764ba2); }
+		.stat-card.providers::before { background: linear-gradient(180deg, #f093fb, #f5576c); }
+		.stat-card.models::before { background: linear-gradient(180deg, #4facfe, #00f2fe); }
+		.stat-card.online::before { background: linear-gradient(180deg, #43e97b, #38f9d7); }
+		.stat-card.requests::before { background: linear-gradient(180deg, #fa709a, #fee140); }
+		.stat-card.version::before { background: linear-gradient(180deg, #a8edea, #fed6e3); }
+		.stat-card h3 { font-size: 13px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+		.stat-card .value { font-size: 36px; font-weight: 700; color: #333; }
+		.stat-card .sub { font-size: 12px; color: #999; margin-top: 4px; }
+		.stat-card .icon { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); font-size: 40px; opacity: 0.2; }
+		.logout-btn { position: fixed; top: 20px; right: 20px; padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; z-index: 100; }
+		.logout-btn:hover { background: #dc2626; }
+		.section { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); margin-bottom: 20px; }
+		.section h2 { font-size: 18px; color: #333; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #eee; }
+		.backup-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+		.btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; }
+		.btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+		.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+		.btn-secondary { background: #f3f4f6; color: #333; border: 1px solid #e5e7eb; }
+		.btn-secondary:hover { background: #e5e7eb; }
+		.btn-success { background: linear-gradient(135deg, #43e97b, #38f9d7); color: white; }
+		.btn-success:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(67, 233, 123, 0.4); }
+		.file-input { display: none; }
+		.status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+		.status-enabled { background: #dcfce7; color: #16a34a; }
+		.status-disabled { background: #fee2e2; color: #dc2626; }
+		.loading { opacity: 0.5; pointer-events: none; }
+		.toast { position: fixed; bottom: 20px; right: 20px; padding: 16px 24px; border-radius: 8px; color: white; font-size: 14px; z-index: 1000; animation: slideIn 0.3s ease; }
+		.toast-success { background: #16a34a; }
+		.toast-error { background: #dc2626; }
+		@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+		.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+		.detail-card { background: #f9fafb; border-radius: 8px; padding: 16px; }
+		.detail-card h4 { font-size: 14px; color: #666; margin-bottom: 12px; }
+		.detail-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+		.detail-item:last-child { border-bottom: none; }
+		.detail-item .label { color: #666; }
+		.detail-item .value { color: #333; font-weight: 500; }
+	</style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sidebar-header">🎨 Flux AI Pro</div>
-        <a href="/admin" class="nav-item active">📊 儀表板</a>
-        <a href="/admin/styles" class="nav-item">🎨 風格管理</a>
-        <a href="/admin/providers" class="nav-item">🤖 模型配置</a>
-        <a href="/admin/parameters" class="nav-item">⚙️ 參數調整</a>
-        <a href="/admin/settings" class="nav-item">🔧 系統設置</a>
-    </div>
-    
-    <button class="logout-btn" onclick="logout()">登出</button>
-    
-    <div class="main-content">
-        <div class="page-header">
-            <h1>儀表板</h1>
-            <p>歡迎來到 Flux AI Pro 管理後台</p>
-        </div>
-        
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>總風格數</h3>
-                <div class="value" id="totalStyles">-</div>
-            </div>
-            <div class="stat-card">
-                <h3>供應商數</h3>
-                <div class="value" id="totalProviders">-</div>
-            </div>
-            <div class="stat-card">
-                <h3>模型數</h3>
-                <div class="value" id="totalModels">-</div>
-            </div>
-            <div class="stat-card">
-                <h3>系統版本</h3>
-                <div class="value">v11.14.0</div>
-            </div>
-        </div>
-    </div>
-    
-    <script>
-        const token = localStorage.getItem('adminToken');
-        if (!token) {
-            window.location.href = '/admin/login';
-        }
-        
-        function logout() {
-            localStorage.removeItem('adminToken');
-            localStorage.removeItem('adminUser');
-            window.location.href = '/admin/login';
-        }
-        
-        // 加載統計數據
-        async function loadStats() {
-            try {
-                const response = await fetch('/admin/api/styles', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                const data = await response.json();
-                document.getElementById('totalStyles').textContent = data.total || 0;
-            } catch (error) {
-                console.error('Failed to load stats:', error);
-            }
-        }
-        
-        loadStats();
-    </script>
+	<div class="sidebar">
+		<div class="sidebar-header">🎨 Flux AI Pro</div>
+		<a href="/admin" class="nav-item active">📊 儀表板</a>
+		<a href="/admin/styles" class="nav-item">🎨 風格管理</a>
+		<a href="/admin/providers" class="nav-item">🤖 模型配置</a>
+		<a href="/admin/parameters" class="nav-item">⚙️ 參數調整</a>
+		<a href="/admin/settings" class="nav-item">🔧 系統設置</a>
+	</div>
+
+	<button class="logout-btn" onclick="logout()">登出</button>
+
+	<div class="main-content">
+		<div class="page-header">
+			<h1>📊 儀表板</h1>
+			<p>歡迎來到 Flux AI Pro 管理後台</p>
+		</div>
+
+		<div class="stats-grid">
+			<div class="stat-card styles">
+				<h3>總風格數</h3>
+				<div class="value" id="totalStyles">-</div>
+				<div class="sub"><span id="builtinStyles">-</span> 內建 · <span id="customStyles">-</span> 自訂</div>
+				<div class="icon">🎨</div>
+			</div>
+			<div class="stat-card providers">
+				<h3>供應商</h3>
+				<div class="value" id="totalProviders">-</div>
+				<div class="sub"><span id="enabledProviders">-</span> 啟用 · <span id="disabledProviders">-</span> 停用</div>
+				<div class="icon">🔌</div>
+			</div>
+			<div class="stat-card models">
+				<h3>模型數</h3>
+				<div class="value" id="totalModels">-</div>
+				<div class="sub"><span id="builtinModels">-</span> 內建 · <span id="customModels">-</span> 自訂</div>
+				<div class="icon">🤖</div>
+			</div>
+			<div class="stat-card online">
+				<h3>在線人數</h3>
+				<div class="value" id="onlineCount">-</div>
+				<div class="sub">即時統計</div>
+				<div class="icon">👥</div>
+			</div>
+			<div class="stat-card requests">
+				<h3>今日請求</h3>
+				<div class="value" id="todayRequests">-</div>
+				<div class="sub"><span id="successRequests">-</span> 成功 · <span id="failedRequests">-</span> 失敗</div>
+				<div class="icon">📈</div>
+			</div>
+			<div class="stat-card version">
+				<h3>系統版本</h3>
+				<div class="value" id="version">v11.14.0</div>
+				<div class="sub" id="lastUpdate">-</div>
+				<div class="icon">📦</div>
+			</div>
+		</div>
+
+		<div class="detail-grid">
+			<div class="section">
+				<h2>🔄 數據備份</h2>
+				<p style="color: #666; margin-bottom: 16px;">導出或導入系統配置數據，包括風格、供應商、模型和參數設置。</p>
+				<div class="backup-actions">
+					<button class="btn btn-primary" onclick="exportBackup()">
+						<span>📥</span> 導出備份
+					</button>
+					<label class="btn btn-success">
+						<span>📤</span> 導入備份
+						<input type="file" class="file-input" id="importFile" accept=".json" onchange="importBackup(event)">
+					</label>
+				</div>
+			</div>
+
+			<div class="section">
+				<h2>📋 供應商狀態</h2>
+				<div class="detail-card">
+					<div id="providerDetails">
+						<div class="detail-item"><span class="label">載入中...</span></div>
+					</div>
+				</div>
+			</div>
+		<script>
+		const token = localStorage.getItem('adminToken');
+		if (!token) {
+			window.location.href = '/admin/login';
+		}
+
+		function logout() {
+			localStorage.removeItem('adminToken');
+			localStorage.removeItem('adminUser');
+			window.location.href = '/admin/login';
+		}
+
+		function showToast(message, type) {
+			type = type || 'success';
+			const toast = document.createElement('div');
+			toast.className = 'toast toast-' + type;
+			toast.textContent = message;
+			document.body.appendChild(toast);
+			setTimeout(function() { toast.remove(); }, 3000);
+		}
+
+		async function loadStats() {
+			try {
+				const response = await fetch('/admin/api/stats', {
+					headers: { 'Authorization': 'Bearer ' + token }
+				});
+				const data = await response.json();
+				if (data.success) {
+					const stats = data.stats;
+					document.getElementById('totalStyles').textContent = stats.styles.total;
+					document.getElementById('builtinStyles').textContent = stats.styles.builtin;
+					document.getElementById('customStyles').textContent = stats.styles.custom;
+					document.getElementById('totalProviders').textContent = stats.providers.total;
+					document.getElementById('enabledProviders').textContent = stats.providers.enabled;
+					document.getElementById('disabledProviders').textContent = stats.providers.disabled;
+					document.getElementById('totalModels').textContent = stats.models.total;
+					document.getElementById('builtinModels').textContent = stats.models.builtin;
+					document.getElementById('customModels').textContent = stats.models.custom;
+					document.getElementById('onlineCount').textContent = stats.online;
+					document.getElementById('todayRequests').textContent = stats.daily.requests || 0;
+					document.getElementById('successRequests').textContent = stats.daily.success || 0;
+					document.getElementById('failedRequests').textContent = stats.daily.failed || 0;
+					document.getElementById('version').textContent = stats.version;
+					document.getElementById('lastUpdate').textContent = '更新: ' + new Date(stats.lastUpdate).toLocaleString('zh-TW');
+				}
+				await loadProviderDetails();
+			} catch (error) {
+				console.error('Failed to load stats:', error);
+				showToast('載入統計數據失敗', 'error');
+			}
+		}
+
+		async function loadProviderDetails() {
+			try {
+				const response = await fetch('/admin/api/providers', {
+					headers: { 'Authorization': 'Bearer ' + token }
+				});
+				const data = await response.json();
+				if (data.providers) {
+					const container = document.getElementById('providerDetails');
+					container.innerHTML = '';
+					Object.entries(data.providers).forEach(function(entry) {
+						const id = entry[0];
+						const provider = entry[1];
+						const item = document.createElement('div');
+						item.className = 'detail-item';
+						item.innerHTML = '<span class="label">' + (provider.name || id) + '</span><span class="status-badge ' + (provider.enabled !== false ? 'status-enabled' : 'status-disabled') + '">' + (provider.enabled !== false ? '啟用' : '停用') + '</span>';
+						container.appendChild(item);
+					});
+				}
+			} catch (error) {
+				console.error('Failed to load provider details:', error);
+			}
+		}
+
+		async function exportBackup() {
+			try {
+				const response = await fetch('/admin/api/backup', {
+					headers: { 'Authorization': 'Bearer ' + token }
+				});
+				if (!response.ok) throw new Error('導出失敗');
+				const blob = await response.blob();
+				const url = window.URL.createObjectURL(blob);
+				const a = document.createElement('a');
+				a.href = url;
+				a.download = 'flux-ai-backup-' + new Date().toISOString().split('T')[0] + '.json';
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+				window.URL.revokeObjectURL(url);
+				showToast('備份導出成功');
+			} catch (error) {
+				showToast('導出失敗: ' + error.message, 'error');
+			}
+		}
+
+		async function importBackup(event) {
+			const file = event.target.files[0];
+			if (!file) return;
+			try {
+				const text = await file.text();
+				const data = JSON.parse(text);
+				const response = await fetch('/admin/api/backup', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'Authorization': 'Bearer ' + token
+					},
+					body: JSON.stringify(data)
+				});
+				const result = await response.json();
+				if (result.success) {
+					showToast('備份導入成功: ' + result.results.imported.join(', '));
+					setTimeout(function() { loadStats(); }, 500);
+				} else {
+					throw new Error(result.error);
+				}
+			} catch (error) {
+				showToast('導入失敗: ' + error.message, 'error');
+			}
+			event.target.value = '';
+		}
+
+		loadStats();
+		setInterval(function() { loadStats(); }, 30000);
+	</script>
 </body>
 </html>`;
-  
-  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+	return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
 }
 
-// 渲染風格管理頁面
+// 渲染風格管理頁面// 渲染風格管理頁面
 async function renderAdminStyles() {
   const html = `<!DOCTYPE html>
 <html lang="zh-TW">
@@ -6027,6 +6177,133 @@ async function renderAdminStyles() {
             cursor: pointer;
             font-size: 14px;
         }
+        .status-enabled {
+            color: #10b981;
+            font-weight: 500;
+        }
+        .status-disabled {
+            color: #ef4444;
+            font-weight: 500;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        .badge-builtin {
+            background: #e0e7ff;
+            color: #4f46e5;
+        }
+        .badge-custom {
+            background: #d1fae5;
+            color: #059669;
+        }
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .stat {
+            font-size: 14px;
+            color: #666;
+        }
+        .stat strong {
+            color: #333;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h2 {
+            font-size: 18px;
+            color: #333;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .btn-save {
+            flex: 1;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-cancel {
+            flex: 1;
+            padding: 10px;
+            background: #e5e7eb;
+            color: #333;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -6047,6 +6324,10 @@ async function renderAdminStyles() {
             <button class="add-btn" onclick="showCreateModal()">+ 新增風格</button>
         </div>
         
+        <div class="stats-bar" id="styleStats">
+            <span class="stat">載入中...</span>
+        </div>
+        
         <div class="styles-table">
             <table>
                 <thead>
@@ -6054,15 +6335,66 @@ async function renderAdminStyles() {
                         <th>ID</th>
                         <th>名稱</th>
                         <th>分類</th>
-                        <th>圖標</th>
                         <th>狀態</th>
                         <th>操作</th>
                     </tr>
                 </thead>
                 <tbody id="stylesTableBody">
-                    <tr><td colspan="6" style="text-align:center;">載入中...</td></tr>
+                    <tr><td colspan="5" style="text-align:center;">載入中...</td></tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+    
+    <!-- 風格編輯模態框 -->
+    <div class="modal" id="styleModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">新增風格</h2>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="styleForm">
+                <input type="hidden" id="styleId">
+                <div class="form-group">
+                    <label>名稱（中文）</label>
+                    <input type="text" id="styleNameZh" placeholder="風格中文名稱">
+                </div>
+                <div class="form-group">
+                    <label>名稱（英文）</label>
+                    <input type="text" id="styleNameEn" placeholder="Style English Name">
+                </div>
+                <div class="form-group">
+                    <label>分類</label>
+                    <select id="styleCategory">
+                        <option value="basic">基礎</option>
+                        <option value="illustration">插畫</option>
+                        <option value="manga">漫畫</option>
+                        <option value="realistic">寫實</option>
+                        <option value="painting">繪畫</option>
+                        <option value="digital">數位</option>
+                        <option value="aesthetic">美學</option>
+                        <option value="scifi">科幻</option>
+                        <option value="fantasy">奇幻</option>
+                        <option value="custom">自定義</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>圖標</label>
+                    <input type="text" id="styleIcon" placeholder="🎨" maxlength="2">
+                </div>
+                <div class="form-group">
+                    <label>提示詞</label>
+                    <textarea id="stylePrompt" placeholder="風格提示詞..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>負面提示詞</label>
+                    <textarea id="styleNegative" placeholder="負面提示詞..."></textarea>
+                </div>
+            </form>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal()">取消</button>
+                <button class="btn-save" id="saveStyleBtn" onclick="saveStyle()">保存</button>
+            </div>
         </div>
     </div>
     
@@ -6078,6 +6410,8 @@ async function renderAdminStyles() {
             window.location.href = '/admin/login';
         }
         
+        let allStyles = [];
+        
         async function loadStyles() {
             try {
                 const response = await fetch('/admin/api/styles', {
@@ -6085,41 +6419,150 @@ async function renderAdminStyles() {
                 });
                 const data = await response.json();
                 
+                allStyles = data.styles || [];
                 const tbody = document.getElementById('stylesTableBody');
-                if (data.styles && data.styles.length > 0) {
-                    tbody.innerHTML = data.styles.map(style =>
-                        '<tr>' +
+                
+                if (allStyles.length > 0) {
+                    tbody.innerHTML = allStyles.map(style => {
+                        const isBuiltin = style.builtin;
+                        const statusClass = style.enabled ? 'status-enabled' : 'status-disabled';
+                        const statusText = style.enabled ? '啟用' : '禁用';
+                        const typeText = isBuiltin ? '<span class="badge badge-builtin">內建</span>' : '<span class="badge badge-custom">自定義</span>';
+                        
+                        return '<tr>' +
                             '<td>' + style.id + '</td>' +
-                            '<td>' + (style.name?.zh || style.name?.en || style.id) + '</td>' +
+                            '<td>' + style.icon + ' ' + (style.name?.zh || style.name?.en || style.id) + ' ' + typeText + '</td>' +
                             '<td>' + style.category + '</td>' +
-                            '<td>' + style.icon + '</td>' +
-                            '<td>' + (style.enabled ? '啟用' : '禁用') + '</td>' +
+                            '<td><span class="' + statusClass + '">' + statusText + '</span></td>' +
                             '<td>' +
-                                '<button class="action-btn edit-btn" onclick="editStyle(\'' + style.id + '\')">編輯</button>' +
-                                '<button class="action-btn delete-btn" onclick="deleteStyle(\'' + style.id + '\')">刪除</button>' +
+                                (isBuiltin ?
+                                    '<button class="action-btn edit-btn" onclick="editStyle(\'' + style.id + '\')">查看</button>' :
+                                    '<button class="action-btn edit-btn" onclick="editStyle(\'' + style.id + '\')">編輯</button>' +
+                                    '<button class="action-btn delete-btn" onclick="deleteStyle(\'' + style.id + '\')">刪除</button>'
+                                ) +
                             '</td>' +
-                        '</tr>'
-                    ).join('');
+                        '</tr>';
+                    }).join('');
+                    
+                    // 更新統計
+                    document.getElementById('styleStats').innerHTML =
+                        '<span class="stat">總計: ' + data.total + '</span>' +
+                        '<span class="stat">內建: ' + data.builtin + '</span>' +
+                        '<span class="stat">自定義: ' + data.custom + '</span>';
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">暫無風格</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">暫無風格</td></tr>';
                 }
             } catch (error) {
                 console.error('Failed to load styles:', error);
-                document.getElementById('stylesTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">載入失敗</td></tr>';
+                document.getElementById('stylesTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;">載入失敗: ' + error.message + '</td></tr>';
             }
         }
         
         function showCreateModal() {
-            alert('新增風格功能開發中...');
+            const modal = document.getElementById('styleModal');
+            document.getElementById('modalTitle').textContent = '新增風格';
+            document.getElementById('styleId').value = '';
+            document.getElementById('styleNameZh').value = '';
+            document.getElementById('styleNameEn').value = '';
+            document.getElementById('styleCategory').value = 'custom';
+            document.getElementById('styleIcon').value = '🎨';
+            document.getElementById('stylePrompt').value = '';
+            document.getElementById('styleNegative').value = '';
+            modal.style.display = 'flex';
         }
         
         function editStyle(id) {
-            alert('編輯風格功能開發中... ID: ' + id);
+            const style = allStyles.find(s => s.id === id);
+            if (!style) return;
+            
+            const modal = document.getElementById('styleModal');
+            document.getElementById('modalTitle').textContent = style.builtin ? '查看風格' : '編輯風格';
+            document.getElementById('styleId').value = style.id;
+            document.getElementById('styleNameZh').value = style.name?.zh || '';
+            document.getElementById('styleNameEn').value = style.name?.en || '';
+            document.getElementById('styleCategory').value = style.category || 'custom';
+            document.getElementById('styleIcon').value = style.icon || '🎨';
+            document.getElementById('stylePrompt').value = style.prompt || '';
+            document.getElementById('styleNegative').value = style.negative || '';
+            
+            // 內建風格只能查看
+            if (style.builtin) {
+                document.querySelectorAll('#styleModal input, #styleModal textarea').forEach(el => el.disabled = true);
+                document.getElementById('saveStyleBtn').style.display = 'none';
+            } else {
+                document.querySelectorAll('#styleModal input, #styleModal textarea').forEach(el => el.disabled = false);
+                document.getElementById('saveStyleBtn').style.display = 'inline-block';
+            }
+            
+            modal.style.display = 'flex';
         }
         
-        function deleteStyle(id) {
-            if (confirm('確定要刪除此風格嗎？')) {
-                alert('刪除風格功能開發中... ID: ' + id);
+        function closeModal() {
+            document.getElementById('styleModal').style.display = 'none';
+        }
+        
+        async function saveStyle() {
+            const id = document.getElementById('styleId').value;
+            const isNew = !id || id.startsWith('new');
+            
+            const styleData = {
+                name: {
+                    zh: document.getElementById('styleNameZh').value,
+                    en: document.getElementById('styleNameEn').value
+                },
+                category: document.getElementById('styleCategory').value,
+                icon: document.getElementById('styleIcon').value,
+                prompt: document.getElementById('stylePrompt').value,
+                negative: document.getElementById('styleNegative').value,
+                enabled: true
+            };
+            
+            try {
+                const url = isNew ? '/admin/api/styles' : '/admin/api/styles/' + id;
+                const method = isNew ? 'POST' : 'PUT';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify(styleData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(isNew ? '風格創建成功！' : '風格更新成功！');
+                    closeModal();
+                    loadStyles();
+                } else {
+                    alert('操作失敗: ' + (data.error || '未知錯誤'));
+                }
+            } catch (error) {
+                alert('網絡錯誤: ' + error.message);
+            }
+        }
+        
+        async function deleteStyle(id) {
+            if (!confirm('確定要刪除此風格嗎？此操作無法撤銷。')) return;
+            
+            try {
+                const response = await fetch('/admin/api/styles/' + id, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('風格已刪除！');
+                    loadStyles();
+                } else {
+                    alert('刪除失敗: ' + (data.error || '未知錯誤'));
+                }
+            } catch (error) {
+                alert('網絡錯誤: ' + error.message);
             }
         }
         
@@ -6133,174 +6576,872 @@ async function renderAdminStyles() {
 
 // 渲染供應商管理頁面
 async function renderAdminProviders() {
-  const html = `<!DOCTYPE html>
+	const html = `<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>模型配置 - Flux AI Pro 管理後台</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            min-height: 100vh;
-        }
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 250px;
-            height: 100%;
-            background: #1a1a2e;
-            color: white;
-            padding: 20px;
-        }
-        .sidebar-header {
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .nav-item {
-            display: block;
-            padding: 12px 16px;
-            color: rgba(255, 255, 255, 0.7);
-            text-decoration: none;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            transition: all 0.3s;
-        }
-        .nav-item:hover, .nav-item.active {
-            background: rgba(102, 126, 234, 0.2);
-            color: white;
-        }
-        .main-content {
-            margin-left: 250px;
-            padding: 30px;
-        }
-        .page-header h1 {
-            font-size: 28px;
-            color: #333;
-            margin-bottom: 30px;
-        }
-        .provider-card {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        .provider-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        .provider-name {
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-        }
-        .provider-status {
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-        .provider-status.enabled {
-            background: #dcfce7;
-            color: #166534;
-        }
-        .provider-status.disabled {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-        .logout-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 8px 16px;
-            background: #ef4444;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-    </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>模型配置 - Flux AI Pro 管理後台</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; min-height: 100vh; }
+		.sidebar { position: fixed; left: 0; top: 0; width: 250px; height: 100%; background: #1a1a2e; color: white; padding: 20px; }
+		.sidebar-header { font-size: 20px; font-weight: 600; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+		.nav-item { display: block; padding: 12px 16px; color: rgba(255, 255, 255, 0.7); text-decoration: none; border-radius: 8px; margin-bottom: 8px; transition: all 0.3s; }
+		.nav-item:hover, .nav-item.active { background: rgba(102, 126, 234, 0.2); color: white; }
+		.main-content { margin-left: 250px; padding: 30px; }
+		.page-header h1 { font-size: 28px; color: #333; margin-bottom: 30px; }
+		.logout-btn { position: fixed; top: 20px; right: 20px; padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
+		
+		/* 統計欄 */
+		.stats-bar { display: flex; gap: 20px; margin-bottom: 30px; flex-wrap: wrap; }
+		.stat-card { background: white; border-radius: 12px; padding: 20px; flex: 1; min-width: 150px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+		.stat-value { font-size: 28px; font-weight: 700; color: #667eea; }
+		.stat-label { font-size: 13px; color: #666; margin-top: 5px; }
+		
+		/* 區塊標題 */
+		.section-title { font-size: 18px; font-weight: 600; color: #333; margin: 30px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
+		.section-title:first-child { margin-top: 0; }
+		
+		/* 供應商網格 */
+		.providers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+		
+		/* 供應商卡片 */
+		.provider-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); transition: transform 0.2s, box-shadow 0.2s; border: 2px solid transparent; }
+		.provider-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+		.provider-card.custom { border-color: #667eea; }
+		.provider-card.disabled { opacity: 0.7; }
+		.provider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+		.provider-name { font-size: 16px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px; }
+		.provider-name .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #667eea; color: white; }
+		.provider-status { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+		.provider-status.enabled { background: #dcfce7; color: #166534; }
+		.provider-status.disabled { background: #fee2e2; color: #991b1b; }
+		.provider-info { margin-bottom: 15px; }
+		.provider-info p { font-size: 13px; color: #666; margin: 4px 0; }
+		.provider-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+		
+		/* 按鈕樣式 */
+		.action-btn-small { padding: 6px 12px; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; background: #f3f4f6; color: #374151; transition: background 0.2s; }
+		.action-btn-small:hover { background: #e5e7eb; }
+		.action-btn-small.edit { background: #667eea; color: white; }
+		.action-btn-small.edit:hover { background: #5a67d8; }
+		.action-btn-small.delete { background: #ef4444; color: white; }
+		.action-btn-small.delete:hover { background: #dc2626; }
+		.action-btn-small.test { background: #10b981; color: white; }
+		.action-btn-small.test:hover { background: #059669; }
+		.add-btn { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+		.add-btn:hover { background: #5a67d8; }
+		
+		/* 自定義模型區塊 */
+		.custom-models-section { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
+		.models-list { margin-top: 15px; }
+		.models-table { width: 100%; border-collapse: collapse; }
+		.models-table th, .models-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+		.models-table th { background: #f9fafb; font-weight: 600; color: #374151; }
+		.status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+		.status-badge.enabled { background: #d1fae5; color: #065f46; }
+		.status-badge.disabled { background: #fee2e2; color: #991b1b; }
+		.empty-text { color: #9ca3af; text-align: center; padding: 40px; }
+		.error-text { color: #ef4444; text-align: center; padding: 20px; }
+		
+		/* Modal 樣式 */
+		.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+		.modal { background: white; border-radius: 16px; padding: 30px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+		.modal h2 { margin-bottom: 20px; color: #333; }
+		.modal-close { position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666; }
+		.form-group { margin-bottom: 20px; }
+		.form-group label { display: block; margin-bottom: 8px; font-weight: 500; color: #374151; }
+		.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
+		.form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #667eea; }
+		.form-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+		.btn-primary { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; }
+		.btn-secondary { padding: 10px 20px; background: #e5e7eb; color: #374151; border: none; border-radius: 8px; cursor: pointer; }
+		
+		/* 測試結果 */
+		.test-result { margin-top: 15px; padding: 15px; border-radius: 8px; }
+		.test-result.success { background: #dcfce7; border: 1px solid #86efac; }
+		.test-result.error { background: #fee2e2; border: 1px solid #fca5a5; }
+		.test-result h4 { margin-bottom: 10px; }
+		.test-result p { font-size: 13px; margin: 4px 0; }
+	</style>
 </head>
 <body>
-    <div class="sidebar">
-        <div class="sidebar-header">🎨 Flux AI Pro</div>
-        <a href="/admin" class="nav-item">📊 儀表板</a>
-        <a href="/admin/styles" class="nav-item">🎨 風格管理</a>
-        <a href="/admin/providers" class="nav-item active">🤖 模型配置</a>
-        <a href="/admin/parameters" class="nav-item">⚙️ 參數調整</a>
-        <a href="/admin/settings" class="nav-item">🔧 系統設置</a>
-    </div>
-    
-    <button class="logout-btn" onclick="logout()">登出</button>
-    
-    <div class="main-content">
-        <h1>模型配置</h1>
-        <div id="providersContainer">
-            <p>載入中...</p>
-        </div>
-    </div>
-    
-    <script>
-        const token = localStorage.getItem('adminToken');
-        if (!token) {
-            window.location.href = '/admin/login';
-        }
-        
-        function logout() {
-            localStorage.removeItem('adminToken');
-            localStorage.removeItem('adminUser');
-            window.location.href = '/admin/login';
-        }
-        
-        async function loadProviders() {
-            try {
-                const response = await fetch('/admin/api/providers', {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                const data = await response.json();
-                
-                const container = document.getElementById('providersContainer');
-                if (data.providers) {
-                    container.innerHTML = Object.entries(data.providers).map(([id, provider]) =>
-                        '<div class="provider-card">' +
-                            '<div class="provider-header">' +
-                                '<span class="provider-name">' + provider.name + '</span>' +
-                                '<span class="provider-status ' + (provider.enabled ? 'enabled' : 'disabled') + '">' +
-                                    (provider.enabled ? '啟用' : '禁用') +
-                                '</span>' +
-                            '</div>' +
-                            '<p>端點: ' + provider.endpoint + '</p>' +
-                            '<p>模型數: ' + (provider.models?.length || 0) + '</p>' +
-                        '</div>'
-                    ).join('');
-                } else {
-                    container.innerHTML = '<p>暫無供應商</p>';
-                }
-            } catch (error) {
-                console.error('Failed to load providers:', error);
-                document.getElementById('providersContainer').innerHTML = '<p>載入失敗</p>';
-            }
-        }
-        
-        loadProviders();
-    </script>
+	<div class="sidebar">
+		<div class="sidebar-header">🎨 Flux AI Pro</div>
+		<a href="/admin" class="nav-item">📊 儀表板</a>
+		<a href="/admin/styles" class="nav-item">🎨 風格管理</a>
+		<a href="/admin/providers" class="nav-item active">🤖 模型配置</a>
+		<a href="/admin/parameters" class="nav-item">⚙️ 參數調整</a>
+		<a href="/admin/settings" class="nav-item">🔧 系統設置</a>
+	</div>
+	<button class="logout-btn" onclick="logout()">登出</button>
+	
+	<div class="main-content">
+		<h1>模型配置</h1>
+		
+		<!-- 統計欄 -->
+		<div class="stats-bar">
+			<div class="stat-card">
+				<div class="stat-value" id="totalProviders">-</div>
+				<div class="stat-label">總供應商</div>
+			</div>
+			<div class="stat-card">
+				<div class="stat-value" id="enabledProviders">-</div>
+				<div class="stat-label">已啟用</div>
+			</div>
+			<div class="stat-card">
+				<div class="stat-value" id="customProviders">-</div>
+				<div class="stat-label">自定義</div>
+			</div>
+			<div class="stat-card">
+				<div class="stat-value" id="totalModels">-</div>
+				<div class="stat-label">模型總數</div>
+			</div>
+		</div>
+		
+		<!-- 內建供應商 -->
+		<div class="section-title">
+			<span>內建供應商</span>
+		</div>
+		<div id="builtinProviders" class="providers-grid">
+			<p>載入中...</p>
+		</div>
+		
+		<!-- 自定義供應商 -->
+		<div class="section-title">
+			<span>自定義供應商</span>
+			<button class="add-btn" onclick="showAddProviderModal()">+ 新增供應商</button>
+		</div>
+		<div id="customProviders" class="providers-grid">
+			<p>載入中...</p>
+		</div>
+		
+		<!-- 自定義模型 -->
+		<div class="section-title">
+			<span>自定義模型</span>
+			<button class="add-btn" onclick="showAddModelModal()">+ 新增模型</button>
+		</div>
+		<div class="custom-models-section">
+			<div id="customModelsList" class="models-list">載入中...</div>
+		</div>
+	</div>
+	
+	<!-- Modal 容器 -->
+	<div id="modalContainer"></div>
+	
+	<script>
+		const token = localStorage.getItem('adminToken');
+		if (!token) {
+			window.location.href = '/admin/login';
+		}
+		
+		function logout() {
+			localStorage.removeItem('adminToken');
+			localStorage.removeItem('adminUser');
+			window.location.href = '/admin/login';
+		}
+		
+		let allProviders = {};
+		let allCustomProviders = {};
+		
+		// 載入所有供應商
+		async function loadProviders() {
+			try {
+				const response = await fetch('/admin/api/providers', {
+					headers: { 'Authorization': 'Bearer ' + token }
+				});
+				const data = await response.json();
+				allProviders = data.providers || {};
+				
+				// 更新統計
+				const total = Object.keys(allProviders).length;
+				const enabled = Object.values(allProviders).filter(p => p.enabled !== false).length;
+				document.getElementById('totalProviders').textContent = total;
+				document.getElementById('enabledProviders').textContent = enabled;
+				
+				// 計算模型總數
+				let modelCount = 0;
+				Object.values(allProviders).forEach(p => {
+					modelCount += (p.models?.length || 0);
+				});
+				document.getElementById('totalModels').textContent = modelCount;
+				
+				// 渲染內建供應商
+				renderBuiltinProviders();
+				
+				// 載入自定義供應商
+				await loadCustomProviders();
+			} catch (error) {
+				console.error('Failed to load providers:', error);
+				document.getElementById('builtinProviders').innerHTML = '<p class="error-text">載入失敗</p>';
+			}
+		}
+		
+		// 渲染內建供應商
+		function renderBuiltinProviders() {
+			const container = document.getElementById('builtinProviders');
+			const providers = Object.entries(allProviders).filter(([id, p]) => !p.custom);
+			
+			if (providers.length > 0) {
+				container.innerHTML = providers.map(([id, provider]) => `
+					<div class="provider-card ${provider.enabled === false ? 'disabled' : ''}">
+						<div class="provider-header">
+							<span class="provider-name">${provider.name || id}</span>
+							<span class="provider-status ${provider.enabled !== false ? 'enabled' : 'disabled'}">${provider.enabled !== false ? '啟用' : '禁用'}</span>
+						</div>
+						<div class="provider-info">
+							<p><strong>端點:</strong> ${provider.endpoint || 'N/A'}</p>
+							<p><strong>模型數:</strong> ${provider.models?.length || 0}</p>
+							<p><strong>優先級:</strong> ${provider.priority || 'normal'}</p>
+						</div>
+						<div class="provider-actions">
+							<button class="action-btn-small" onclick="toggleProvider('${id}', ${provider.enabled !== false})">${provider.enabled !== false ? '禁用' : '啟用'}</button>
+							<button class="action-btn-small edit" onclick="editProvider('${id}')">配置</button>
+							<button class="action-btn-small test" onclick="testProvider('${id}')">測試</button>
+						</div>
+					</div>
+				`).join('');
+			} else {
+				container.innerHTML = '<p class="empty-text">暫無內建供應商</p>';
+			}
+		}
+		
+		// 載入自定義供應商
+		async function loadCustomProviders() {
+			try {
+				const response = await fetch('/admin/api/providers/custom', {
+					headers: { 'Authorization': 'Bearer ' + token }
+				});
+				const data = await response.json();
+				allCustomProviders = data.providers || {};
+				
+				document.getElementById('customProviders').textContent = Object.keys(allCustomProviders).length;
+				
+				const container = document.getElementById('customProviders');
+				const providers = Object.entries(allCustomProviders);
+				
+				if (providers.length > 0) {
+					container.innerHTML = providers.map(([id, provider]) => `
+						<div class="provider-card custom ${provider.enabled === false ? 'disabled' : ''}">
+							<div class="provider-header">
+								<span class="provider-name">${provider.name || id} <span class="badge">自定義</span></span>
+								<span class="provider-status ${provider.enabled !== false ? 'enabled' : 'disabled'}">${provider.enabled !== false ? '啟用' : '禁用'}</span>
+							</div>
+							<div class="provider-info">
+								<p><strong>類型:</strong> ${provider.type || 'openai'}</p>
+								<p><strong>端點:</strong> ${provider.endpoint || 'N/A'}</p>
+								<p><strong>API Key:</strong> ${provider.api_key ? '已配置' : '未配置'}</p>
+								<p><strong>模型數:</strong> ${provider.models?.length || 0}</p>
+							</div>
+							<div class="provider-actions">
+								<button class="action-btn-small" onclick="toggleCustomProvider('${id}', ${provider.enabled !== false})">${provider.enabled !== false ? '禁用' : '啟用'}</button>
+								<button class="action-btn-small edit" onclick="editCustomProvider('${id}')">編輯</button>
+								<button class="action-btn-small test" onclick="testCustomProvider('${id}')">測試</button>
+								<button class="action-btn-small delete" onclick="deleteCustomProvider('${id}')">刪除</button>
+							</div>
+						</div>
+					`).join('');
+				} else {
+					container.innerHTML = '<p class="empty-text">暫無自定義供應商，點擊上方按鈕新增</p>';
+				}
+			} catch (error) {
+				console.error('Failed to load custom providers:', error);
+				document.getElementById('customProviders').innerHTML = '<p class="error-text">載入失敗</p>';
+			}
+		}
+		
+		// 載入自定義模型
+		async function loadCustomModels() {
+			try {
+				const response = await fetch('/admin/api/models/custom', {
+					headers: { 'Authorization': 'Bearer ' + token }
+				});
+				const data = await response.json();
+				const container = document.getElementById('customModelsList');
+				const models = Object.values(data.models || {});
+				
+				if (models.length > 0) {
+					container.innerHTML = `
+						<table class="models-table">
+							<thead><tr><th>ID</th><th>名稱</th><th>供應商</th><th>模型 ID</th><th>狀態</th><th>操作</th></tr></thead>
+							<tbody>
+								${models.map(model => `
+									<tr>
+										<td>${model.id}</td>
+										<td>${model.name}</td>
+										<td>${model.provider}</td>
+										<td>${model.model_id}</td>
+										<td><span class="status-badge ${model.enabled ? 'enabled' : 'disabled'}">${model.enabled ? '啟用' : '禁用'}</span></td>
+										<td>
+											<button class="action-btn-small edit" onclick="editModel('${model.id}')">編輯</button>
+											<button class="action-btn-small delete" onclick="deleteModel('${model.id}')">刪除</button>
+										</td>
+									</tr>
+								`).join('')}
+							</tbody>
+						</table>
+					`;
+				} else {
+					container.innerHTML = '<p class="empty-text">暫無自定義模型</p>';
+				}
+			} catch (error) {
+				document.getElementById('customModelsList').innerHTML = '<p class="error-text">載入失敗</p>';
+			}
+		}
+		
+		// 切換供應商狀態
+		async function toggleProvider(id, currentEnabled) {
+			try {
+				const response = await fetch('/admin/api/providers/' + id, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+					body: JSON.stringify({ enabled: !currentEnabled })
+				});
+				if (response.ok) {
+					loadProviders();
+				} else {
+					alert('操作失敗');
+				}
+			} catch (error) {
+				alert('網絡錯誤: ' + error.message);
+			}
+		}
+		
+		// 切換自定義供應商狀態
+		async function toggleCustomProvider(id, currentEnabled) {
+			try {
+				const response = await fetch('/admin/api/providers/custom/' + id, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+					body: JSON.stringify({ enabled: !currentEnabled })
+				});
+				if (response.ok) {
+					loadCustomProviders();
+				} else {
+					alert('操作失敗');
+				}
+			} catch (error) {
+				alert('網絡錯誤: ' + error.message);
+			}
+		}
+		
+		// 編輯內建供應商
+		function editProvider(id) {
+			const provider = allProviders[id];
+			if (!provider) return;
+			
+			const modal = `
+				<div class="modal-overlay" onclick="closeModal(event)">
+					<div class="modal" onclick="event.stopPropagation()">
+						<h2>配置供應商: ${provider.name || id}</h2>
+						<div class="form-group">
+							<label>端點 URL</label>
+							<input type="text" id="editEndpoint" value="${provider.endpoint || ''}" />
+						</div>
+						<div class="form-group">
+							<label>API Key (可選)</label>
+							<input type="password" id="editApiKey" value="${provider.apiKey || ''}" placeholder="輸入新的 API Key" />
+						</div>
+						<div class="form-group">
+							<label>優先級</label>
+							<select id="editPriority">
+								<option value="high" ${provider.priority === 'high' ? 'selected' : ''}>高</option>
+								<option value="normal" ${provider.priority === 'normal' || !provider.priority ? 'selected' : ''}>普通</option>
+								<option value="low" ${provider.priority === 'low' ? 'selected' : ''}>低</option>
+							</select>
+						</div>
+						<div class="form-actions">
+							<button class="btn-secondary" onclick="closeModal()">取消</button>
+							<button class="btn-primary" onclick="saveProvider('${id}')">保存</button>
+						</div>
+					</div>
+				</div>
+			`;
+			document.getElementById('modalContainer').innerHTML = modal;
+		}
+		
+		// 保存供應商配置
+		async function saveProvider(id) {
+			const endpoint = document.getElementById('editEndpoint').value;
+			const apiKey = document.getElementById('editApiKey').value;
+			const priority = document.getElementById('editPriority').value;
+			
+			const updateData = { endpoint, priority };
+			if (apiKey) updateData.apiKey = apiKey;
+			
+			try {
+				const response = await fetch('/admin/api/providers/' + id, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+					body: JSON.stringify(updateData)
+				});
+				if (response.ok) {
+					closeModal();
+					loadProviders();
+				} else {
+					alert('保存失敗');
+				}
+			} catch (error) {
+				alert('網絡錯誤: ' + error.message);
+			}
+		}
+		
+		// 測試內建供應商
+		async function testProvider(id) {
+			const provider = allProviders[id];
+			if (!provider) return;
+			
+			showTestModal(id, provider.endpoint, provider.apiKey, 'openai');
+		}
+		
+		// 測試自定義供應商
+		async function testCustomProvider(id) {
+			const provider = allCustomProviders[id];
+			if (!provider) return;
+			
+			showTestModal(id, provider.endpoint, provider.api_key, provider.type);
+		}
+		
+		// 顯示測試 Modal
+		function showTestModal(id, endpoint, apiKey, type) {
+			const modal = `
+				<div class="modal-overlay" onclick="closeModal(event)">
+					<div class="modal" onclick="event.stopPropagation()">
+						<h2>測試供應商連接</h2>
+						<div class="form-group">
+							<label>供應商 ID</label>
+							<input type="text" value="${id}" disabled />
+						</div>
+						<div class="form-group">
+							<label>端點 URL</label>
+							<input type="text" id="testEndpoint" value="${endpoint || ''}" />
+						</div>
+						<div class="form-group">
+							<label>API Key</label>
+							<input type="password" id="testApiKey" value="${apiKey || ''}" />
+						</div>
+						<div class="form-group">
+							<label>供應商類型</label>
+							<select id="testType">
+								<option value="openai" ${type === 'openai' ? 'selected' : ''}>OpenAI 兼容</option>
+								<option value="stability" ${type === 'stability' ? 'selected' : ''}>Stability AI</option>
+								<option value="custom" ${type === 'custom' ? 'selected' : ''}>自定義</option>
+							</select>
+						</div>
+						<div id="testResult"></div>
+						<div class="form-actions">
+							<button class="btn-secondary" onclick="closeModal()">關閉</button>
+							<button class="btn-primary" onclick="runTest('${id}')">測試連接</button>
+						</div>
+					</div>
+				</div>
+			`;
+			document.getElementById('modalContainer').innerHTML = modal;
+		}
+		
+		// 執行測試
+		async function runTest(id) {
+			const endpoint = document.getElementById('testEndpoint').value;
+			const apiKey = document.getElementById('testApiKey').value;
+			const type = document.getElementById('testType').value;
+			
+			document.getElementById('testResult').innerHTML = '<p>測試中...</p>';
+			
+			try {
+				const response = await fetch('/admin/api/providers/test/' + id, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+					body: JSON.stringify({ endpoint, api_key: apiKey, type })
+				});
+				const data = await response.json();
+				
+				if (data.success) {
+					document.getElementById('testResult').innerHTML = `
+						<div class="test-result success">
+							<h4>✅ 連接成功</h4>
+							<p>狀態碼: ${data.status}</p>
+							<p>響應時間: ${data.responseTime}</p>
+							${data.models?.length ? '<p>可用模型: ' + data.models.slice(0, 5).join(', ') + (data.models.length > 5 ? '...' : '') + '</p>' : ''}
+						</div>
+					`;
+				} else {
+					document.getElementById('testResult').innerHTML = `
+						<div class="test-result error">
+							<h4>❌ 連接失敗</h4>
+							<p>錯誤: ${data.error}</p>
+							${data.status ? '<p>狀態碼: ' + data.status + '</p>' : ''}
+						</div>
+					`;
+				}
+			} catch (error) {
+				document.getElementById('testResult').innerHTML = `
+					<div class="test-result error">
+						<h4>❌ 測試失敗</h4>
+						<p>${error.message}</p>
+					</div>
+				`;
+			}
+		}
+		
+		// 顯示新增供應商 Modal
+		function showAddProviderModal() {
+			const modal = `
+				<div class="modal-overlay" onclick="closeModal(event)">
+					<div class="modal" onclick="event.stopPropagation()">
+						<h2>新增自定義供應商</h2>
+						<div class="form-group">
+							<label>供應商 ID *</label>
+							<input type="text" id="newProviderId" placeholder="例如: my-openai" />
+						</div>
+						<div class="form-group">
+							<label>名稱 *</label>
+							<input type="text" id="newProviderName" placeholder="例如: 我的 OpenAI" />
+						</div>
+						<div class="form-group">
+							<label>端點 URL *</label>
+							<input type="text" id="newProviderEndpoint" placeholder="例如: https://api.openai.com" />
+						</div>
+						<div class="form-group">
+							<label>API Key</label>
+							<input type="password" id="newProviderApiKey" placeholder="輸入 API Key" />
+						</div>
+						<div class="form-group">
+							<label>供應商類型</label>
+							<select id="newProviderType">
+								<option value="openai">OpenAI 兼容</option>
+								<option value="stability">Stability AI</option>
+								<option value="custom">自定義</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label>描述</label>
+							<textarea id="newProviderDesc" rows="2" placeholder="供應商描述"></textarea>
+						</div>
+						<div class="form-actions">
+							<button class="btn-secondary" onclick="closeModal()">取消</button>
+							<button class="btn-primary" onclick="createProvider()">創建</button>
+						</div>
+					</div>
+				</div>
+			`;
+			document.getElementById('modalContainer').innerHTML = modal;
+		}
+		
+		// 創建供應商
+		async function createProvider() {
+			const id = document.getElementById('newProviderId').value.trim();
+			const name = document.getElementById('newProviderName').value.trim();
+			const endpoint = document.getElementById('newProviderEndpoint').value.trim();
+			const api_key = document.getElementById('newProviderApiKey').value;
+			const type = document.getElementById('newProviderType').value;
+			const description = document.getElementById('newProviderDesc').value;
+			
+			if (!id || !name || !endpoint) {
+				alert('請填寫必要欄位');
+				return;
+			}
+			
+			try {
+				const response = await fetch('/admin/api/providers/custom', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+					body: JSON.stringify({ id, name, endpoint, api_key, type, description, models: [] })
+				});
+				const data = await response.json();
+				
+				if (data.success) {
+					closeModal();
+					loadCustomProviders();
+				} else {
+					alert('創建失敗: ' + (data.error || '未知錯誤'));
+				}
+			} catch (error) {
+				alert('網絡錯誤: ' + error.message);
+			}
+		}
+		
+		// 編輯自定義供應商
+		function editCustomProvider(id) {
+			const provider = allCustomProviders[id];
+			if (!provider) return;
+			
+			const modal = `
+				<div class="modal-overlay" onclick="closeModal(event)">
+					<div class="modal" onclick="event.stopPropagation()">
+						<h2>編輯供應商: ${provider.name}</h2>
+						<div class="form-group">
+							<label>名稱</label>
+							<input type="text" id="editProviderName" value="${provider.name || ''}" />
+						</div>
+						<div class="form-group">
+							<label>端點 URL</label>
+							<input type="text" id="editProviderEndpoint" value="${provider.endpoint || ''}" />
+						</div>
+						<div class="form-group">
+							<label>API Key</label>
+							<input type="password" id="editProviderApiKey" placeholder="留空保持不變" />
+						</div>
+						<div class="form-group">
+							<label>供應商類型</label>
+							<select id="editProviderType">
+								<option value="openai" ${provider.type === 'openai' ? 'selected' : ''}>OpenAI 兼容</option>
+								<option value="stability" ${provider.type === 'stability' ? 'selected' : ''}>Stability AI</option>
+								<option value="custom" ${provider.type === 'custom' ? 'selected' : ''}>自定義</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label>描述</label>
+							<textarea id="editProviderDesc" rows="2">${provider.description || ''}</textarea>
+						</div>
+						<div class="form-actions">
+							<button class="btn-secondary" onclick="closeModal()">取消</button>
+							<button class="btn-primary" onclick="updateCustomProvider('${id}')">保存</button>
+						</div>
+					</div>
+				</div>
+			`;
+			document.getElementById('modalContainer').innerHTML = modal;
+		}
+		
+		// 更新自定義供應商
+		async function updateCustomProvider(id) {
+			const name = document.getElementById('editProviderName').value;
+			const endpoint = document.getElementById('editProviderEndpoint').value;
+			const api_key = document.getElementById('editProviderApiKey').value;
+			const type = document.getElementById('editProviderType').value;
+			const description = document.getElementById('editProviderDesc').value;
+			
+			const updateData = { name, endpoint, type, description };
+			if (api_key) updateData.api_key = api_key;
+			
+			try {
+				const response = await fetch('/admin/api/providers/custom/' + id, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+					body: JSON.stringify(updateData)
+				});
+				if (response.ok) {
+					closeModal();
+					loadCustomProviders();
+				} else {
+					alert('更新失敗');
+				}
+			} catch (error) {
+				alert('網絡錯誤: ' + error.message);
+			}
+		}
+		
+		// 刪除自定義供應商
+		async function deleteCustomProvider(id) {
+			if (!confirm('確定要刪除此供應商嗎？此操作無法復原。')) return;
+			
+			try {
+				const response = await fetch('/admin/api/providers/custom/' + id, {
+					method: 'DELETE',
+					headers: { 'Authorization': 'Bearer ' + token }
+				});
+				if (response.ok) {
+					loadCustomProviders();
+				} else {
+					alert('刪除失敗');
+				}
+			} catch (error) {
+				alert('網絡錯誤: ' + error.message);
+			}
+		}
+		
+		// 顯示新增模型 Modal
+		function showAddModelModal() {
+			// 構建供應商選項
+			const providerOptions = [
+				...Object.keys(allProviders).map(id => '<option value="' + id + '">' + (allProviders[id].name || id) + ' (內建)</option>'),
+				...Object.keys(allCustomProviders).map(id => '<option value="' + id + '">' + (allCustomProviders[id].name || id) + ' (自定義)</option>')
+			].join('');
+			
+			const modal = `
+				<div class="modal-overlay" onclick="closeModal(event)">
+					<div class="modal" onclick="event.stopPropagation()">
+						<h2>新增自定義模型</h2>
+						<div class="form-group">
+							<label>模型 ID *</label>
+							<input type="text" id="newModelId" placeholder="例如: my-model-v1" />
+						</div>
+						<div class="form-group">
+							<label>顯示名稱 *</label>
+							<input type="text" id="newModelName" placeholder="例如: 我的模型 V1" />
+						</div>
+						<div class="form-group">
+							<label>所屬供應商 *</label>
+							<select id="newModelProvider">
+								<option value="">選擇供應商</option>
+								${providerOptions}
+							</select>
+						</div>
+						<div class="form-group">
+							<label>實際模型 ID *</label>
+							<input type="text" id="newModelRealId" placeholder="API 中使用的模型 ID" />
+						</div>
+						<div class="form-group">
+							<label>描述</label>
+							<textarea id="newModelDesc" rows="2" placeholder="模型描述"></textarea>
+						</div>
+						<div class="form-actions">
+							<button class="btn-secondary" onclick="closeModal()">取消</button>
+							<button class="btn-primary" onclick="createModel()">創建</button>
+						</div>
+					</div>
+				</div>
+			`;
+			document.getElementById('modalContainer').innerHTML = modal;
+		}
+		
+		// 創建模型
+		async function createModel() {
+			const id = document.getElementById('newModelId').value.trim();
+			const name = document.getElementById('newModelName').value.trim();
+			const provider = document.getElementById('newModelProvider').value;
+			const model_id = document.getElementById('newModelRealId').value.trim();
+			const description = document.getElementById('newModelDesc').value;
+			
+			if (!id || !name || !provider || !model_id) {
+				alert('請填寫必要欄位');
+				return;
+			}
+			
+			try {
+				const response = await fetch('/admin/api/models/custom', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+					body: JSON.stringify({ id, name, provider, model_id, description })
+				});
+				const data = await response.json();
+				
+				if (data.success) {
+					closeModal();
+					loadCustomModels();
+				} else {
+					alert('創建失敗: ' + (data.error || '未知錯誤'));
+				}
+			} catch (error) {
+				alert('網絡錯誤: ' + error.message);
+			}
+		}
+		
+		// 編輯模型
+		function editModel(id) {
+			// 需要先載入模型數據
+			fetch('/admin/api/models/custom', {
+				headers: { 'Authorization': 'Bearer ' + token }
+			})
+			.then(r => r.json())
+			.then(data => {
+				const model = data.models[id];
+				if (!model) return;
+				
+				const providerOptions = [
+					...Object.keys(allProviders).map(pid => '<option value="' + pid + '" ' + (model.provider === pid ? 'selected' : '') + '>' + (allProviders[pid].name || pid) + ' (內建)</option>'),
+					...Object.keys(allCustomProviders).map(pid => '<option value="' + pid + '" ' + (model.provider === pid ? 'selected' : '') + '>' + (allCustomProviders[pid].name || pid) + ' (自定義)</option>')
+				].join('');
+				
+				const modal = `
+					<div class="modal-overlay" onclick="closeModal(event)">
+						<div class="modal" onclick="event.stopPropagation()">
+							<h2>編輯模型</h2>
+							<div class="form-group">
+								<label>顯示名稱</label>
+								<input type="text" id="editModelName" value="${model.name || ''}" />
+							</div>
+							<div class="form-group">
+								<label>所屬供應商</label>
+								<select id="editModelProvider">${providerOptions}</select>
+							</div>
+							<div class="form-group">
+								<label>實際模型 ID</label>
+								<input type="text" id="editModelRealId" value="${model.model_id || ''}" />
+							</div>
+							<div class="form-group">
+								<label>描述</label>
+								<textarea id="editModelDesc" rows="2">${model.description || ''}</textarea>
+							</div>
+							<div class="form-group">
+								<label>狀態</label>
+								<select id="editModelEnabled">
+									<option value="true" ${model.enabled ? 'selected' : ''}>啟用</option>
+									<option value="false" ${!model.enabled ? 'selected' : ''}>禁用</option>
+								</select>
+							</div>
+							<div class="form-actions">
+								<button class="btn-secondary" onclick="closeModal()">取消</button>
+								<button class="btn-primary" onclick="updateModel('${id}')">保存</button>
+							</div>
+						</div>
+					</div>
+				`;
+				document.getElementById('modalContainer').innerHTML = modal;
+			});
+		}
+		
+		// 更新模型
+		async function updateModel(id) {
+			const name = document.getElementById('editModelName').value;
+			const provider = document.getElementById('editModelProvider').value;
+			const model_id = document.getElementById('editModelRealId').value;
+			const description = document.getElementById('editModelDesc').value;
+			const enabled = document.getElementById('editModelEnabled').value === 'true';
+			
+			try {
+				const response = await fetch('/admin/api/models/custom/' + id, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+					body: JSON.stringify({ name, provider, model_id, description, enabled })
+				});
+				if (response.ok) {
+					closeModal();
+					loadCustomModels();
+				} else {
+					alert('更新失敗');
+				}
+			} catch (error) {
+				alert('網絡錯誤: ' + error.message);
+			}
+		}
+		
+		// 刪除模型
+		async function deleteModel(id) {
+			if (!confirm('確定要刪除此模型嗎？')) return;
+			
+			try {
+				const response = await fetch('/admin/api/models/custom/' + id, {
+					method: 'DELETE',
+					headers: { 'Authorization': 'Bearer ' + token }
+				});
+				if (response.ok) {
+					loadCustomModels();
+				} else {
+					alert('刪除失敗');
+				}
+			} catch (error) {
+				alert('網絡錯誤: ' + error.message);
+			}
+		}
+		
+		// 關閉 Modal
+		function closeModal(event) {
+			if (event && event.target !== event.currentTarget) return;
+			document.getElementById('modalContainer').innerHTML = '';
+		}
+		
+		// 初始化
+		loadProviders();
+		loadCustomModels();
+	</script>
 </body>
 </html>`;
-  
-  return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
+	return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
 }
 
-// 渲染參數調整頁面
+
 async function renderAdminParameters() {
   const html = `<!DOCTYPE html>
 <html lang="zh-TW">
@@ -6774,15 +7915,39 @@ async function renderAdminSettings() {
   return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
 }
 
+// 內建風格定義
+const BUILTIN_STYLES = [
+  { id: 'none', name: { zh: '無風格', en: 'No Style' }, category: 'basic', icon: '⚡', enabled: true, builtin: true },
+  { id: 'anime', name: { zh: '動漫風格', en: 'Anime Style' }, category: 'illustration', icon: '🎭', enabled: true, builtin: true },
+  { id: 'ghibli', name: { zh: '吉卜力', en: 'Ghibli' }, category: 'illustration', icon: '🍃', enabled: true, builtin: true },
+  { id: 'manga', name: { zh: '日本漫畫', en: 'Manga' }, category: 'manga', icon: '📖', enabled: true, builtin: true },
+  { id: 'photorealistic', name: { zh: '照片寫實', en: 'Photorealistic' }, category: 'realistic', icon: '📷', enabled: true, builtin: true },
+  { id: 'oil-painting', name: { zh: '油畫', en: 'Oil Painting' }, category: 'painting', icon: '🖼️', enabled: true, builtin: true },
+  { id: 'watercolor', name: { zh: '水彩', en: 'Watercolor' }, category: 'painting', icon: '🎨', enabled: true, builtin: true },
+  { id: 'cyberpunk', name: { zh: '賽博龐克', en: 'Cyberpunk' }, category: 'scifi', icon: '🌆', enabled: true, builtin: true },
+  { id: 'fantasy', name: { zh: '奇幻', en: 'Fantasy' }, category: 'fantasy', icon: '🐉', enabled: true, builtin: true },
+  { id: 'pixel-art', name: { zh: '像素藝術', en: 'Pixel Art' }, category: 'digital', icon: '👾', enabled: true, builtin: true },
+  { id: '3d-render', name: { zh: '3D 渲染', en: '3D Render' }, category: 'digital', icon: '🎮', enabled: true, builtin: true },
+  { id: 'steampunk', name: { zh: '蒸氣龐克', en: 'Steampunk' }, category: 'aesthetic', icon: '⚙️', enabled: true, builtin: true },
+  { id: 'vintage', name: { zh: '復古', en: 'Vintage' }, category: 'aesthetic', icon: '📻', enabled: true, builtin: true },
+  { id: 'minimalist', name: { zh: '極簡主義', en: 'Minimalist' }, category: 'visual', icon: '⬜', enabled: true, builtin: true },
+  { id: 'sketch', name: { zh: '素描', en: 'Sketch' }, category: 'monochrome', icon: '✏️', enabled: true, builtin: true }
+];
+
 // API 實現函數
 async function getAdminStyles(env) {
   try {
     const stylesData = await env.FLUX_KV.get('admin:styles', 'json');
-    const styles = stylesData?.custom_styles || {};
+    const customStyles = stylesData?.custom_styles || {};
+    
+    // 合併內建風格和自定義風格
+    const allStyles = [...BUILTIN_STYLES, ...Object.values(customStyles).map(s => ({ ...s, builtin: false }))];
     
     return new Response(JSON.stringify({
-      styles: Object.values(styles),
-      total: Object.keys(styles).length
+      styles: allStyles,
+      total: allStyles.length,
+      builtin: BUILTIN_STYLES.length,
+      custom: Object.keys(customStyles).length
     }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
@@ -6891,6 +8056,113 @@ async function updateAdminProvider(request, env, providerId) {
   }
 }
 
+// Custom Models Management
+async function getAdminCustomModels(env) {
+  try {
+    const customModelsData = await env.FLUX_KV.get('admin:custom_models', 'json') || { models: {} };
+    return new Response(JSON.stringify({
+      success: true,
+      models: customModelsData.models
+    }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function createAdminCustomModel(request, env) {
+  try {
+    const body = await request.json();
+    const { id, name, provider, model_id, description, enabled = true } = body;
+    
+    if (!id || !name || !provider || !model_id) {
+      return new Response(JSON.stringify({ error: 'Missing required fields: id, name, provider, model_id' }), {
+        status: 400,
+        headers: corsHeaders({ 'Content-Type': 'application/json' })
+      });
+    }
+    
+    const customModelsData = await env.FLUX_KV.get('admin:custom_models', 'json') || { models: {} };
+    
+    if (customModelsData.models[id]) {
+      return new Response(JSON.stringify({ error: 'Model ID already exists' }), {
+        status: 400,
+        headers: corsHeaders({ 'Content-Type': 'application/json' })
+      });
+    }
+    
+    customModelsData.models[id] = {
+      id,
+      name,
+      provider,
+      model_id,
+      description: description || '',
+      enabled,
+      created_at: new Date().toISOString(),
+      custom: true
+    };
+    
+    await env.FLUX_KV.put('admin:custom_models', JSON.stringify(customModelsData));
+    
+    return new Response(JSON.stringify({ success: true, model: customModelsData.models[id] }), {
+      headers: corsHeaders({ 'Content-Type': 'application/json' })
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function updateAdminCustomModel(request, env, modelId) {
+  try {
+    const body = await request.json();
+    const customModelsData = await env.FLUX_KV.get('admin:custom_models', 'json') || { models: {} };
+    
+    if (!customModelsData.models[modelId]) {
+      return new Response(JSON.stringify({ error: 'Model not found' }), {
+        status: 404,
+        headers: corsHeaders({ 'Content-Type': 'application/json' })
+      });
+    }
+    
+    customModelsData.models[modelId] = {
+      ...customModelsData.models[modelId],
+      ...body,
+      id: modelId, // Prevent ID change
+      updated_at: new Date().toISOString()
+    };
+    
+    await env.FLUX_KV.put('admin:custom_models', JSON.stringify(customModelsData));
+    
+    return new Response(JSON.stringify({ success: true, model: customModelsData.models[modelId] }), {
+      headers: corsHeaders({ 'Content-Type': 'application/json' })
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
+async function deleteAdminCustomModel(env, modelId) {
+  try {
+    const customModelsData = await env.FLUX_KV.get('admin:custom_models', 'json') || { models: {} };
+    
+    if (!customModelsData.models[modelId]) {
+      return new Response(JSON.stringify({ error: 'Model not found' }), {
+        status: 404,
+        headers: corsHeaders({ 'Content-Type': 'application/json' })
+      });
+    }
+    
+    delete customModelsData.models[modelId];
+    
+    await env.FLUX_KV.put('admin:custom_models', JSON.stringify(customModelsData));
+    
+    return new Response(JSON.stringify({ success: true }), {
+      headers: corsHeaders({ 'Content-Type': 'application/json' })
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+}
+
 async function getAdminParameters(env) {
   try {
     const parametersData = await env.FLUX_KV.get('admin:parameters', 'json');
@@ -6969,10 +8241,378 @@ async function updateAdminGlobalSettings(request, env) {
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
   }
-}
-
-// KV-based Online Counter (Free)
-async function handleHeartbeat(request, env) {
+ }
+ 
+ // 獲取儀表板統計數據
+ async function getAdminStats(env) {
+  try {
+  	// 獲取風格統計
+  	const stylesData = await env.FLUX_KV.get('admin:styles', 'json') || { custom_styles: {} };
+  	const builtinCount = BUILTIN_STYLES.length;
+  	const customStylesCount = Object.keys(stylesData.custom_styles || {}).length;
+  	const totalStyles = builtinCount + customStylesCount;
+ 
+  	// 獲取供應商統計
+  	const providersData = await env.FLUX_KV.get('admin:providers', 'json') || { providers: {} };
+  	const configProviders = Object.keys(CONFIG.PROVIDERS).length;
+  	const enabledProviders = Object.values(providersData.providers || {}).filter(p => p.enabled !== false).length;
+  	const totalProviders = configProviders;
+ 
+  	// 獲取模型統計
+  	const customModelsData = await env.FLUX_KV.get('admin:custom_models', 'json') || { models: {} };
+  	const customModelsCount = Object.keys(customModelsData.models || {}).length;
+  	let totalModels = 0;
+  	Object.values(CONFIG.PROVIDERS).forEach(provider => {
+  		if (provider.models) {
+  			totalModels += provider.models.length;
+  		}
+  	});
+  	totalModels += customModelsCount;
+ 
+  	// 獲取在線人數
+  	let onlineCount = 0;
+  	try {
+  		const list = await env.FLUX_KV.list({ prefix: 'online:' });
+  		onlineCount = list.keys.length;
+  	} catch(e) {
+  		onlineCount = 0;
+  	}
+ 
+  	// 獲取今日請求數（從 KV 中獲取）
+  	const today = new Date().toISOString().split('T')[0];
+  	const dailyStats = await env.FLUX_KV.get(`stats:daily:${today}`, 'json') || { requests: 0, success: 0, failed: 0 };
+ 
+  	return new Response(JSON.stringify({
+  		success: true,
+  		stats: {
+  			styles: {
+  				builtin: builtinCount,
+  				custom: customStylesCount,
+  				total: totalStyles
+  			},
+  			providers: {
+  				total: totalProviders,
+  				enabled: enabledProviders,
+  				disabled: totalProviders - enabledProviders
+  			},
+  			models: {
+  				builtin: totalModels - customModelsCount,
+  				custom: customModelsCount,
+  				total: totalModels
+  			},
+  			online: onlineCount,
+  			daily: dailyStats,
+  			version: 'v11.14.0',
+  			lastUpdate: new Date().toISOString()
+  		}
+  	}), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  } catch (error) {
+  	return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+ }
+ 
+ // 導出備份數據
+ async function exportAdminBackup(env) {
+  try {
+  	const backup = {
+  		version: 'v11.14.0',
+  		exportedAt: new Date().toISOString(),
+  		data: {}
+  	};
+ 
+  	// 導出風格
+  	const stylesData = await env.FLUX_KV.get('admin:styles', 'json');
+  	if (stylesData) backup.data.styles = stylesData;
+ 
+  	// 導出供應商配置
+  	const providersData = await env.FLUX_KV.get('admin:providers', 'json');
+  	if (providersData) backup.data.providers = providersData;
+ 
+  	// 導出自定義模型
+  	const customModelsData = await env.FLUX_KV.get('admin:custom_models', 'json');
+  	if (customModelsData) backup.data.customModels = customModelsData;
+ 
+  	// 導出參數配置
+  	const parametersData = await env.FLUX_KV.get('admin:parameters', 'json');
+  	if (parametersData) backup.data.parameters = parametersData;
+ 
+  	// 導出管理員憑證
+  	const credentials = await env.FLUX_KV.get('admin:credentials', 'json');
+  	if (credentials) backup.data.credentials = credentials;
+ 
+  	return new Response(JSON.stringify(backup, null, 2), {
+  		headers: {
+  			...corsHeaders({ 'Content-Type': 'application/json' }),
+  			'Content-Disposition': `attachment; filename="flux-ai-backup-${new Date().toISOString().split('T')[0]}.json"`
+  		}
+  	});
+  } catch (error) {
+  	return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  }
+ }
+ 
+ // 導入備份數據
+ async function importAdminBackup(request, env) {
+  try {
+  	const body = await request.json();
+ 
+  	if (!body.data) {
+  		return new Response(JSON.stringify({ error: 'Invalid backup format' }), { status: 400, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	}
+ 
+  	const results = { imported: [], errors: [] };
+ 
+  	// 導入風格
+  	if (body.data.styles) {
+  		try {
+  			await env.FLUX_KV.put('admin:styles', JSON.stringify(body.data.styles));
+  			results.imported.push('styles');
+  		} catch (e) {
+  			results.errors.push(`styles: ${e.message}`);
+  		}
+  	}
+ 
+  	// 導入供應商配置
+  	if (body.data.providers) {
+  		try {
+  			await env.FLUX_KV.put('admin:providers', JSON.stringify(body.data.providers));
+  			results.imported.push('providers');
+  		} catch (e) {
+  			results.errors.push(`providers: ${e.message}`);
+  		}
+  	}
+ 
+  	// 導入自定義模型
+  	if (body.data.customModels) {
+  		try {
+  			await env.FLUX_KV.put('admin:custom_models', JSON.stringify(body.data.customModels));
+  			results.imported.push('customModels');
+  		} catch (e) {
+  			results.errors.push(`customModels: ${e.message}`);
+  		}
+  	}
+ 
+  	// 導入參數配置
+  	if (body.data.parameters) {
+  		try {
+  			await env.FLUX_KV.put('admin:parameters', JSON.stringify(body.data.parameters));
+  			results.imported.push('parameters');
+  		} catch (e) {
+  			results.errors.push(`parameters: ${e.message}`);
+  		}
+  	}
+ 
+  	// 導入管理員憑證（可選）
+  	if (body.data.credentials) {
+  		try {
+  			await env.FLUX_KV.put('admin:credentials', JSON.stringify(body.data.credentials));
+  			results.imported.push('credentials');
+  		} catch (e) {
+  			results.errors.push(`credentials: ${e.message}`);
+  		}
+  	}
+ 
+  	return new Response(JSON.stringify({ success: true, results }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	} catch (error) {
+  		return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	}
+  }
+  
+  // ============================================
+  // 自定義供應商管理 API
+  // ============================================
+  
+  // 獲取自定義供應商列表
+  async function getAdminCustomProviders(env) {
+  	try {
+  		const customProvidersData = await env.FLUX_KV.get('admin:custom_providers', 'json') || { providers: {} };
+  		return new Response(JSON.stringify({
+  			success: true,
+  			providers: customProvidersData.providers
+  		}), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	} catch (error) {
+  		return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	}
+  }
+  
+  // 創建自定義供應商
+  async function createAdminCustomProvider(request, env) {
+  	try {
+  		const body = await request.json();
+  		const { id, name, endpoint, api_key, models, description, enabled = true, type = 'openai' } = body;
+  
+  		if (!id || !name || !endpoint) {
+  			return new Response(JSON.stringify({ error: '缺少必要欄位: id, name, endpoint' }), { status: 400, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  		}
+  
+  		// 檢查是否與內建供應商衝突
+  		if (CONFIG.PROVIDERS[id]) {
+  			return new Response(JSON.stringify({ error: '供應商 ID 與內建供應商衝突' }), { status: 400, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  		}
+  
+  		const customProvidersData = await env.FLUX_KV.get('admin:custom_providers', 'json') || { providers: {} };
+  
+  		if (customProvidersData.providers[id]) {
+  			return new Response(JSON.stringify({ error: '供應商 ID 已存在' }), { status: 400, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  		}
+  
+  		customProvidersData.providers[id] = {
+  			id,
+  			name,
+  			endpoint,
+  			api_key: api_key || '',
+  			models: models || [],
+  			description: description || '',
+  			enabled,
+  			type,
+  			custom: true,
+  			created_at: new Date().toISOString()
+  		};
+  
+  		await env.FLUX_KV.put('admin:custom_providers', JSON.stringify(customProvidersData));
+  
+  		return new Response(JSON.stringify({
+  			success: true,
+  			provider: customProvidersData.providers[id]
+  		}), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	} catch (error) {
+  		return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	}
+  }
+  
+  // 更新自定義供應商
+  async function updateAdminCustomProvider(request, env, providerId) {
+  	try {
+  		const body = await request.json();
+  		const customProvidersData = await env.FLUX_KV.get('admin:custom_providers', 'json') || { providers: {} };
+  
+  		if (!customProvidersData.providers[providerId]) {
+  			return new Response(JSON.stringify({ error: '供應商不存在' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  		}
+  
+  		customProvidersData.providers[providerId] = {
+  			...customProvidersData.providers[providerId],
+  			...body,
+  			id: providerId, // 防止 ID 被修改
+  			updated_at: new Date().toISOString()
+  		};
+  
+  		await env.FLUX_KV.put('admin:custom_providers', JSON.stringify(customProvidersData));
+  
+  		return new Response(JSON.stringify({
+  			success: true,
+  			provider: customProvidersData.providers[providerId]
+  		}), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	} catch (error) {
+  		return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	}
+  }
+  
+  // 刪除自定義供應商
+  async function deleteAdminCustomProvider(env, providerId) {
+  	try {
+  		const customProvidersData = await env.FLUX_KV.get('admin:custom_providers', 'json') || { providers: {} };
+  
+  		if (!customProvidersData.providers[providerId]) {
+  			return new Response(JSON.stringify({ error: '供應商不存在' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  		}
+  
+  		delete customProvidersData.providers[providerId];
+  		await env.FLUX_KV.put('admin:custom_providers', JSON.stringify(customProvidersData));
+  
+  		return new Response(JSON.stringify({ success: true }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	} catch (error) {
+  		return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	}
+  }
+  
+  // 測試供應商連接
+  async function testAdminProviderConnection(request, env, providerId) {
+  	try {
+  		const body = await request.json();
+  		const { endpoint, api_key, type = 'openai' } = body;
+  
+  		if (!endpoint) {
+  			return new Response(JSON.stringify({ error: '缺少端點 URL' }), { status: 400, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  		}
+  
+  		let testUrl = endpoint;
+  		let testHeaders = { 'Content-Type': 'application/json' };
+  		let testBody = null;
+  
+  		// 根據供應商類型設置測試請求
+  		if (type === 'openai' || type === 'openai-compatible') {
+  			// OpenAI 兼容 API 測試
+  			testUrl = endpoint.replace(/\/$/, '') + '/v1/models';
+  			if (api_key) {
+  				testHeaders['Authorization'] = `Bearer ${api_key}`;
+  			}
+  		} else if (type === 'stability') {
+  			// Stability AI 測試
+  			testUrl = endpoint.replace(/\/$/, '') + '/v1/engines/list';
+  			if (api_key) {
+  				testHeaders['Authorization'] = `Bearer ${api_key}`;
+  			}
+  		} else {
+  			// 通用測試 - 嘗試獲取模型列表
+  			if (api_key) {
+  				testHeaders['Authorization'] = `Bearer ${api_key}`;
+  			}
+  		}
+  
+  		const startTime = Date.now();
+  		const response = await fetch(testUrl, {
+  			method: 'GET',
+  			headers: testHeaders
+  		});
+  		const responseTime = Date.now() - startTime;
+  
+  		if (response.ok) {
+  			let models = [];
+  			try {
+  				const data = await response.json();
+  				if (data.data && Array.isArray(data.data)) {
+  					models = data.data.map(m => m.id).slice(0, 10);
+  				} else if (Array.isArray(data)) {
+  					models = data.map(m => m.id || m.name).slice(0, 10);
+  				}
+  			} catch (e) {
+  				// JSON 解析失敗，但連接成功
+  			}
+  
+  			return new Response(JSON.stringify({
+  				success: true,
+  				status: response.status,
+  				responseTime: `${responseTime}ms`,
+  				models: models,
+  				message: '連接成功'
+  			}), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  		} else {
+  			let errorMessage = `HTTP ${response.status}`;
+  			try {
+  				const errorData = await response.json();
+  				errorMessage = errorData.error?.message || errorData.message || errorMessage;
+  			} catch (e) {}
+  
+  			return new Response(JSON.stringify({
+  				success: false,
+  				status: response.status,
+  				responseTime: `${responseTime}ms`,
+  				error: errorMessage,
+  				message: '連接失敗: ' + errorMessage
+  			}), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  		}
+  	} catch (error) {
+  		return new Response(JSON.stringify({
+  			success: false,
+  			error: error.message,
+  			message: '連接失敗: ' + error.message
+  		}), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+  	}
+  }
+  
+  // KV-based Online Counter (Free)
+ async function handleHeartbeat(request, env) {
   const ip = request.headers.get('cf-connecting-ip') || 'unknown';
   const now = Math.floor(Date.now() / 1000);
   const key = `online:${ip}`;
