@@ -6813,7 +6813,7 @@ async function loadProviders() {
 	try {
 		const [providersRes, customProvidersRes, customModelsRes] = await Promise.all([
 			fetch('/admin/api/providers', { headers: { 'Authorization': 'Bearer ' + token } }),
-			fetch('/admin/api/custom-providers', { headers: { 'Authorization': 'Bearer ' + token } }),
+			fetch('/admin/api/providers/custom', { headers: { 'Authorization': 'Bearer ' + token } }),
 			fetch('/admin/api/models/custom', { headers: { 'Authorization': 'Bearer ' + token } })
 		]);
 
@@ -6994,7 +6994,7 @@ function renderProviderDetail(id) {
 async function toggleProvider(id, enabled) {
 	const isCustom = id.startsWith('custom_');
 	const realId = isCustom ? id.replace('custom_', '') : id;
-	const url = isCustom ? '/admin/api/custom-providers/' + realId : '/admin/api/providers/' + realId;
+	const url = isCustom ? '/admin/api/providers/custom/' + realId : '/admin/api/providers/' + realId;
 
 	try {
 		const response = await fetch(url, {
@@ -7060,7 +7060,7 @@ async function createProvider() {
 	if (!id || !name || !api_url) { alert('請填寫必要欄位'); return; }
 
 	try {
-		const response = await fetch('/admin/api/custom-providers', {
+		const response = await fetch('/admin/api/providers/custom', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
 			body: JSON.stringify({ id, name, api_url, api_key, description, enabled: true })
@@ -7099,7 +7099,7 @@ async function updateProvider(id) {
 	const description = document.getElementById('editProviderDesc').value;
 
 	try {
-		const response = await fetch('/admin/api/custom-providers/' + id, {
+		const response = await fetch('/admin/api/providers/custom/' + id, {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
 			body: JSON.stringify({ name, api_url, api_key, description })
@@ -7113,7 +7113,7 @@ async function updateProvider(id) {
 async function deleteProvider(id) {
 	if (!confirm('確定要刪除此供應商嗎？')) return;
 	try {
-		const response = await fetch('/admin/api/custom-providers/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+		const response = await fetch('/admin/api/providers/custom/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
 		if (response.ok) { selectedProviderId = null; loadProviders(); document.getElementById('detailPanel').innerHTML = '<div class="detail-empty"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg><p>選擇一個供應商查看詳情</p></div>'; }
 		else alert('刪除失敗');
 	} catch (error) { alert('網絡錯誤: ' + error.message); }
