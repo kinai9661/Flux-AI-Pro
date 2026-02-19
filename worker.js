@@ -7704,16 +7704,21 @@ async function deleteAdminStyle(env, styleId) {
 }
 
 async function getAdminProviders(env) {
-  try {
-    const providersData = await env.FLUX_KV.get('admin:providers', 'json');
-    
-    return new Response(JSON.stringify({
-      providers: providersData?.providers || CONFIG.PROVIDERS,
-      global_settings: providersData?.global_settings || {}
-    }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  }
+	try {
+		const providersData = await env.FLUX_KV.get('admin:providers', 'json');
+		
+		// 如果 KV 中沒有數據，返回 CONFIG.PROVIDERS 作為默認值
+		const providers = (providersData?.providers && Object.keys(providersData.providers).length > 0)
+			? providersData.providers
+			: CONFIG.PROVIDERS;
+
+		return new Response(JSON.stringify({
+			providers: providers,
+			global_settings: providersData?.global_settings || {}
+		}), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+	} catch (error) {
+		return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
+	}
 }
 
 async function updateAdminProvider(request, env, providerId) {
