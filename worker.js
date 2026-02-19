@@ -6850,27 +6850,41 @@ function updateStats() {
 
 // 渲染供應商列表
 function renderProviderList() {
-	const container = document.getElementById('providerList');
-	const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-	let html = '';
-
-	// 內建供應商
-	Object.entries(allProviders).forEach(([id, provider]) => {
-		if (provider.name.toLowerCase().includes(searchTerm) || id.toLowerCase().includes(searchTerm)) {
-			const isActive = selectedProviderId === id && !selectedProviderId.startsWith('custom_');
-			html += renderProviderItem(id, provider, false, isActive);
-		}
-	});
-
-	// 自定義供應商
-	Object.entries(allCustomProviders).forEach(([id, provider]) => {
-		if (provider.name.toLowerCase().includes(searchTerm) || id.toLowerCase().includes(searchTerm)) {
-			const isActive = selectedProviderId === 'custom_' + id;
-			html += renderProviderItem(id, provider, true, isActive);
-		}
-	});
-
-	container.innerHTML = html || '<div class="empty-state"><p>沒有找到供應商</p></div>';
+    const container = document.getElementById('providerList');
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    let html = '';
+    
+    // 合併內建供應商和自定義供應商到統一列表
+    const allProvidersList = [];
+    
+    // 添加內建供應商
+    Object.entries(allProviders).forEach(([id, provider]) => {
+        allProvidersList.push({ id, provider, isCustom: false });
+    });
+    
+    // 添加自定義供應商
+    Object.entries(allCustomProviders).forEach(([id, provider]) => {
+        allProvidersList.push({ id, provider, isCustom: true });
+    });
+    
+    // 按名稱排序（自定義供應商會顯示標記）
+    allProvidersList.sort((a, b) => {
+        const nameA = (a.provider.name || a.id).toLowerCase();
+        const nameB = (b.provider.name || b.id).toLowerCase();
+        return nameA.localeCompare(nameB, 'zh-TW');
+    });
+    
+    // 渲染合併後的列表
+    allProvidersList.forEach(({ id, provider, isCustom }) => {
+        if (provider.name.toLowerCase().includes(searchTerm) || id.toLowerCase().includes(searchTerm)) {
+            const isActive = isCustom
+                ? selectedProviderId === 'custom_' + id
+                : selectedProviderId === id && !selectedProviderId.startsWith('custom_');
+            html += renderProviderItem(id, provider, isCustom, isActive);
+        }
+    });
+    
+    container.innerHTML = html || '<div class="empty-state"><p>沒有找到供應商</p></div>';
 }
 
 // 渲染單個供應商項目
