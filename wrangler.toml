@@ -10,7 +10,7 @@ main = "worker.js"
 compatibility_date = "2024-12-01"
 
 # ============================================
-# KV 存儲綁定 (NanoBanana 限流必需 + 管理後台系統)
+# KV 存儲綁定 (NanoBanana 限流必需)
 # ⚠️ 請執行: npx wrangler kv:namespace create "FLUX_KV"
 # 然後將生成的 id 填入下方
 #
@@ -20,33 +20,11 @@ compatibility_date = "2024-12-01"
 # - nano_limit:{ip} (IP 限流計數，60s TTL)
 # - rate_limit:{ip} (API 速率限制計數)
 # ────────────────────────────────────────────
-# 【管理後台系統 - 身份驗證】
-# - admin:credentials (管理員憑證，含 hash 密碼)
-# - admin:tokens:{token} (JWT Token 驗證，24h TTL)
-# ────────────────────────────────────────────
-# 【管理後台系統 - 風格管理】
-# - admin:styles (自定義風格配置 JSON)
-#   結構: { custom_styles: { [id]: StyleConfig } }
-# ────────────────────────────────────────────
-# 【管理後台系統 - 模型配置】
-# - admin:providers (供應商啟用/禁用狀態)
-#   結構: { providers: { [id]: ProviderConfig }, global_settings: {} }
-# - admin:custom_models (自定義模型配置)
-#   結構: { models: { [id]: CustomModelConfig } }
-# - admin:custom_providers (自定義 API 供應商)
-#   結構: { providers: { [id]: CustomProviderConfig } }
-# ────────────────────────────────────────────
-# 【管理後台系統 - 參數調整】
-# - admin:parameters (優化規則、速率限制配置)
-#   結構: { optimization_rules: {}, rate_limits: {} }
-# ────────────────────────────────────────────
 # 【統計與監控】
 # - online:{ip} (在線用戶計數，60s TTL)
 # - stats:daily:{date} (每日請求統計)
 # - stats:total (總請求計數)
 # ────────────────────────────────────────────
-# 【數據備份】
-# - 可通過管理後台導出/導入所有 admin:* 數據
 # ============================================
 [[kv_namespaces]]
 binding = "FLUX_KV"
@@ -81,14 +59,6 @@ ENVIRONMENT = "production"
 # 5. AIRFORCE_API_KEY (Airforce API)
 # 6. NONPON_API_KEY (Nonpon API)
 #
-# 【自定義供應商 API Keys】
-# 可在管理後台「模型配置」頁面直接配置
-# 支援 OpenAI 兼容、Stability AI 等自定義供應商
-#
-# 【管理後台配置】
-# 默認管理員帳號: admin
-# 默認密碼: admin123
-# ⚠️ 首次登入後請立即修改密碼！
 # ============================================
 # 設置命令範例：
 # npx wrangler secret put POLLINATIONS_API_KEY
