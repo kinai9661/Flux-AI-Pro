@@ -5379,19 +5379,6 @@ async function handleAdminAPI(request, env, ctx) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
   }
   
-  // 風格管理 API
-  if (pathname === '/admin/api/styles' && method === 'GET') {
-    return await getAdminStyles(env);
-  } else if (pathname === '/admin/api/styles' && method === 'POST') {
-    return await createAdminStyle(request, env);
-  } else if (pathname.match(/^\/admin\/api\/styles\/[^\/]+$/) && method === 'PUT') {
-    const styleId = pathname.split('/').pop();
-    return await updateAdminStyle(request, env, styleId);
-  } else if (pathname.match(/^\/admin\/api\/styles\/[^\/]+$/) && method === 'DELETE') {
-    const styleId = pathname.split('/').pop();
-    return await deleteAdminStyle(env, styleId);
-  }
-  
   // 供應商管理 API
   if (pathname === '/admin/api/providers' && method === 'GET') {
     return await getAdminProviders(env);
@@ -7720,112 +7707,6 @@ async function renderAdminSettings() {
   return new Response(html, { headers: { 'Content-Type': 'text/html;charset=UTF-8' } });
 }
 
-// 內建風格定義
-const BUILTIN_STYLES = [
-  { id: 'none', name: { zh: '無風格', en: 'No Style' }, category: 'basic', icon: '⚡', enabled: true, builtin: true },
-  { id: 'anime', name: { zh: '動漫風格', en: 'Anime Style' }, category: 'illustration', icon: '🎭', enabled: true, builtin: true },
-  { id: 'ghibli', name: { zh: '吉卜力', en: 'Ghibli' }, category: 'illustration', icon: '🍃', enabled: true, builtin: true },
-  { id: 'manga', name: { zh: '日本漫畫', en: 'Manga' }, category: 'manga', icon: '📖', enabled: true, builtin: true },
-  { id: 'photorealistic', name: { zh: '照片寫實', en: 'Photorealistic' }, category: 'realistic', icon: '📷', enabled: true, builtin: true },
-  { id: 'oil-painting', name: { zh: '油畫', en: 'Oil Painting' }, category: 'painting', icon: '🖼️', enabled: true, builtin: true },
-  { id: 'watercolor', name: { zh: '水彩', en: 'Watercolor' }, category: 'painting', icon: '🎨', enabled: true, builtin: true },
-  { id: 'cyberpunk', name: { zh: '賽博龐克', en: 'Cyberpunk' }, category: 'scifi', icon: '🌆', enabled: true, builtin: true },
-  { id: 'fantasy', name: { zh: '奇幻', en: 'Fantasy' }, category: 'fantasy', icon: '🐉', enabled: true, builtin: true },
-  { id: 'pixel-art', name: { zh: '像素藝術', en: 'Pixel Art' }, category: 'digital', icon: '👾', enabled: true, builtin: true },
-  { id: '3d-render', name: { zh: '3D 渲染', en: '3D Render' }, category: 'digital', icon: '🎮', enabled: true, builtin: true },
-  { id: 'steampunk', name: { zh: '蒸氣龐克', en: 'Steampunk' }, category: 'aesthetic', icon: '⚙️', enabled: true, builtin: true },
-  { id: 'vintage', name: { zh: '復古', en: 'Vintage' }, category: 'aesthetic', icon: '📻', enabled: true, builtin: true },
-  { id: 'minimalist', name: { zh: '極簡主義', en: 'Minimalist' }, category: 'visual', icon: '⬜', enabled: true, builtin: true },
-  { id: 'sketch', name: { zh: '素描', en: 'Sketch' }, category: 'monochrome', icon: '✏️', enabled: true, builtin: true }
-];
-
-// API 實現函數
-async function getAdminStyles(env) {
-  try {
-    const stylesData = await env.FLUX_KV.get('admin:styles', 'json');
-    const customStyles = stylesData?.custom_styles || {};
-    
-    // 合併內建風格和自定義風格
-    const allStyles = [...BUILTIN_STYLES, ...Object.values(customStyles).map(s => ({ ...s, builtin: false }))];
-    
-    return new Response(JSON.stringify({
-      styles: allStyles,
-      total: allStyles.length,
-      builtin: BUILTIN_STYLES.length,
-      custom: Object.keys(customStyles).length
-    }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  }
-}
-
-async function createAdminStyle(request, env) {
-  try {
-    const body = await request.json();
-    const styleId = 'custom_' + Date.now();
-    
-    const stylesData = await env.FLUX_KV.get('admin:styles', 'json') || { custom_styles: {}, style_categories: {} };
-    stylesData.custom_styles[styleId] = {
-      id: styleId,
-      name: body.name || {},
-      prompt: body.prompt || '',
-      negative: body.negative || '',
-      category: body.category || 'custom',
-      icon: body.icon || '🎨',
-      description: body.description || {},
-      enabled: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    await env.FLUX_KV.put('admin:styles', JSON.stringify(stylesData));
-    
-    return new Response(JSON.stringify({ success: true, styleId }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  }
-}
-
-async function updateAdminStyle(request, env, styleId) {
-  try {
-    const body = await request.json();
-    const stylesData = await env.FLUX_KV.get('admin:styles', 'json');
-    
-    if (!stylesData || !stylesData.custom_styles[styleId]) {
-      return new Response(JSON.stringify({ error: 'Style not found' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-    }
-    
-    stylesData.custom_styles[styleId] = {
-      ...stylesData.custom_styles[styleId],
-      ...body,
-      updatedAt: new Date().toISOString()
-    };
-    
-    await env.FLUX_KV.put('admin:styles', JSON.stringify(stylesData));
-    
-    return new Response(JSON.stringify({ success: true }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  }
-}
-
-async function deleteAdminStyle(env, styleId) {
-  try {
-    const stylesData = await env.FLUX_KV.get('admin:styles', 'json');
-    
-    if (!stylesData || !stylesData.custom_styles[styleId]) {
-      return new Response(JSON.stringify({ error: 'Style not found' }), { status: 404, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-    }
-    
-    delete stylesData.custom_styles[styleId];
-    await env.FLUX_KV.put('admin:styles', JSON.stringify(stylesData));
-    
-    return new Response(JSON.stringify({ success: true }), { headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders({ 'Content-Type': 'application/json' }) });
-  }
-}
-
 async function getAdminProviders(env) {
 	try {
 		const providersData = await env.FLUX_KV.get('admin:providers', 'json');
@@ -8063,13 +7944,7 @@ async function updateAdminGlobalSettings(request, env) {
  // 獲取儀表板統計數據
  async function getAdminStats(env) {
   try {
-  	// 獲取風格統計
-  	const stylesData = await env.FLUX_KV.get('admin:styles', 'json') || { custom_styles: {} };
-  	const builtinCount = BUILTIN_STYLES.length;
-  	const customStylesCount = Object.keys(stylesData.custom_styles || {}).length;
-  	const totalStyles = builtinCount + customStylesCount;
- 
-  	// 獲取供應商統計
+   	// 獲取供應商統計
   	const providersData = await env.FLUX_KV.get('admin:providers', 'json');
   	// 如果 KV 中沒有數據，使用 CONFIG.PROVIDERS 作為默認值
   	const providers = (providersData?.providers && Object.keys(providersData.providers).length > 0)
@@ -8105,11 +7980,6 @@ async function updateAdminGlobalSettings(request, env) {
   	return new Response(JSON.stringify({
   		success: true,
   		stats: {
-  			styles: {
-  				builtin: builtinCount,
-  				custom: customStylesCount,
-  				total: totalStyles
-  			},
   			providers: {
   				total: totalProviders,
   				enabled: enabledProviders,
@@ -8139,10 +8009,6 @@ async function updateAdminGlobalSettings(request, env) {
   		exportedAt: new Date().toISOString(),
   		data: {}
   	};
- 
-  	// 導出風格
-  	const stylesData = await env.FLUX_KV.get('admin:styles', 'json');
-  	if (stylesData) backup.data.styles = stylesData;
  
   	// 導出供應商配置
   	const providersData = await env.FLUX_KV.get('admin:providers', 'json');
@@ -8181,17 +8047,7 @@ async function updateAdminGlobalSettings(request, env) {
   	}
  
   	const results = { imported: [], errors: [] };
- 
-  	// 導入風格
-  	if (body.data.styles) {
-  		try {
-  			await env.FLUX_KV.put('admin:styles', JSON.stringify(body.data.styles));
-  			results.imported.push('styles');
-  		} catch (e) {
-  			results.errors.push(`styles: ${e.message}`);
-  		}
-  	}
- 
+
   	// 導入供應商配置
   	if (body.data.providers) {
   		try {

@@ -290,7 +290,10 @@ export function renderProvidersPage() {
                                         <div class="model-name">\${m.name || m.id}</div>
                                         <div class="model-id">\${m.id}</div>
                                     </div>
-                                    <span class="style-badge \${m.confirmed ? 'builtin' : 'custom'}">\${m.confirmed ? '已確認' : '測試中'}</span>
+                                    <div>
+                                        <span class="style-badge \${m.confirmed ? 'builtin' : 'custom'}">\${m.confirmed ? '已確認' : '測試中'}</span>
+                                        <button class="btn btn-secondary btn-sm" onclick="editBuiltinModel('\${realId}', '\${m.id}')">編輯</button>
+                                    </div>
                                 </div>
                             \`).join('')}
                             \${customModels.map(([mid, m]) => \`
@@ -380,6 +383,292 @@ export function renderProvidersPage() {
         
         function filterProviders() {
             renderProviderList();
+        }
+        
+        // 編輯內建模型
+        function editBuiltinModel(providerId, modelId) {
+            const provider = allProviders[providerId];
+            const model = provider?.models?.find(m => m.id === modelId);
+            
+            if (!model) {
+                alert('模型不存在');
+                return;
+            }
+            
+            document.getElementById('modalContainer').innerHTML = \`
+                <div class="modal-overlay" onclick="closeModal(event)">
+                    <div class="modal" onclick="event.stopPropagation()">
+                        <h2>編輯模型</h2>
+                        <form onsubmit="updateBuiltinModel(event, '\${providerId}', '\${modelId}')">
+                            <div class="form-group">
+                                <label class="form-label">模型 ID</label>
+                                <input type="text" class="form-input" value="\${model.id}" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">顯示名稱 *</label>
+                                <input type="text" class="form-input" id="editModelName" value="\${model.name || model.id}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">描述</label>
+                                <textarea class="form-textarea" id="editModelDesc" rows="2">\${model.description || ''}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">最大尺寸</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="number" class="form-input" id="editModelMaxWidth" value="\${model.max_size || 2048}" placeholder="寬度">
+                                    <input type="number" class="form-input" id="editModelMaxHeight" value="\${model.max_size || 2048}" placeholder="高度">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">狀態</label>
+                                <select class="form-input" id="editModelConfirmed">
+                                    <option value="true" \${model.confirmed ? 'selected' : ''}>已確認</option>
+                                    <option value="false" \${!model.confirmed ? 'selected' : ''}>測試中</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                                <button type="submit" class="btn btn-primary">保存</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            \`;
+        }
+        
+        // 更新內建模型
+        async function updateBuiltinModel(event, providerId, modelId) {
+            event.preventDefault();
+            
+            const name = document.getElementById('editModelName').value.trim();
+            const description = document.getElementById('editModelDesc').value;
+            const maxWidth = parseInt(document.getElementById('editModelMaxWidth').value) || 2048;
+            const maxHeight = parseInt(document.getElementById('editModelMaxHeight').value) || 2048;
+            const confirmed = document.getElementById('editModelConfirmed').value === 'true';
+            
+            try {
+                const response = await fetch('/admin/api/providers/' + providerId, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({
+                        models: allProviders[providerId].models.map(m =>
+                            m.id === modelId ? { ...m, name, description, max_size: Math.max(maxWidth, maxHeight), confirmed } : m
+                        )
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    // 更新本地數據
+                    const modelIndex = allProviders[providerId].models.findIndex(m => m.id === modelId);
+                    if (modelIndex !== -1) {
+                        allProviders[providerId].models[modelIndex] = {
+                            ...allProviders[providerId].models[modelIndex],
+                            name, description, max_size: Math.max(maxWidth, maxHeight), confirmed
+                        };
+                    }
+                    closeModal();
+                    renderProviderDetail(selectedProviderId);
+                } else {
+                    alert('更新失敗: ' + (data.error || '未知錯誤'));
+                }
+            } catch (error) {
+                alert('網絡錯誤: ' + error.message);
+            }
+        }
+        
+        // 新增自定義模型
+        function showAddModelModal(providerId) {
+            document.getElementById('modalContainer').innerHTML = \`
+                <div class="modal-overlay" onclick="closeModal(event)">
+                    <div class="modal" onclick="event.stopPropagation()">
+                        <h2>新增自定義模型</h2>
+                        <form onsubmit="createCustomModel(event, '\${providerId}')">
+                            <div class="form-group">
+                                <label class="form-label">模型 ID *</label>
+                                <input type="text" class="form-input" id="newModelId" required placeholder="例如: my-model">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">顯示名稱 *</label>
+                                <input type="text" class="form-input" id="newModelName" required placeholder="例如: 我的模型">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API 模型 ID</label>
+                                <input type="text" class="form-input" id="newModelApiId" placeholder="API 中的模型 ID">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">描述</label>
+                                <textarea class="form-textarea" id="newModelDesc" rows="2" placeholder="模型描述"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">最大尺寸</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="number" class="form-input" id="newModelMaxWidth" value="2048" placeholder="寬度">
+                                    <input type="number" class="form-input" id="newModelMaxHeight" value="2048" placeholder="高度">
+                                </div>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                                <button type="submit" class="btn btn-primary">創建</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            \`;
+        }
+        
+        // 創建自定義模型
+        async function createCustomModel(event, providerId) {
+            event.preventDefault();
+            
+            const id = document.getElementById('newModelId').value.trim();
+            const name = document.getElementById('newModelName').value.trim();
+            const model_id = document.getElementById('newModelApiId').value.trim() || id;
+            const description = document.getElementById('newModelDesc').value;
+            const maxWidth = parseInt(document.getElementById('newModelMaxWidth').value) || 2048;
+            const maxHeight = parseInt(document.getElementById('newModelMaxHeight').value) || 2048;
+            
+            try {
+                const response = await fetch('/admin/api/models/custom', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({
+                        id, name, model_id, description,
+                        provider: providerId,
+                        max_size: Math.max(maxWidth, maxHeight),
+                        enabled: true,
+                        confirmed: false
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    closeModal();
+                    loadProviders();
+                    if (selectedProviderId) renderProviderDetail(selectedProviderId);
+                } else {
+                    alert('創建失敗: ' + (data.error || '未知錯誤'));
+                }
+            } catch (error) {
+                alert('網絡錯誤: ' + error.message);
+            }
+        }
+        
+        // 編輯自定義模型
+        function editModel(modelId) {
+            const model = allCustomModels[modelId];
+            
+            if (!model) {
+                alert('模型不存在');
+                return;
+            }
+            
+            document.getElementById('modalContainer').innerHTML = \`
+                <div class="modal-overlay" onclick="closeModal(event)">
+                    <div class="modal" onclick="event.stopPropagation()">
+                        <h2>編輯自定義模型</h2>
+                        <form onsubmit="updateCustomModel(event, '\${modelId}')">
+                            <div class="form-group">
+                                <label class="form-label">模型 ID</label>
+                                <input type="text" class="form-input" value="\${modelId}" disabled>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">顯示名稱 *</label>
+                                <input type="text" class="form-input" id="editModelName" value="\${model.name || modelId}" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">API 模型 ID</label>
+                                <input type="text" class="form-input" id="editModelApiId" value="\${model.model_id || modelId}">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">描述</label>
+                                <textarea class="form-textarea" id="editModelDesc" rows="2">\${model.description || ''}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">最大尺寸</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="number" class="form-input" id="editModelMaxWidth" value="\${model.max_size || 2048}" placeholder="寬度">
+                                    <input type="number" class="form-input" id="editModelMaxHeight" value="\${model.max_size || 2048}" placeholder="高度">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">狀態</label>
+                                <select class="form-input" id="editModelEnabled">
+                                    <option value="true" \${model.enabled !== false ? 'selected' : ''}>啟用</option>
+                                    <option value="false" \${model.enabled === false ? 'selected' : ''}>禁用</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                                <button type="submit" class="btn btn-primary">保存</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            \`;
+        }
+        
+        // 更新自定義模型
+        async function updateCustomModel(event, modelId) {
+            event.preventDefault();
+            
+            const name = document.getElementById('editModelName').value.trim();
+            const model_id = document.getElementById('editModelApiId').value.trim();
+            const description = document.getElementById('editModelDesc').value;
+            const maxWidth = parseInt(document.getElementById('editModelMaxWidth').value) || 2048;
+            const maxHeight = parseInt(document.getElementById('editModelMaxHeight').value) || 2048;
+            const enabled = document.getElementById('editModelEnabled').value === 'true';
+            
+            try {
+                const response = await fetch('/admin/api/models/custom/' + modelId, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ name, model_id, description, max_size: Math.max(maxWidth, maxHeight), enabled })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    // 更新本地數據
+                    allCustomModels[modelId] = { ...allCustomModels[modelId], name, model_id, description, max_size: Math.max(maxWidth, maxHeight), enabled };
+                    closeModal();
+                    renderProviderDetail(selectedProviderId);
+                } else {
+                    alert('更新失敗: ' + (data.error || '未知錯誤'));
+                }
+            } catch (error) {
+                alert('網絡錯誤: ' + error.message);
+            }
+        }
+        
+        // 刪除自定義模型
+        async function deleteModel(modelId) {
+            if (!confirm('確定要刪除此模型嗎？')) return;
+            
+            try {
+                const response = await fetch('/admin/api/models/custom/' + modelId, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    delete allCustomModels[modelId];
+                    updateStats();
+                    if (selectedProviderId) renderProviderDetail(selectedProviderId);
+                } else {
+                    alert('刪除失敗');
+                }
+            } catch (error) {
+                alert('網絡錯誤: ' + error.message);
+            }
         }
         
         function showAddProviderModal() {

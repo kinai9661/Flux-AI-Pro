@@ -194,44 +194,6 @@ export class AdminAPIClient {
         });
     }
 
-    // ==================== 風格 API ====================
-
-    /**
-     * 獲取所有風格
-     */
-    async getStyles() {
-        return this.request('/styles');
-    }
-
-    /**
-     * 創建自定義風格
-     */
-    async createStyle(data) {
-        return this.request('/styles', {
-            method: 'POST',
-            body: JSON.stringify(data)
-        });
-    }
-
-    /**
-     * 更新風格
-     */
-    async updateStyle(styleId, data) {
-        return this.request(`/styles/${styleId}`, {
-            method: 'PUT',
-            body: JSON.stringify(data)
-        });
-    }
-
-    /**
-     * 刪除風格
-     */
-    async deleteStyle(styleId) {
-        return this.request(`/styles/${styleId}`, {
-            method: 'DELETE'
-        });
-    }
-
     // ==================== 參數 API ====================
 
     /**

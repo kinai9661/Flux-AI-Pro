@@ -65,11 +65,6 @@ export function renderDashboardPage() {
                 </div>
                 <div class="card-body">
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                        <a href="/admin/styles" class="card" style="padding: 20px; text-align: center; text-decoration: none; color: inherit;">
-                            <div style="font-size: 32px; margin-bottom: 8px;">🎨</div>
-                            <div style="font-weight: 600;">風格管理</div>
-                            <div style="font-size: 12px; color: #6b7280;">管理自定義風格</div>
-                        </a>
                         <a href="/admin/providers" class="card" style="padding: 20px; text-align: center; text-decoration: none; color: inherit;">
                             <div style="font-size: 32px; margin-bottom: 8px;">⚙️</div>
                             <div style="font-weight: 600;">模型配置</div>
@@ -117,16 +112,16 @@ export function renderDashboardPage() {
                     document.getElementById('systemStatus').innerHTML = \`
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
                             <div class="info-item">
-                                <label>風格數量</label>
-                                <span>\${stats.styles?.total || 0} 個</span>
-                            </div>
-                            <div class="info-item">
-                                <label>自定義風格</label>
-                                <span>\${stats.styles?.custom || 0} 個</span>
+                                <label>內建模型</label>
+                                <span>\${stats.models?.builtin || 0} 個</span>
                             </div>
                             <div class="info-item">
                                 <label>自定義模型</label>
                                 <span>\${stats.models?.custom || 0} 個</span>
+                            </div>
+                            <div class="info-item">
+                                <label>在線用戶</label>
+                                <span>\${stats.online || 0} 人</span>
                             </div>
                             <div class="info-item">
                                 <label>系統版本</label>
