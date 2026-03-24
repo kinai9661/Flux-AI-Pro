@@ -2032,6 +2032,87 @@ class AquaProvider {
     }
   }
 // =================================================================================
+// RatioResolver - Shared Gemini ratio/size resolver
+// =================================================================================
+class RatioResolver {
+	static GEMINI_SUPPORTED_RATIOS = [
+		{ ratio: '1:1', w: 1, h: 1 },
+		{ ratio: '16:9', w: 16, h: 9 },
+		{ ratio: '9:16', w: 9, h: 16 },
+		{ ratio: '4:3', w: 4, h: 3 },
+		{ ratio: '3:4', w: 3, h: 4 },
+		{ ratio: '3:2', w: 3, h: 2 },
+		{ ratio: '2:3', w: 2, h: 3 },
+		{ ratio: '21:9', w: 21, h: 9 },
+		{ ratio: '9:21', w: 9, h: 21 }
+	];
+
+	static toSafeInt(value, fallback = 1) {
+		const n = Number.parseInt(value, 10);
+		return Number.isFinite(n) && n > 0 ? n : fallback;
+	}
+
+	static gcd(a, b) {
+		let x = Math.abs(a);
+		let y = Math.abs(b);
+		while (y !== 0) {
+			const t = y;
+			y = x % y;
+			x = t;
+		}
+		return x || 1;
+	}
+
+	static findExactRatio(width, height) {
+		const w = this.toSafeInt(width);
+		const h = this.toSafeInt(height);
+		const d = this.gcd(w, h);
+		const ratioStr = `${Math.round(w / d)}:${Math.round(h / d)}`;
+		const found = this.GEMINI_SUPPORTED_RATIOS.find(item => item.ratio === ratioStr);
+		return found ? found.ratio : null;
+	}
+
+	static findClosestRatio(width, height) {
+		const w = this.toSafeInt(width);
+		const h = this.toSafeInt(height);
+		const inputLogRatio = Math.log(w / h);
+		let closest = this.GEMINI_SUPPORTED_RATIOS[0];
+		let minDiff = Number.POSITIVE_INFINITY;
+
+		for (const ratioInfo of this.GEMINI_SUPPORTED_RATIOS) {
+			const supportedLogRatio = Math.log(ratioInfo.w / ratioInfo.h);
+			const diff = Math.abs(inputLogRatio - supportedLogRatio);
+			if (diff < minDiff) {
+				minDiff = diff;
+				closest = ratioInfo;
+			}
+		}
+
+		return closest.ratio;
+	}
+
+	static convertToGeminiAspectRatio(width, height) {
+		const exact = this.findExactRatio(width, height);
+		if (exact) return exact;
+		return this.findClosestRatio(width, height);
+	}
+
+	static convertToGeminiImageSize(width, height) {
+		const w = this.toSafeInt(width);
+		const h = this.toSafeInt(height);
+		const totalPixels = w * h;
+
+		if (totalPixels >= 3840 * 2160) {
+			return "4K";
+		}
+		if (totalPixels >= 1920 * 1080) {
+			return "2K";
+		}
+		return "1K";
+	}
+}
+
+// =================================================================================
 // NonponProvider - Nonpon API Provider
 // =================================================================================
 class NonponProvider {
@@ -2048,35 +2129,7 @@ class NonponProvider {
 	 * @returns {string} - Gemini 支援的 aspectRatio 字串
 	 */
 	convertToGeminiAspectRatio(width, height) {
-		// Gemini 支援的 aspectRatio 及其數值
-		const supportedRatios = [
-			{ ratio: '1:1', value: 1 },
-			{ ratio: '16:9', value: 16/9 },
-			{ ratio: '9:16', value: 9/16 },
-			{ ratio: '4:3', value: 4/3 },
-			{ ratio: '3:4', value: 3/4 },
-			{ ratio: '3:2', value: 3/2 },
-			{ ratio: '2:3', value: 2/3 },
-			{ ratio: '21:9', value: 21/9 },
-			{ ratio: '9:21', value: 9/21 }
-		];
-
-		// 計算輸入的比例值
-		const inputRatio = width / height;
-
-		// 找出最接近的支援比例
-		let closestRatio = supportedRatios[0];
-		let minDiff = Math.abs(inputRatio - closestRatio.value);
-
-		for (const ratioInfo of supportedRatios) {
-			const diff = Math.abs(inputRatio - ratioInfo.value);
-			if (diff < minDiff) {
-				minDiff = diff;
-				closestRatio = ratioInfo;
-			}
-		}
-
-		return closestRatio.ratio;
+		return RatioResolver.convertToGeminiAspectRatio(width, height);
 	}
 
 	/**
@@ -2086,16 +2139,7 @@ class NonponProvider {
 	 * @returns {string} - "1K", "2K", 或 "4K"
 	 */
 	convertToGeminiImageSize(width, height) {
-		const totalPixels = width * height;
-
-		// 根據總像素判斷
-		if (totalPixels >= 3840 * 2160) {
-			return "4K"; // 4K: 8294400 像素以上
-		} else if (totalPixels >= 1920 * 1080) {
-			return "2K"; // 2K: 2073600 像素以上
-		} else {
-			return "1K"; // 1K: 其他
-		}
+		return RatioResolver.convertToGeminiImageSize(width, height);
 	}
 
 	async generate(prompt, options, logger) {
@@ -5158,49 +5202,68 @@ select { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--borde
         }
     }
     
-    // ====== Gemini 參數轉換函數 ======
-    function convertToGeminiAspectRatio(width, height) {
-    const w = parseInt(width);
-    const h = parseInt(height);
-    const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
-    const divisor = gcd(w, h);
-    const ratioW = Math.round(w / divisor);
-    const ratioH = Math.round(h / divisor);
-    const ratioStr = ratioW + ':' + ratioH;
-    // Gemini 支援的比例
-    const supportedRatios = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '21:9', '9:21'];
-    if (supportedRatios.includes(ratioStr)) {
-    return ratioStr;
+    // ====== Gemini 參數轉換函數（與伺服端 RatioResolver 對齊） ======
+    const GEMINI_SUPPORTED_RATIOS = [
+    { ratio: '1:1', w: 1, h: 1 },
+    { ratio: '16:9', w: 16, h: 9 },
+    { ratio: '9:16', w: 9, h: 16 },
+    { ratio: '4:3', w: 4, h: 3 },
+    { ratio: '3:4', w: 3, h: 4 },
+    { ratio: '3:2', w: 3, h: 2 },
+    { ratio: '2:3', w: 2, h: 3 },
+    { ratio: '21:9', w: 21, h: 9 },
+    { ratio: '9:21', w: 9, h: 21 }
+    ];
+
+    function toSafeInt(value, fallback = 1) {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
     }
-    // 嘗試找到最接近的支援比例
-    const ratioValue = w / h;
-    const ratioMap = {
-    '1:1': 1,
-    '16:9': 16/9,
-    '9:16': 9/16,
-    '4:3': 4/3,
-    '3:4': 3/4,
-    '3:2': 3/2,
-    '2:3': 2/3,
-    '21:9': 21/9,
-    '9:21': 9/21
-    };
-    let closestRatio = '1:1';
-    let minDiff = Math.abs(ratioValue - 1);
-    for (const [ratio, value] of Object.entries(ratioMap)) {
-    const diff = Math.abs(ratioValue - value);
+
+    function gcd(a, b) {
+    let x = Math.abs(a);
+    let y = Math.abs(b);
+    while (y !== 0) {
+    const t = y;
+    y = x % y;
+    x = t;
+    }
+    return x || 1;
+    }
+
+    function convertToGeminiAspectRatio(width, height) {
+    const w = toSafeInt(width);
+    const h = toSafeInt(height);
+
+    const divisor = gcd(w, h);
+    const ratioStr = Math.round(w / divisor) + ':' + Math.round(h / divisor);
+    const exact = GEMINI_SUPPORTED_RATIOS.find(item => item.ratio === ratioStr);
+    if (exact) {
+    return exact.ratio;
+    }
+
+    const inputLogRatio = Math.log(w / h);
+    let closestRatio = GEMINI_SUPPORTED_RATIOS[0].ratio;
+    let minDiff = Number.POSITIVE_INFINITY;
+
+    for (const item of GEMINI_SUPPORTED_RATIOS) {
+    const supportedLogRatio = Math.log(item.w / item.h);
+    const diff = Math.abs(inputLogRatio - supportedLogRatio);
     if (diff < minDiff) {
     minDiff = diff;
-    closestRatio = ratio;
+    closestRatio = item.ratio;
     }
     }
+
     return closestRatio;
     }
     
     function convertToGeminiImageSize(width, height) {
-    const pixels = parseInt(width) * parseInt(height);
-    if (pixels >= 4096 * 4096 * 0.8) return '4K';
-    if (pixels >= 2048 * 2048 * 0.8) return '2K';
+    const w = toSafeInt(width);
+    const h = toSafeInt(height);
+    const pixels = w * h;
+    if (pixels >= 3840 * 2160) return '4K';
+    if (pixels >= 1920 * 1080) return '2K';
     return '1K';
     }
     
